@@ -25,11 +25,12 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html,body{height:100%;}
+html{height:100%;}
 body{
   font-family:'Archivo',system-ui,-apple-system,sans-serif;
   background:var(--bg0); color:var(--chalk);
-  overflow:hidden; position:fixed; inset:0;
+  overflow:hidden;
+  height:100vh; height:100dvh;
   user-select:none; -webkit-user-select:none;
 }
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
@@ -44,7 +45,7 @@ input{font-family:inherit;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
 /* ===== App shell ===== */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:520px;margin:0 auto;}
+#app{position:relative;height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto;}
 .screens{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .screen.active{display:flex;animation:fadeIn .25s ease;}
