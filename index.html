@@ -132,7 +132,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .modegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modecard{background:var(--card-dark);border-radius:16px;padding:15px;border:1px solid transparent;}
 .modecard.on{border-color:var(--brass);animation:glowPulse 2.6s ease-in-out infinite;}
-.modecard .ic{font-size:26px;}
+.modecard .ic{color:var(--brass);height:26px;}
 .modecard .t{font-weight:800;font-size:15px;margin-top:8px;}
 .modecard .d{font-size:11px;color:var(--txt2);margin-top:4px;line-height:1.35;}
 
@@ -310,9 +310,12 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .tabbar{display:flex;background:rgba(11,21,16,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-top:1px solid rgba(232,176,75,.12);padding-bottom:var(--safe-bottom);position:absolute;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;z-index:50;}
 .tabbar button{flex:1;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;}
-.tabbar .ti{font-size:21px;filter:grayscale(.6);opacity:.7;}
+.tabbar .ti{display:flex;align-items:center;justify-content:center;color:var(--dim);}
 .tabbar .tl{font-size:10px;font-weight:700;color:var(--dim);}
-.tabbar button.on .ti{filter:none;opacity:1;}
+.tabbar button.on .ti{color:var(--brass);}
+.ic-svg{display:inline-block;vertical-align:-3px;flex:none;}
+.gl .ic-svg,.setrow .ic-svg,.btn .ic-svg,.sheet h2 .ic-svg{vertical-align:-3px;}
+.setrow .l .ic-svg{color:var(--txt2);}
 .tabbar button.on .tl{color:var(--brass);}
 
 /* ===== overlays / sheets ===== */
@@ -333,7 +336,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   animation:rays 30s linear infinite;border-radius:50%;}
 #winner .inner{position:relative;text-align:center;animation:winIn .6s cubic-bezier(.2,.8,.25,1);padding:0 24px;}
 #winner .wl{font-size:11px;font-weight:800;letter-spacing:4px;color:var(--brass);text-transform:uppercase;}
-#winner .trophy{font-size:48px;margin:10px 0;}
+#winner .trophy{color:var(--brass);margin:10px 0;line-height:0;}
 #winner .wav{width:78px;height:78px;border-radius:50%;background:var(--bg3);margin:0 auto 14px;
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;border:2.5px solid var(--brass);box-shadow:0 0 30px rgba(232,176,75,.4);}
 #winner .wn{font-weight:900;font-size:42px;letter-spacing:-1.5px;}
@@ -442,7 +445,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
       </div>
       <div id="spelers-body"></div>
       <div style="display:flex;gap:10px;margin-top:18px;">
-        <button class="btn btn-secondary" id="chartsBtn">📊 Bekijk grafieken</button>
+        <button class="btn btn-secondary" id="chartsBtn"></button>
       </div>
     </div>
   </section>
@@ -468,10 +471,10 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 
   <!-- bottom nav -->
   <nav class="tabbar" id="tabbar">
-    <button data-tab="spel" class="on"><span class="ti">🎯</span><span class="tl">Spel</span></button>
-    <button data-tab="modus"><span class="ti">🎲</span><span class="tl">Spelmodus</span></button>
-    <button data-tab="spelers"><span class="ti">👤</span><span class="tl">Spelers</span></button>
-    <button data-tab="instellingen"><span class="ti">⚙️</span><span class="tl">Instellingen</span></button>
+    <button data-tab="spel" data-ic="target" class="on"><span class="ti"></span><span class="tl">Spel</span></button>
+    <button data-tab="modus" data-ic="dice"><span class="ti"></span><span class="tl">Spelmodus</span></button>
+    <button data-tab="spelers" data-ic="user"><span class="ti"></span><span class="tl">Spelers</span></button>
+    <button data-tab="instellingen" data-ic="settings"><span class="ti"></span><span class="tl">Instellingen</span></button>
   </nav>
 
   <!-- bust banner -->
@@ -522,6 +525,31 @@ function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('sh
 function getPlayer(id){ return STATE.players.find(p=>p.id===id); }
 function initialsFor(name){ const parts=name.trim().split(/\s+/); if(parts.length===1) return parts[0].slice(0,2).toUpperCase(); return (parts[0][0]+parts[parts.length-1][0]).toUpperCase(); }
 function vibrate(ms){ if(STATE.settings.vibrate && navigator.vibrate) navigator.vibrate(ms); }
+
+/* ============ icons (inline SVG, Lucide-style stroke set) ============ */
+const ICONS={
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/>',
+  crosshair:'<circle cx="12" cy="12" r="9"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/><circle cx="12" cy="12" r="1.4"/>',
+  dice:'<rect width="18" height="18" x="3" y="3" rx="3"/><path d="M16 8h.01"/><path d="M8 8h.01"/><path d="M8 16h.01"/><path d="M16 16h.01"/><path d="M12 12h.01"/>',
+  user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  settings:'<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
+  skull:'<circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 20v2h8v-2"/><path d="m12.5 17-.5-1-.5 1h1z"/><path d="M16 20a2 2 0 0 0 1.56-3.25 8 8 0 1 0-11.12 0A2 2 0 0 0 8 20"/>',
+  zap:'<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/>',
+  bot:'<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>',
+  trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
+  volume:'<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>',
+  mic:'<path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/>',
+  play:'<polygon points="6 3 20 12 6 21 6 3"/>',
+  sparkles:'<path d="M9.94 14.06A2 2 0 0 0 8.5 12.6l-5-1.3a.5.5 0 0 1 0-.96l5-1.3A2 2 0 0 0 9.94 7.6l1.3-5a.5.5 0 0 1 .96 0l1.3 5a2 2 0 0 0 1.44 1.44l5 1.3a.5.5 0 0 1 0 .96l-5 1.3a2 2 0 0 0-1.44 1.44l-1.3 5a.5.5 0 0 1-.96 0z"/>',
+  vibrate:'<path d="m2 8 2 2-2 2 2 2-2 2"/><path d="m22 8-2 2 2 2-2 2 2 2"/><rect width="8" height="14" x="8" y="5" rx="1"/>',
+  moon:'<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  chart:'<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
+  flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+};
+function icon(name,size,sw){ size=size||20; return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
+function avInit(p,size){ return p.isBot ? icon('bot',size||20) : p.initials; }
 
 /* ============ NAV ============ */
 function showTab(tab){
@@ -575,7 +603,7 @@ function renderSetup(){
   b.appendChild(el('div','caps','Spelers'));
   b.appendChild(playerSelectList());
   b.appendChild(addNameRow());
-  const ghost=el('button','btn btn-ghost','🤖 Voeg Dart Robot toe'); ghost.style.marginTop='8px';
+  const ghost=el('button','btn btn-ghost',icon('bot',18)+' Voeg Dart Robot toe'); ghost.style.marginTop='8px';
   ghost.onclick=openRobotSheet; b.appendChild(ghost);
   updateStartBtn();
 }
@@ -599,7 +627,7 @@ function playerSelectList(){
     const on=STATE.setup.selectedPlayers.includes(p.id);
     const row=el('div',on?'prow sel':'prow');
     const meta = p.isBot ? `${(p.botLevel||'gevorderd').toUpperCase()} · ADAPTIEF` : `GEM. ${p.stats.avg}`;
-    row.innerHTML=`<div class="avatar ${p.isBot?'bot':''}">${p.initials}</div>
+    row.innerHTML=`<div class="avatar ${p.isBot?'bot':''}">${avInit(p,20)}</div>
       <div class="info"><div class="nm">${p.name}</div><div class="meta ${p.isBot?'brass':''}">${meta}</div></div>
       <button class="rm">${on?'✓':'+'}</button>`;
     row.querySelector('.rm').style.color=on?'var(--brass)':'var(--dim)';
@@ -655,10 +683,10 @@ function addNameRow(){
 function updateStartBtn(){ $('#startBtn').textContent = STATE.setup.type==='x01'?'Start x01':'Start Cricket'; }
 
 /* ============ SPELMODUS ============ */
-const MODES={ atc:{ic:'⏱️',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde',grp:'training'},
-  bob:{ic:'🎯',t:"Bob's 27",d:'Dubbels jagen, blijf boven 0',grp:'training'},
-  killer:{ic:'💀',t:'Killer',d:'Word killer, sloop levens',grp:'party'},
-  shanghai:{ic:'🏮',t:'Shanghai',d:'Single, double, triple winst',grp:'party'} };
+const MODES={ atc:{ic:'clock',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde',grp:'training'},
+  bob:{ic:'crosshair',t:"Bob's 27",d:'Dubbels jagen, blijf boven 0',grp:'training'},
+  killer:{ic:'skull',t:'Killer',d:'Word killer, sloop levens',grp:'party'},
+  shanghai:{ic:'zap',t:'Shanghai',d:'Single, double, triple winst',grp:'party'} };
 function renderModus(){
   const b=$('#modus-body'); b.innerHTML='';
   b.appendChild(el('div','caps','Trainingsmodi'));
@@ -674,7 +702,7 @@ function renderModus(){
     g.appendChild(stepper('Start','atcStart',1,20)); g.appendChild(stepper('Doel','atcEnd',1,20));
     set.appendChild(g);
     const tr=el('div','setrow'); tr.style.margin='8px 0 0';
-    tr.innerHTML=`<div class="l">🎯 Bull aan het eind</div>`; const tg=el('div',STATE.setup.atcBull?'toggle on':'toggle');
+    tr.innerHTML=`<div class="l">${icon('target',18)} Bull aan het eind</div>`; const tg=el('div',STATE.setup.atcBull?'toggle on':'toggle');
     tg.onclick=()=>{STATE.setup.atcBull=!STATE.setup.atcBull;save();tg.classList.toggle('on');}; tr.appendChild(tg); set.appendChild(tr);
   } else if(m==='killer'){
     set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">3 levens · dubbel om te killen. Elke speler kiest een nummer bij de start.</div>`;
@@ -687,12 +715,12 @@ function renderModus(){
   b.appendChild(el('div','caps','Spelers'));
   b.appendChild(playerSelectList());
   b.appendChild(addNameRow());
-  const ghost=el('button','btn btn-ghost','🤖 Voeg Dart Robot toe'); ghost.style.marginTop='8px'; ghost.onclick=openRobotSheet; b.appendChild(ghost);
+  const ghost=el('button','btn btn-ghost',icon('bot',18)+' Voeg Dart Robot toe'); ghost.style.marginTop='8px'; ghost.onclick=openRobotSheet; b.appendChild(ghost);
   $('#startModeBtn').textContent='Start '+MODES[m].t;
 }
 function modeCard(k){
   const m=MODES[k]; const c=el('div',STATE.setup.mode===k?'modecard on':'modecard');
-  c.innerHTML=`<div class="ic">${m.ic}</div><div class="t">${m.t}</div><div class="d">${m.d}</div>`;
+  c.innerHTML=`<div class="ic">${icon(m.ic,26)}</div><div class="t">${m.t}</div><div class="d">${m.d}</div>`;
   c.onclick=()=>{STATE.setup.mode=k;save();renderModus();}; return c;
 }
 
@@ -702,7 +730,7 @@ function renderSpelers(){
   STATE.players.forEach(p=>{
     const row=el('div','prow'); row.style.cursor='pointer';
     if(p.isBot){
-      row.innerHTML=`<div class="avatar bot">${p.initials}</div><div class="info"><div class="nm">${p.name}</div>
+      row.innerHTML=`<div class="avatar bot">${avInit(p,22)}</div><div class="info"><div class="nm">${p.name}</div>
         <div class="meta brass">NIVEAU ${cap(p.botLevel||'gevorderd')} · ADAPTIEF ${p.adaptive?'Aan':'Uit'}</div></div><span class="chev">›</span>`;
     } else {
       const w=p.stats.games?Math.round(p.stats.wins/p.stats.games*100):0;
@@ -721,25 +749,25 @@ function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 function renderSettings(){
   const b=$('#settings-body'); b.innerHTML=''; const s=STATE.settings;
   b.appendChild(el('div','caps','Audio'));
-  b.appendChild(toggleRow('🔊 Geluid','sound'));
-  const voice=el('div','setrow'); voice.innerHTML=`<div class="l">🗣️ Stem-caller</div>`;
+  b.appendChild(toggleRow(icon('volume',18)+' Geluid','sound'));
+  const voice=el('div','setrow'); voice.innerHTML=`<div class="l">${icon('mic',18)} Stem-caller</div>`;
   const vsel=el('select'); vsel.style.cssText='background:var(--bg2);border:none;color:var(--chalk);font-weight:700;padding:8px 10px;border-radius:10px;font-size:14px;';
   ['Russ Bray','John McDonald','Standaard'].forEach(v=>{const o=el('option',null,v);if(s.voiceCaller===v)o.selected=true;vsel.appendChild(o);});
   vsel.onchange=()=>{s.voiceCaller=vsel.value;save();}; voice.appendChild(vsel); b.appendChild(voice);
-  b.appendChild(toggleRow('▶️ Auto doorgaan','autoContinue'));
+  b.appendChild(toggleRow(icon('play',18)+' Auto doorgaan','autoContinue'));
 
   b.appendChild(el('div','caps','Dart Robot'));
   const bs=el('div','setrow'); bs.style.flexDirection='column'; bs.style.alignItems='stretch'; bs.style.gap='10px';
-  bs.innerHTML=`<div class="l">🤖 Bot sterkte — <span style="color:var(--brass)">${cap(s.botStrength)}</span></div>`;
+  bs.innerHTML=`<div class="l">${icon('bot',18)} Bot sterkte — <span style="color:var(--brass)">${cap(s.botStrength)}</span></div>`;
   const seg=el('div','seg');
   [['makkelijk','Makkelijk'],['gemiddeld','Gemiddeld'],['gevorderd','Gevorderd']].forEach(([k,l])=>{
     const bt=el('button',s.botStrength===k?'on':'',l); bt.onclick=()=>{s.botStrength=k;save();renderSettings();}; seg.appendChild(bt); });
   bs.appendChild(seg); b.appendChild(bs);
-  b.appendChild(toggleRow('🧠 Adaptief','adaptive'));
+  b.appendChild(toggleRow(icon('sparkles',18)+' Adaptief','adaptive'));
 
   b.appendChild(el('div','caps','Algemeen'));
-  b.appendChild(toggleRow('📳 Trillen bij bust','vibrate'));
-  b.appendChild(toggleRow('🌙 Schermsluiting uit','keepScreen'));
+  b.appendChild(toggleRow(icon('vibrate',18)+' Trillen bij bust','vibrate'));
+  b.appendChild(toggleRow(icon('moon',18)+' Schermsluiting uit','keepScreen'));
 }
 function toggleRow(label,key){
   const r=el('div','setrow'); r.innerHTML=`<div class="l">${label}</div>`;
@@ -752,9 +780,9 @@ function toggleRow(label,key){
 function openRobotSheet(){
   const sh=$('#sheet'); const bot=STATE.players.find(p=>p.isBot);
   let level=bot?bot.botLevel:STATE.settings.botStrength; let adaptive=bot?bot.adaptive:STATE.settings.adaptive;
-  sh.innerHTML=`<div class="handle"></div><h2><span style="animation:thinkPulse 2s infinite">🤖</span> Dart Robot</h2>
+  sh.innerHTML=`<div class="handle"></div><h2><span style="display:inline-flex;animation:thinkPulse 2s infinite;color:var(--brass)">${icon('bot',24)}</span> Dart Robot</h2>
     <div class="sh-sub">Kies een niveau om tegen te spelen</div><div id="levels"></div>
-    <div class="setrow" style="margin:6px 0 16px"><div class="l">🧠 Adaptief</div><div class="toggle ${adaptive?'on':''}" id="adtg"></div></div>
+    <div class="setrow" style="margin:6px 0 16px"><div class="l">${icon('sparkles',18)} Adaptief</div><div class="toggle ${adaptive?'on':''}" id="adtg"></div></div>
     <div style="font-size:12px;color:var(--dim);margin:-10px 0 16px">Past niveau aan op jouw vorm</div>
     <button class="btn btn-primary" id="robotAdd">Robot toevoegen</button>`;
   const levels=[['makkelijk','Makkelijk','~30 gemiddelde · mist vaak'],['gemiddeld','Gemiddeld','~50 gemiddelde · solide checkout'],['gevorderd','Gevorderd','~75 gemiddelde · scherpe finishes']];
@@ -789,7 +817,7 @@ function openStatsSheet(id){
   const maxD=Math.max(...Object.values(dist));
   const dbl=st.doubles&&Object.keys(st.doubles).length?st.doubles:{D20:44,D16:51,Bull:29};
   sh.innerHTML=`<div class="handle"></div>
-    <h2><span class="avatar" style="width:34px;height:34px;font-size:13px">${p.initials}</span> ${p.name} · Statistieken</h2>
+    <h2><span class="avatar" style="width:34px;height:34px;font-size:13px">${avInit(p,18)}</span> ${p.name} · Statistieken</h2>
     <div class="sh-sub">${st.games} games · laatste 30 dagen</div>
     <div class="statcards">
       <div class="statcard"><div class="v">${st.avg}</div><div class="k">3-Dart Gem.</div></div>
@@ -868,7 +896,7 @@ function renderGameScreen(){
 function ctrlBar(label,sub){
   return `<div class="ctrlbar"><div class="gl">${label}<span class="gs">${sub}</span></div>
     <div class="right"><div class="autopill" data-act="toggleAuto">AUTO<span class="mini ${GAME.auto?'on':''}"></span></div>
-    <div class="settcirc" data-act="gameSettings">⚙️</div><button class="stoppill" data-act="stop">Stop</button></div></div>`;
+    <div class="settcirc" data-act="gameSettings">${icon('settings',16)}</div><button class="stoppill" data-act="stop">Stop</button></div></div>`;
 }
 function multSeg(opts){
   opts=opts||[['1','Single'],['2','Double'],['3','Triple']];
@@ -890,7 +918,7 @@ function renderX01(){
     const pl=getPlayer(p.id); const active=i===GAME.cur;
     const pips=[0,1,2].map(d=>`<div class="pip ${active&&GAME.darts[d]!==undefined?'on':''}"></div>`).join('');
     cards+=`<div class="pcard ${active?'active':'dim'}">${active?'<div class="tag">Aan beurt</div>':''}
-      <div class="ph"><div class="av">${pl.initials}</div><div class="nm">${pl.name}</div></div>
+      <div class="ph"><div class="av">${avInit(pl,16)}</div><div class="nm">${pl.name}</div></div>
       <div class="score">${p.score}</div>
       <div class="pips">${pips}</div>
       <div class="ft">S ${p.setsWon} · L ${p.legsWon} · GEM ${pl.stats.avg}</div>
@@ -905,7 +933,7 @@ function renderX01(){
   const slots=dartSlotsX01();
   return `<div>${ctrlBar(s.points+' · '+co,sub)}${cards}${cobar}${slots}${multSeg()}${numpadHTML()}
     <div class="actions"><button class="act-bull" data-bull="1">Bull</button><button class="act-miss" data-miss="1">Miss</button>
-    <button class="act-undo" data-act="undo">↩</button><button class="act-next" data-act="next" ${GAME.darts.length===0?'disabled':''}>Volgende</button></div></div>`;
+    <button class="act-undo" data-act="undo">${icon('undo',16)}</button><button class="act-next" data-act="next" ${GAME.darts.length===0?'disabled':''}>Volgende</button></div></div>`;
 }
 function dartSlotsX01(){
   let h='<div class="slots">';
@@ -1011,7 +1039,7 @@ function renderCricket(){
   CRICK_NUMS.forEach(n=>keys+=`<button data-cnum="${n}">${n===25?'Bull':n}</button>`);
   keys+=`<button data-miss="1" class="" style="color:var(--red)">Miss</button></div>`;
   return `<div>${ctrlBar('Cricket · '+vlabel,'LEG '+curLegNo())}${heads}${grid}${multSeg([['1','Single'],['2','Double'],['3','Triple']])}${keys}
-    <div class="actions" style="grid-template-columns:1fr 1.4fr"><button class="act-undo" data-act="undo">↩ Undo</button>
+    <div class="actions" style="grid-template-columns:1fr 1.4fr"><button class="act-undo" data-act="undo">${icon('undo',15)} Undo</button>
     <button class="act-next" data-act="next">Volgende</button></div></div>`;
 }
 function markStr(m){ if(m<=0)return ''; if(m===1)return '<span class="mk">╱</span>'; if(m===2)return '<span class="mk">✕</span>'; return '<span class="mk">⊗</span>'; }
@@ -1059,7 +1087,7 @@ function cricketWinCheck(){
 function renderATC(){
   const cur=curP(); const pl=getPlayer(cur.id);
   const end=STATE.setup.atcEnd; const useBull=STATE.setup.atcBull;
-  const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${pl.initials}</div>
+  const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${avInit(pl,18)}</div>
     <div><div class="nm">${pl.name}</div><div class="meta">AAN BEURT · DART ${GAME.darts.length+1} VAN 3</div></div>
     <div class="rt">GERAAKT<br><b>${cur.hits}/${end}</b></div></div>`;
   const tlabel=cur.target>20?'BULL':cur.target;
@@ -1071,7 +1099,7 @@ function renderATC(){
   return `<div>${ctrlBar('Around the Clock',STATE.setup.atcStart+' → '+end+' · BULL '+(useBull?'AAN':'UIT'))}${strip}${big}${grid}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
     <div class="bigactions"><button class="bigact-miss" data-atc="0">Mis</button><button class="bigact-hit" data-atc="1">Raak ${tlabel}</button></div>
-    <div class="subactions"><button data-act="undo">↩ Undo</button><button data-act="next">Volgende speler</button></div></div>`;
+    <div class="subactions"><button data-act="undo">${icon('undo',15)} Undo</button><button data-act="next">Volgende speler</button></div></div>`;
 }
 function atcThrow(hit){
   const cur=curP(); pushHistory();
@@ -1093,11 +1121,11 @@ function renderKiller(){
     const pl=getPlayer(p.id);
     const lives=[0,1,2].map(l=>`<div class="life ${l>=p.lives?'lost':''}"></div>`).join('');
     if(p.eliminated){
-      rows+=`<div class="killrow dead"><div class="avatar">${pl.initials}</div><div class="info">
-        <div class="nm">💀 ${pl.name}</div><div class="sub red">UITGESCHAKELD · nummer ${p.number}</div></div></div>`;
+      rows+=`<div class="killrow dead"><div class="avatar">${avInit(pl,20)}</div><div class="info">
+        <div class="nm"><span style="color:var(--red)">${icon('skull',16)}</span> ${pl.name}</div><div class="sub red">UITGESCHAKELD · nummer ${p.number}</div></div></div>`;
     } else {
-      rows+=`<div class="killrow ${i===GAME.cur?'active':''}"><div class="avatar">${pl.initials}</div><div class="info">
-        <div class="nm">${pl.name} ${p.isKiller?'<span class="killbadge">🔥 KILLER</span>':''}</div>
+      rows+=`<div class="killrow ${i===GAME.cur?'active':''}"><div class="avatar">${avInit(pl,20)}</div><div class="info">
+        <div class="nm">${pl.name} ${p.isKiller?'<span class="killbadge">'+icon('flame',11)+' KILLER</span>':''}</div>
         <div class="sub">nummer ${p.number} ${i===GAME.cur?'· AAN BEURT':''}</div></div><div class="lives">${lives}</div></div>`;
     }
   });
@@ -1105,9 +1133,9 @@ function renderKiller(){
   let keys='<div class="numpad" style="grid-template-columns:repeat(4,1fr)">';
   GAME.players.forEach(p=>{ if(!p.eliminated) keys+=`<button data-knum="${p.number}">${p.number}</button>`; });
   keys+=`<button data-miss="1" style="color:var(--red)">Mis</button></div>`;
-  return `<div>${ctrlBar('Killer 💀','3 LEVENS · DUBBEL OM TE KILLEN')}${rows}
+  return `<div>${ctrlBar(icon('skull',16)+' Killer','3 LEVENS · DUBBEL OM TE KILLEN')}${rows}
     ${multSeg([['1','Single'],['2','Double']])}${keys}
-    <div class="actions" style="grid-template-columns:1fr 1.4fr"><button class="act-undo" data-act="undo">↩ Undo</button>
+    <div class="actions" style="grid-template-columns:1fr 1.4fr"><button class="act-undo" data-act="undo">${icon('undo',15)} Undo</button>
     <button class="act-next" data-act="next">Volgende</button></div></div>`;
 }
 function killerHit(num){
@@ -1129,7 +1157,7 @@ function openKillerPick(){
   const taken=GAME.players.map(x=>x.number).filter(n=>n);
   let sel=null;
   sh.innerHTML=`<div class="handle"></div>
-    <h2><span class="avatar" style="width:34px;height:34px;font-size:13px">${pl.initials}</span> ${pl.name} kiest een nummer</h2>
+    <h2><span class="avatar" style="width:34px;height:34px;font-size:13px">${avInit(pl,18)}</span> ${pl.name} kiest een nummer</h2>
     <div class="sh-sub">SPELER ${GAME.pickIndex+1} VAN ${GAME.players.length}</div>
     <div style="font-size:12px;color:var(--txt2);margin-bottom:10px">Bezette nummers zijn doorgestreept. Tik om je nummer te kiezen.</div>
     <div class="killgrid" id="kg"></div><button class="btn btn-primary" id="kconfirm" disabled>Kies een nummer</button>`;
@@ -1157,16 +1185,16 @@ function renderShanghai(){
   heads+='</div>';
   const big=`<div class="bigcard"><div class="lbl">Deze ronde · gooi op</div><div class="big">${rnd}</div>
     <div class="chips"><div class="vchip">S=<b>${rnd}</b></div><div class="vchip">D=<b>${rnd*2}</b></div><div class="vchip">T=<b>${rnd*3}</b></div></div></div>`;
-  const banner=`<div class="dashbanner">🏮 SHANGHAI = single + double + triple → directe winst</div>`;
+  const banner=`<div class="dashbanner">${icon('zap',14)} SHANGHAI = single + double + triple → directe winst</div>`;
   let prog='<div class="pgrid">';
   for(let n=1;n<=20;n++){ const cls=n<rnd?'hit':(n===rnd?'cur':''); prog+=`<div class="pcell ${cls}">${n}</div>`; }
   prog+='</div>';
   const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].m?'green':'red'):''}"></div>`).join('');
-  return `<div>${ctrlBar('Shanghai 🏮','RONDE '+rnd+' VAN 20')}${heads}${big}${banner}${prog}
+  return `<div>${ctrlBar(icon('zap',16)+' Shanghai','RONDE '+rnd+' VAN 20')}${heads}${big}${banner}${prog}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
     <div class="numpad" style="grid-template-columns:repeat(3,1fr)">
       <button data-smult="1">Single ${rnd}</button><button data-smult="2">Double ${rnd*2}</button><button data-smult="3">Triple ${rnd*3}</button></div>
-    <div class="actions"><button class="act-miss" data-smult="0">Mis</button><button class="act-undo" data-act="undo">↩</button>
+    <div class="actions"><button class="act-miss" data-smult="0">Mis</button><button class="act-undo" data-act="undo">${icon('undo',16)}</button>
     <button class="act-next" data-act="next" style="grid-column:span 2">Volgende</button></div></div>`;
 }
 function shanghaiThrow(m){
@@ -1175,7 +1203,7 @@ function shanghaiThrow(m){
   if(m>0) cur.points+=GAME.round*m;
   // shanghai instant win: S+D+T this round (m 1,2,3 all present)
   const ms=GAME.darts.filter(d=>d.m>0).map(d=>d.m);
-  if(ms.includes(1)&&ms.includes(2)&&ms.includes(3)){ toast('SHANGHAI! 🏮'); legWon(GAME.cur); return; }
+  if(ms.includes(1)&&ms.includes(2)&&ms.includes(3)){ toast('SHANGHAI!'); legWon(GAME.cur); return; }
   if(GAME.darts.length>=3){ renderGameScreen(); if(GAME.auto&&!curIsBot()) setTimeout(nextPlayer,500); return; }
   renderGameScreen();
 }
@@ -1189,7 +1217,7 @@ const BOB_TARGETS=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25];
 function renderBob(){
   const cur=curP(); const pl=getPlayer(cur.id);
   const t=cur.target; const tl=t===25?'Bull':t;
-  const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${pl.initials}</div>
+  const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${avInit(pl,18)}</div>
     <div><div class="nm">${pl.name}</div><div class="meta">DUBBELS D1 → BULL</div></div>
     <div class="rt">SALDO<br><b style="color:var(--green)">${cur.balance}</b></div></div>`;
   const big=`<div class="bigcard"><div class="lbl">Doel · dubbel</div><div class="big green">D${tl}</div><div class="hint">RAAK +${t*2} · MIS −${t*2}</div></div>`;
@@ -1200,9 +1228,9 @@ function renderBob(){
   BOB_TARGETS.forEach(n=>{ const idx=BOB_TARGETS.indexOf(n); const ti=BOB_TARGETS.indexOf(cur.target);
     const cls= idx<ti?(cur.hitMap&&cur.hitMap[n]?'green':'red') : (n===cur.target?'cur':''); grid+=`<div class="pcell ${cls}">${n===25?'B':n}</div>`; });
   grid+='</div>';
-  return `<div>${ctrlBar("Bob's 27 🎯",'DUBBELS D1 → BULL')}${strip}${big}${tiles}${grid}
+  return `<div>${ctrlBar(icon('crosshair',16)+" Bob's 27",'DUBBELS D1 → BULL')}${strip}${big}${tiles}${grid}
     <div class="bigactions"><button class="bigact-miss" data-bob="0">Mis</button><button class="bigact-hit" data-bob="1">Raak D${tl}</button></div>
-    <div class="subactions"><button data-act="undo">↩ Undo</button><button data-act="next">Volgende ronde</button></div></div>`;
+    <div class="subactions"><button data-act="undo">${icon('undo',15)} Undo</button><button data-act="next">Volgende ronde</button></div></div>`;
 }
 function bobThrow(hit){
   const cur=curP(); pushHistory();
@@ -1247,8 +1275,8 @@ function showWinner(idx,kind){
     btns=`<button class="btn btn-primary" data-win="continue">Volgende ${kind==='set'?'set':'leg'}</button>
       <div class="wrow"><button class="btn btn-secondary" data-win="ranglijst">Ranglijst</button><button class="btn btn-secondary" data-win="newgame">Nieuw spel</button></div>`;
   }
-  inner.innerHTML=`<div class="wl">Winnaar</div><div class="trophy">🏆</div>
-    <div class="wav">${pl.initials}</div><div class="wn">${pl.name} wint</div><div class="ws">${sub}</div>
+  inner.innerHTML=`<div class="wl">Winnaar</div><div class="trophy">${icon('trophy',44,1.75)}</div>
+    <div class="wav">${avInit(pl,34)}</div><div class="wn">${pl.name} wint</div><div class="ws">${sub}</div>
     <div class="wchips">${chips}</div><div class="wbtns">${btns}</div>`;
   $('#winner').classList.add('show');
 }
@@ -1378,6 +1406,8 @@ function handleAct(act){
 /* ============ INIT ============ */
 $('#startBtn').onclick=startGame;
 $('#startModeBtn').onclick=startGame;
+document.querySelectorAll('#tabbar [data-ic]').forEach(b=>{ b.querySelector('.ti').innerHTML=icon(b.dataset.ic,23); });
+$('#chartsBtn').innerHTML=icon('chart',18)+' Bekijk grafieken';
 showTab('spel');
 save();
 
