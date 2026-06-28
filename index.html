@@ -25,12 +25,12 @@
   --safe-bottom:env(safe-area-inset-bottom,0px);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-html{height:100%;}
+html{height:100%;height:-webkit-fill-available;}
 body{
   font-family:'Archivo',system-ui,-apple-system,sans-serif;
   background:var(--bg0); color:var(--chalk);
   overflow:hidden;
-  height:100vh; height:100dvh;
+  height:100vh; height:100dvh; height:-webkit-fill-available;
   user-select:none; -webkit-user-select:none;
 }
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
@@ -1424,6 +1424,18 @@ save();
 
 /* keep screen awake */
 if(STATE.settings.keepScreen && 'wakeLock' in navigator){ navigator.wakeLock.request('screen').catch(()=>{}); }
+
+/* diagnostics: open with ?debug to read viewport numbers */
+if(location.search.indexOf('debug')>=0){
+  const probe=document.createElement('div'); probe.style.cssText='position:fixed;bottom:0;left:0;height:env(safe-area-inset-bottom);width:1px;'; document.body.appendChild(probe);
+  const probeT=document.createElement('div'); probeT.style.cssText='position:fixed;top:0;left:0;height:env(safe-area-inset-top);width:1px;'; document.body.appendChild(probeT);
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;top:90px;left:8px;right:8px;z-index:99999;background:#000;color:#3f6;font:12px monospace;padding:10px;border:1px solid #3f6;white-space:pre;border-radius:8px;';
+  const upd=()=>{ const tb=document.getElementById('tabbar').getBoundingClientRect();
+    d.textContent='standalone='+(navigator.standalone)+'\ninnerH='+window.innerHeight+'\nvisualVP='+(window.visualViewport?Math.round(window.visualViewport.height):'?')+'\nscreenH='+screen.height+'\nsafe-top='+probeT.offsetHeight+'\nsafe-bottom='+probe.offsetHeight+'\nappH='+document.getElementById('app').offsetHeight+'\ntabBottom='+Math.round(tb.bottom)+'\ngapBelow='+Math.round(window.innerHeight-tb.bottom); };
+  upd(); setTimeout(upd,400); window.addEventListener('resize',upd);
+  d.onclick=()=>d.remove(); document.body.appendChild(d);
+}
 </script>
 </body>
 </html>
