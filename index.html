@@ -35,7 +35,7 @@ body{
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
 input{font-family:inherit;}
 
-@keyframes glowPulse{0%,100%{box-shadow:0 0 0 1.5px #e8b04b,0 0 16px rgba(232,176,75,.20)}50%{box-shadow:0 0 0 1.5px #e8b04b,0 0 34px rgba(232,176,75,.50)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 0 1.5px #e8b04b,0 0 8px rgba(232,176,75,.10)}50%{box-shadow:0 0 0 1.5px #e8b04b,0 0 16px rgba(232,176,75,.22)}}
 @keyframes winIn{0%{opacity:0;transform:scale(.82)}100%{opacity:1;transform:scale(1)}}
 @keyframes bustDrop{0%{transform:translateY(-130%);opacity:0}60%{transform:translateY(6%)}100%{transform:translateY(0);opacity:1}}
 @keyframes sheetUp{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
@@ -44,12 +44,14 @@ input{font-family:inherit;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
 /* ===== App shell ===== */
-#app{position:absolute;inset:0;display:flex;flex-direction:column;max-width:520px;margin:0 auto;}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;max-width:520px;margin:0 auto;}
+.screens{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .screen.active{display:flex;animation:fadeIn .25s ease;}
 
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 20px 120px;
   padding-top:calc(var(--safe-top) + 12px);}
+#screen-spel .scroll,#screen-modus .scroll{padding-bottom:calc(150px + var(--safe-bottom));}
 
 /* header / logo */
 .logo{padding:14px 0 12px;text-align:center;}
@@ -131,14 +133,15 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* mode cards */
 .modegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modecard{background:var(--card-dark);border-radius:16px;padding:15px;border:1px solid transparent;}
-.modecard.on{border-color:var(--brass);animation:glowPulse 2.6s ease-in-out infinite;}
+.modecard.on{border-color:var(--brass);background:linear-gradient(160deg,rgba(232,176,75,.07),var(--card-dark));}
 .modecard .ic{color:var(--brass);height:26px;}
 .modecard .t{font-weight:800;font-size:15px;margin-top:8px;}
 .modecard .d{font-size:11px;color:var(--txt2);margin-top:4px;line-height:1.35;}
 
 /* sticky bottom action */
-.sticky-action{position:absolute;left:0;right:0;bottom:0;padding:14px 20px calc(14px + var(--safe-bottom));
-  background:linear-gradient(180deg,transparent,var(--bg0) 30%);max-width:520px;margin:0 auto;}
+.sticky-action{position:absolute;left:0;right:0;bottom:0;padding:18px 20px 14px;z-index:40;
+  background:linear-gradient(180deg,transparent,var(--bg0) 38%);pointer-events:none;}
+.sticky-action .btn{pointer-events:auto;}
 
 /* toggle */
 .toggle{width:48px;height:28px;border-radius:16px;background:var(--bg3);position:relative;flex-shrink:0;transition:background .2s;}
@@ -150,6 +153,10 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .setrow{display:flex;align-items:center;justify-content:space-between;background:var(--bg1);border-radius:14px;padding:14px 15px;margin-bottom:8px;gap:12px;}
 .setrow .l{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;}
 .setcard{background:var(--bg1);border-radius:14px;padding:6px 4px;margin-bottom:4px;}
+/* grouped inset list (iOS-style) */
+.group{background:var(--bg1);border-radius:16px;overflow:hidden;margin-bottom:6px;border:1px solid rgba(255,255,255,.04);}
+.group .setrow{background:transparent;border-radius:0;margin:0;padding:15px 16px;border-top:1px solid rgba(255,255,255,.05);}
+.group .setrow:first-child{border-top:none;}
 
 /* stat strip (players tab) */
 .statstrip{display:flex;gap:14px;font-size:11px;color:var(--txt2);margin-top:3px;}
@@ -308,7 +315,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 
 /* ===== bottom nav ===== */
 .tabbar{display:flex;background:rgba(11,21,16,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid rgba(232,176,75,.12);padding-bottom:var(--safe-bottom);position:absolute;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;z-index:50;}
+  border-top:1px solid rgba(232,176,75,.12);padding-bottom:var(--safe-bottom);flex:none;z-index:50;}
 .tabbar button{flex:1;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;}
 .tabbar .ti{display:flex;align-items:center;justify-content:center;color:var(--dim);}
 .tabbar .tl{font-size:10px;font-weight:700;color:var(--dim);}
@@ -398,6 +405,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 </head>
 <body>
 <div id="app">
+ <div class="screens">
 
   <!-- ===== SPEL (setup) ===== -->
   <section class="screen" id="screen-spel">
@@ -468,6 +476,8 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   <section class="screen" id="game">
     <div class="gamewrap" id="game-body"></div>
   </section>
+
+ </div><!-- /.screens -->
 
   <!-- bottom nav -->
   <nav class="tabbar" id="tabbar">
@@ -748,26 +758,26 @@ function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 /* ============ SETTINGS ============ */
 function renderSettings(){
   const b=$('#settings-body'); b.innerHTML=''; const s=STATE.settings;
-  b.appendChild(el('div','caps','Audio'));
-  b.appendChild(toggleRow(icon('volume',18)+' Geluid','sound'));
+  const group=(...rows)=>{ const g=el('div','group'); rows.forEach(r=>g.appendChild(r)); return g; };
+
   const voice=el('div','setrow'); voice.innerHTML=`<div class="l">${icon('mic',18)} Stem-caller</div>`;
   const vsel=el('select'); vsel.style.cssText='background:var(--bg2);border:none;color:var(--chalk);font-weight:700;padding:8px 10px;border-radius:10px;font-size:14px;';
   ['Russ Bray','John McDonald','Standaard'].forEach(v=>{const o=el('option',null,v);if(s.voiceCaller===v)o.selected=true;vsel.appendChild(o);});
-  vsel.onchange=()=>{s.voiceCaller=vsel.value;save();}; voice.appendChild(vsel); b.appendChild(voice);
-  b.appendChild(toggleRow(icon('play',18)+' Auto doorgaan','autoContinue'));
+  vsel.onchange=()=>{s.voiceCaller=vsel.value;save();}; voice.appendChild(vsel);
+  b.appendChild(el('div','caps','Audio'));
+  b.appendChild(group(toggleRow(icon('volume',18)+' Geluid','sound'), voice, toggleRow(icon('play',18)+' Auto doorgaan','autoContinue')));
 
-  b.appendChild(el('div','caps','Dart Robot'));
   const bs=el('div','setrow'); bs.style.flexDirection='column'; bs.style.alignItems='stretch'; bs.style.gap='10px';
   bs.innerHTML=`<div class="l">${icon('bot',18)} Bot sterkte — <span style="color:var(--brass)">${cap(s.botStrength)}</span></div>`;
   const seg=el('div','seg');
   [['makkelijk','Makkelijk'],['gemiddeld','Gemiddeld'],['gevorderd','Gevorderd']].forEach(([k,l])=>{
     const bt=el('button',s.botStrength===k?'on':'',l); bt.onclick=()=>{s.botStrength=k;save();renderSettings();}; seg.appendChild(bt); });
-  bs.appendChild(seg); b.appendChild(bs);
-  b.appendChild(toggleRow(icon('sparkles',18)+' Adaptief','adaptive'));
+  bs.appendChild(seg);
+  b.appendChild(el('div','caps','Dart Robot'));
+  b.appendChild(group(bs, toggleRow(icon('sparkles',18)+' Adaptief','adaptive')));
 
   b.appendChild(el('div','caps','Algemeen'));
-  b.appendChild(toggleRow(icon('vibrate',18)+' Trillen bij bust','vibrate'));
-  b.appendChild(toggleRow(icon('moon',18)+' Schermsluiting uit','keepScreen'));
+  b.appendChild(group(toggleRow(icon('vibrate',18)+' Trillen bij bust','vibrate'), toggleRow(icon('moon',18)+' Schermsluiting uit','keepScreen')));
 }
 function toggleRow(label,key){
   const r=el('div','setrow'); r.innerHTML=`<div class="l">${label}</div>`;
