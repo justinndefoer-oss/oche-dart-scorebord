@@ -690,6 +690,7 @@ const ICONS={
   flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
   undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
   book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
 };
 function icon(name,size,sw){ size=size||20; return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 function avInit(p,size){ return p.isBot ? icon('bot',size||20) : p.initials; }
@@ -1216,9 +1217,10 @@ function renderGameScreen(){
   maybeBotTurn();
 }
 function ctrlBar(label,sub){
+  const cam = GAME.type==='x01' ? `<div class="settcirc" data-act="dartcam" title="Camera-score">${icon('camera',16)}</div>` : '';
   return `<div class="ctrlbar"><div class="gl">${label}<span class="gs">${sub}</span></div>
     <div class="right"><div class="autopill" data-act="toggleAuto">AUTO<span class="mini ${GAME.auto?'on':''}"></span></div>
-    <div class="settcirc" data-act="gameSettings">${icon('settings',16)}</div><button class="stoppill" data-act="stop">Stop</button></div></div>`;
+    ${cam}<div class="settcirc" data-act="gameSettings">${icon('settings',16)}</div><button class="stoppill" data-act="stop">Stop</button></div></div>`;
 }
 function multSeg(opts){
   opts=opts||[['1','Single'],['2','Double'],['3','Triple']];
@@ -2343,7 +2345,36 @@ function handleAct(act){
     else if(confirm('Spel stoppen?')){ GAME=null; showTab('spel'); }
   }
   else if(act==='gameSettings'){ openGameSettings(); }
+  else if(act==='dartcam'){ if(window.openDartCam) window.openDartCam(); else toast('Camera niet beschikbaar'); }
 }
+/* Bridge for the DartCam panel: it calls window.doThrow(value,label) per detected dart,
+   and window.doThrowCorrect(value,label) when the user corrects that suggestion. */
+let _camPending=false;
+function _camApply(label){
+  if(label==='Mis'){ missDart(); return true; }
+  let v,m;
+  if(label==='Bull'){ v=25; m=2; }
+  else if(label==='25'){ v=25; m=1; }
+  else if(label[0]==='T'){ m=3; v=+label.slice(1); }
+  else if(label[0]==='D'){ m=2; v=+label.slice(1); }
+  else { m=1; v=+label; }
+  if(!(v>=1)) return false;
+  scoreDart(v,m); return true;
+}
+window.doThrow=function(value,label){
+  if(!GAME || GAME.type!=='x01'){ toast('Camera-score werkt alleen in x01'); return; }
+  if(curIsBot()) return;
+  if(GAME.darts.length>=3){ toast('Beurt vol — tik Volgende'); _camPending=false; return; }
+  if(value===0) label='Mis';
+  if(_camApply(label)) _camPending=true;
+};
+window.doThrowCorrect=function(value,label){
+  if(!GAME || GAME.type!=='x01' || GAME.finished){ window.doThrow(value,label); return; }
+  if(value===0) label='Mis';
+  // replace the just-committed suggestion: undo it first if we're still in the same turn
+  if(_camPending && GAME.darts.length>0 && GAME.history.length>0){ undo(); }
+  if(_camApply(label)) _camPending=true;
+};
 
 /* ============ INIT ============ */
 applyTheme(STATE.settings.theme||'oche');
@@ -2363,6 +2394,286 @@ if(STATE.settings.keepScreen && 'wakeLock' in navigator){ navigator.wakeLock.req
 
 /* service worker: offline support + auto-update (network-first) */
 if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+</script>
+
+<!-- ════════════ DARTCAM — camera-score (opened from the x01 control bar) ════════════ -->
+<div id="dartcamPanel" style="display:none;position:fixed;inset:0;z-index:9999;
+     background:rgba(4,10,7,.92);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+     padding:calc(12px + env(safe-area-inset-top,0px)) 14px calc(14px + env(safe-area-inset-bottom,0px));
+     overflow:auto;font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#f4ecd8">
+  <div style="max-width:460px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="font-weight:800;letter-spacing:3px;color:#e8b04b;font-size:15px">DARTCAM</div>
+      <span id="dcEngineBadge" style="font-size:10px;font-weight:700;letter-spacing:1px;color:#6b7d72;
+            border:1px solid rgba(232,176,75,.25);border-radius:20px;padding:3px 9px">CLASSIC</span>
+      <button id="dartcamClose" type="button" style="margin-left:auto;width:40px;height:40px;border-radius:12px;
+            border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-size:18px;cursor:pointer">✕</button>
+    </div>
+
+    <div style="position:relative;width:100%;aspect-ratio:1/1;background:#060d09;
+         border:1px solid rgba(232,176,75,.25);border-radius:16px;overflow:hidden">
+      <video id="dcVideo" playsinline muted style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+      <canvas id="dcOverlay" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;touch-action:none"></canvas>
+      <div id="dcHint" style="position:absolute;left:0;right:0;bottom:0;padding:9px 12px;
+           background:linear-gradient(180deg,transparent,rgba(4,10,7,.85));font-size:12px;font-weight:600;text-align:center">
+        Tik op "Camera starten".</div>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;margin:10px 2px;font-size:13px;color:#a9b8ad">
+      <span id="dcDot" style="width:9px;height:9px;border-radius:50%;background:#6b7d72;flex-shrink:0"></span>
+      <span id="dcStatus">Niet gestart</span>
+      <span style="margin-left:auto;font-weight:900;font-size:40px;letter-spacing:-2px;color:#e8b04b;line-height:1" id="dcScore">—</span>
+      <span id="dcScoreLbl" style="font-size:14px;font-weight:700"></span>
+    </div>
+
+    <div style="display:flex;background:#0b1510;border:1px solid rgba(232,176,75,.25);border-radius:12px;padding:4px;gap:4px;margin-bottom:10px" id="dcEngineSeg">
+      <button type="button" data-engine="classic" class="dc-on" style="flex:1;min-height:36px;border:none;border-radius:9px;background:linear-gradient(180deg,#f0bd5e,#e8b04b);color:#1a1206;font-weight:700;font-size:12px;cursor:pointer">Klassiek (CV)</button>
+      <button type="button" data-engine="ai" style="flex:1;min-height:36px;border:none;border-radius:9px;background:transparent;color:#a9b8ad;font-weight:700;font-size:12px;cursor:pointer">AI-model (hook)</button>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-bottom:8px">
+      <button type="button" id="dcStart" style="flex:1;min-height:48px;border:none;border-radius:13px;background:linear-gradient(180deg,#f0bd5e,#e8b04b);color:#1a1206;font-weight:800;font-size:14px;cursor:pointer">Camera starten</button>
+      <button type="button" id="dcCalib" disabled style="flex:1;min-height:48px;border-radius:13px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:800;font-size:14px;cursor:pointer">Kalibreren</button>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button type="button" id="dcTurn" disabled style="flex:1;min-height:48px;border:none;border-radius:13px;background:linear-gradient(180deg,#28b566,#1f9e57);color:#04140b;font-weight:800;font-size:14px;cursor:pointer">Nieuwe beurt</button>
+      <button type="button" id="dcDetect" disabled style="flex:1;min-height:48px;border-radius:13px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:800;font-size:14px;cursor:pointer">Detecteer pijl</button>
+    </div>
+
+    <div id="dcCorrect" style="display:none;background:#12201a;border:1px solid rgba(232,176,75,.25);border-radius:13px;padding:11px;margin-bottom:10px">
+      <div style="font-size:11px;letter-spacing:1px;color:#6b7d72;font-weight:700;margin-bottom:7px">KLOPT NIET? CORRIGEER →</div>
+      <div style="display:flex;gap:6px;margin-bottom:7px" id="dcMults">
+        <button type="button" data-mult="1" class="dc-mon" style="flex:1;min-height:34px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#e8b04b;color:#1a1206;font-weight:700;font-size:13px;cursor:pointer">Enkel</button>
+        <button type="button" data-mult="2" style="flex:1;min-height:34px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:700;font-size:13px;cursor:pointer">Dubbel</button>
+        <button type="button" data-mult="3" style="flex:1;min-height:34px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:700;font-size:13px;cursor:pointer">Triple</button>
+      </div>
+      <div id="dcNumGrid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:5px"></div>
+      <div style="display:flex;gap:6px;margin-top:7px">
+        <button type="button" data-num="25" style="flex:1;min-height:36px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:700;cursor:pointer">25</button>
+        <button type="button" data-num="50" style="flex:1;min-height:36px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:700;cursor:pointer">Bull</button>
+        <button type="button" data-num="0" style="flex:1;min-height:36px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:700;cursor:pointer">Mis</button>
+      </div>
+    </div>
+
+    <div style="font-size:11px;line-height:1.5;color:#6b7d72;background:#12201a;border:1px solid rgba(255,255,255,.05);border-radius:11px;padding:10px 12px">
+      <b style="color:#a9b8ad">Camera-assist, geen volautomaat.</b> Eén telefooncamera is minder
+      nauwkeurig dan profsystemen met 3 camera's. Werkt het best met de telefoon op een statief,
+      recht voor het bord, egale belichting. Kalibreer opnieuw als de telefoon beweegt. Elke
+      gedetecteerde worp komt als suggestie binnen — bevestig of corrigeer. Camera vereist https.
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── DartCam-module (ingesloten) ─────────────────────────────────────────── */
+(function (global) {
+  'use strict';
+  const SEGMENTS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+  const R = { bullInner:0.037, bull25:0.094, tripleIn:0.582, tripleOut:0.629, doubleIn:0.953, doubleOut:1.0 };
+
+  function scoreFromPolar(dx, dy) {
+    const r = Math.sqrt(dx*dx + dy*dy);
+    if (r > R.doubleOut) return { value:0, label:'Mis', segment:0, ring:'miss', mult:1 };
+    if (r <= R.bullInner) return { value:50, label:'Bull', segment:25, ring:'bull', mult:1 };
+    if (r <= R.bull25)    return { value:25, label:'25', segment:25, ring:'25', mult:1 };
+    let ang = Math.atan2(dx, -dy) * 180/Math.PI; if (ang < 0) ang += 360;
+    const idx = Math.floor(((ang + 9) % 360) / 18);
+    const num = SEGMENTS[idx];
+    let mult = 1, ring = 'single';
+    if (r >= R.tripleIn && r <= R.tripleOut) { mult = 3; ring = 'triple'; }
+    else if (r >= R.doubleIn && r <= R.doubleOut) { mult = 2; ring = 'double'; }
+    const label = (mult===3?'T':mult===2?'D':'') + num;
+    return { value:num*mult, label, segment:num, ring, mult };
+  }
+
+  class DartCam {
+    constructor(opts) {
+      if (!opts || !opts.video || !opts.overlay) throw new Error('DartCam: video en overlay verplicht.');
+      this.video = opts.video; this.overlay = opts.overlay;
+      this.onScore = opts.onScore || function(){};
+      this.onState = opts.onState || function(){};
+      this.onCalibrated = opts.onCalibrated || function(){};
+      this.engine = opts.engine || 'classic';
+      this.aiDetect = opts.aiDetect || null;
+      this.threshold = opts.threshold != null ? opts.threshold : 38;
+      this.minCluster = opts.minCluster != null ? opts.minCluster : 60;
+      this.stream = null; this.calib = null; this.refFrame = null;
+      this._work = document.createElement('canvas');
+      this._wctx = this._work.getContext('2d', { willReadFrequently:true });
+      this._calibrating = false; this._calibPoint = 0; this._lastConfidence = 0.5;
+    }
+    async start(constraints) {
+      this.onState('camera-opstarten');
+      const c = constraints || { video:{ facingMode:'environment', width:{ideal:1280}, height:{ideal:1280} }, audio:false };
+      try { this.stream = await navigator.mediaDevices.getUserMedia(c); }
+      catch(e){ this.stream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false }); }
+      this.video.srcObject = this.stream; await this.video.play();
+      this._syncCanvas(); this.onState('camera-actief'); return true;
+    }
+    stop(){ if(this.stream) this.stream.getTracks().forEach(t=>t.stop()); this.stream=null; this.onState('gestopt'); }
+    _syncCanvas(){ const w=this.video.videoWidth||640, h=this.video.videoHeight||640;
+      this.overlay.width=w; this.overlay.height=h; this._work.width=w; this._work.height=h; }
+    startCalibration(){ this._calibrating=true; this._calibPoint=0; this.calib={cx:0,cy:0,radius:0,rotation:0}; this.onState('kalibreren-centrum'); }
+    handleCalibrationTap(nx, ny){
+      if(!this._calibrating) return;
+      const w=this.overlay.width, h=this.overlay.height, px=nx*w, py=ny*h;
+      if(this._calibPoint===0){ this.calib.cx=px; this.calib.cy=py; this._calibPoint=1; this.onState('kalibreren-rand'); }
+      else { const dx=px-this.calib.cx, dy=py-this.calib.cy; this.calib.radius=Math.sqrt(dx*dx+dy*dy);
+        this._calibrating=false; this.drawBoardGuide(); this.onCalibrated(); this.onState('gekalibreerd'); }
+    }
+    isCalibrated(){ return !!(this.calib && this.calib.radius>0); }
+    setRotation(deg){ if(this.calib) this.calib.rotation=deg; this.drawBoardGuide(); }
+    beginTurn(){ if(!this.isCalibrated()){ this.onState('niet-gekalibreerd'); return false; }
+      this.refFrame=this._grab(); this.onState('referentie-vastgelegd'); return true; }
+    _grab(){ this._wctx.drawImage(this.video,0,0,this._work.width,this._work.height);
+      return this._wctx.getImageData(0,0,this._work.width,this._work.height); }
+    async detectDart(){
+      if(!this.isCalibrated()){ this.onState('niet-gekalibreerd'); return null; }
+      const cur=this._grab(); let point;
+      if(this.engine==='ai' && this.aiDetect){
+        const norm=await this.aiDetect(cur); if(!norm){ this.onState('geen-pijl'); return null; }
+        point={ x:this.calib.cx+(norm.x*2-1)*this.calib.radius, y:this.calib.cy+(norm.y*2-1)*this.calib.radius };
+      } else {
+        if(!this.refFrame){ this.onState('geen-referentie'); return null; }
+        point=this._classicDiff(this.refFrame, cur);
+        if(!point){ this.onState('geen-pijl'); return null; }
+      }
+      let dx=(point.x-this.calib.cx)/this.calib.radius, dy=(point.y-this.calib.cy)/this.calib.radius;
+      if(this.calib.rotation){ const a=-this.calib.rotation*Math.PI/180;
+        const rx=dx*Math.cos(a)-dy*Math.sin(a), ry=dx*Math.sin(a)+dy*Math.cos(a); dx=rx; dy=ry; }
+      const result=scoreFromPolar(dx,dy);
+      const detail={ ...result, point, normalized:{x:dx,y:dy}, engine:this.engine,
+        confidence:this._lastConfidence, timestamp:Date.now() };
+      this._drawHit(point, result.label);
+      this.onScore(result.value, detail);
+      this.refFrame=cur; return detail;
+    }
+    _classicDiff(ref, cur){
+      const w=this._work.width, h=this._work.height, a=ref.data, b=cur.data, th=this.threshold;
+      let sumX=0,sumY=0,n=0, tipX=0,tipY=0,tipR=-1; const cx=this.calib.cx, cy=this.calib.cy;
+      for(let y=0;y<h;y+=2) for(let x=0;x<w;x+=2){
+        const i=(y*w+x)*4;
+        const d=Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+Math.abs(a[i+2]-b[i+2]);
+        if(d>th*3){ sumX+=x; sumY+=y; n++;
+          const rr=(x-cx)*(x-cx)+(y-cy)*(y-cy); if(rr>tipR){ tipR=rr; tipX=x; tipY=y; } }
+      }
+      if(n<this.minCluster){ this._lastConfidence=0; return null; }
+      this._lastConfidence=Math.max(0.2, Math.min(0.95, n/1200));
+      return tipR>0 ? {x:tipX,y:tipY} : {x:sumX/n,y:sumY/n};
+    }
+    drawBoardGuide(){
+      const ctx=this.overlay.getContext('2d'); ctx.clearRect(0,0,this.overlay.width,this.overlay.height);
+      if(!this.isCalibrated()) return; const {cx,cy,radius}=this.calib; ctx.save();
+      ctx.strokeStyle='rgba(232,176,75,.7)'; ctx.lineWidth=2;
+      [R.bullInner,R.bull25,R.tripleIn,R.tripleOut,R.doubleIn,R.doubleOut].forEach(fr=>{
+        ctx.beginPath(); ctx.arc(cx,cy,radius*fr,0,Math.PI*2); ctx.stroke(); });
+      ctx.strokeStyle='rgba(232,176,75,.3)';
+      for(let k=0;k<20;k++){ const ang=(k*18+9-90+this.calib.rotation)*Math.PI/180;
+        ctx.beginPath();
+        ctx.moveTo(cx+Math.cos(ang)*radius*R.bull25, cy+Math.sin(ang)*radius*R.bull25);
+        ctx.lineTo(cx+Math.cos(ang)*radius, cy+Math.sin(ang)*radius); ctx.stroke(); }
+      ctx.restore();
+    }
+    _drawHit(point, label){
+      const ctx=this.overlay.getContext('2d'); this.drawBoardGuide(); ctx.save();
+      ctx.fillStyle='#d23b3b'; ctx.strokeStyle='#f4ecd8'; ctx.lineWidth=2;
+      ctx.beginPath(); ctx.arc(point.x,point.y,9,0,Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#f4ecd8'; ctx.font='700 22px system-ui,sans-serif';
+      ctx.fillText(label, point.x+14, point.y-10); ctx.restore();
+    }
+    grabBoardImage(){ return this.isCalibrated() ? this._grab() : null; }
+  }
+  DartCam.scoreFromPolar=scoreFromPolar; DartCam.SEGMENTS=SEGMENTS; DartCam.RINGS=R;
+  global.DartCam = DartCam;
+})(window);
+
+/* ── Bedrading van het paneel ─────────────────────────────────────────────── */
+(function(){
+  const $ = id => document.getElementById(id);
+  if(!$('dartcamPanel')) return;
+  let pendingDetail=null, correctMult=1;
+
+  const STATE = {
+    'camera-opstarten':['#e8b04b','Camera opstarten…','Even geduld…'],
+    'camera-actief':['#28b566','Camera actief','Tik "Kalibreren" en wijs het bord aan.'],
+    'kalibreren-centrum':['#e8b04b','Kalibreren','Tik op het MIDDEN (bull).'],
+    'kalibreren-rand':['#e8b04b','Kalibreren','Tik nu op de BUITENRAND van de double-ring.'],
+    'gekalibreerd':['#28b566','Gekalibreerd ✓','Tik "Nieuwe beurt" met leeg bord.'],
+    'referentie-vastgelegd':['#28b566','Klaar','Gooi en tik "Detecteer pijl".'],
+    'geen-referentie':['#e8b04b','Geen referentie','Tik eerst "Nieuwe beurt".'],
+    'niet-gekalibreerd':['#d23b3b','Niet gekalibreerd','Kalibreer eerst het bord.'],
+    'geen-pijl':['#e8b04b','Geen pijl gezien','Probeer opnieuw of corrigeer handmatig.'],
+    'gestopt':['#6b7d72','Gestopt',''],
+  };
+  function setState(s){ const u=STATE[s]; if(!u) return;
+    $('dcDot').style.background=u[0]; $('dcStatus').textContent=u[1]; if(u[2]) $('dcHint').textContent=u[2]; }
+
+  const cam = new DartCam({
+    video:$('dcVideo'), overlay:$('dcOverlay'), engine:'classic', onState:setState,
+    onCalibrated:()=>{ $('dcTurn').disabled=false; },
+    aiDetect: async (img)=>{ /* plug hier later je TensorFlow.js-model in */ return null; },
+    onScore:(value, detail)=>{
+      pendingDetail=detail;
+      $('dcScore').textContent=value; $('dcScoreLbl').textContent=detail.label;
+      $('dcCorrect').style.display='block';
+      $('dcHint').textContent='Gedetecteerd: '+detail.label+' ('+value+'). Klopt het? Bevestig of corrigeer.';
+      if (typeof window.doThrow === 'function') window.doThrow(value, detail.label);
+    }
+  });
+
+  // open / sluit — aangestuurd vanuit de x01-knop in OCHE
+  window.openDartCam  = ()=>{ $('dartcamPanel').style.display='block'; };
+  window.closeDartCam = ()=>{ $('dartcamPanel').style.display='none'; cam.stop(); };
+  $('dartcamClose').onclick = window.closeDartCam;
+
+  // knoppen
+  $('dcStart').onclick = async ()=>{
+    try { await cam.start(); $('dcCalib').disabled=false; $('dcStart').textContent='Gestart ✓'; }
+    catch(e){ setState('niet-gekalibreerd'); $('dcStatus').textContent='Camera geweigerd';
+      $('dcHint').textContent='Geen cameratoegang. Vereist https:// of localhost, en sta de camera toe.'; }
+  };
+  $('dcCalib').onclick = ()=>cam.startCalibration();
+  $('dcTurn').onclick  = ()=>{ cam.beginTurn(); $('dcDetect').disabled=false; $('dcCorrect').style.display='none'; };
+  $('dcDetect').onclick= ()=>cam.detectDart();
+
+  $('dcOverlay').addEventListener('pointerdown', e=>{
+    const r=$('dcOverlay').getBoundingClientRect();
+    cam.handleCalibrationTap((e.clientX-r.left)/r.width, (e.clientY-r.top)/r.height);
+  });
+
+  // engine-schakelaar
+  $('dcEngineSeg').addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    [...$('dcEngineSeg').children].forEach(x=>{
+      const on=x===b; x.style.background=on?'linear-gradient(180deg,#f0bd5e,#e8b04b)':'transparent';
+      x.style.color=on?'#1a1206':'#a9b8ad';
+    });
+    cam.engine=b.dataset.engine; $('dcEngineBadge').textContent=b.dataset.engine.toUpperCase();
+  });
+
+  // correctie-grid
+  const grid=$('dcNumGrid');
+  for(let n=1;n<=20;n++){ const b=document.createElement('button'); b.type='button'; b.textContent=n; b.dataset.num=n;
+    b.style.cssText='min-height:36px;border-radius:9px;border:1px solid rgba(232,176,75,.25);background:#1a2c23;color:#f4ecd8;font-weight:700;font-size:13px;cursor:pointer'; grid.appendChild(b); }
+  $('dcMults').addEventListener('click', e=>{ const b=e.target.closest('button'); if(!b) return;
+    correctMult=+b.dataset.mult;
+    [...$('dcMults').children].forEach(x=>{ const on=x===b;
+      x.style.background=on?'#e8b04b':'#1a2c23'; x.style.color=on?'#1a1206':'#f4ecd8'; }); });
+  function applyCorrection(num){
+    let value,label;
+    if(num===0){ value=0; label='Mis'; }
+    else if(num===50){ value=50; label='Bull'; }
+    else if(num===25){ value=25; label='25'; }
+    else { value=num*correctMult; label=(correctMult===3?'T':correctMult===2?'D':'')+num; }
+    $('dcScore').textContent=value; $('dcScoreLbl').textContent=label;
+    $('dcHint').textContent='Gecorrigeerd: '+label+' ('+value+').';
+    // a correction REPLACES the auto-committed suggestion (undo + re-add), not a second dart
+    if (typeof window.doThrowCorrect === 'function') window.doThrowCorrect(value, label);
+    else if (typeof window.doThrow === 'function') window.doThrow(value, label);
+  }
+  grid.addEventListener('click', e=>{ const b=e.target.closest('button'); if(b) applyCorrection(+b.dataset.num); });
+  $('dcCorrect').querySelectorAll('div:last-child button').forEach(b=>b.onclick=()=>applyCorrection(+b.dataset.num));
+})();
 </script>
 </body>
 </html>
