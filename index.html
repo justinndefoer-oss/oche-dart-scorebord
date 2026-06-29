@@ -886,6 +886,13 @@ function renderSettings(){
     btn.innerHTML=`<span style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${t.brassHi},${t.brass});border:1px solid ${t.bg3}"></span><span style="font-size:10px;font-weight:700;color:var(--txt2)">${t.label}</span>`;
     btn.onclick=()=>{ s.theme=k; save(); applyTheme(k); renderSettings(); }; sw.appendChild(btn); });
   tr.appendChild(sw); const grp=el('div','group'); grp.appendChild(tr); b.appendChild(grp);
+
+  b.appendChild(el('div','caps','Gegevens'));
+  const dg=el('div'); dg.style.cssText='display:flex;gap:10px;';
+  const exp=el('button','btn btn-secondary',icon('chart',17)+' Exporteer'); exp.onclick=exportData;
+  const imp=el('button','btn btn-secondary',icon('undo',17)+' Importeer'); imp.onclick=importData;
+  dg.appendChild(exp); dg.appendChild(imp); b.appendChild(dg);
+  b.appendChild(el('div',null,'<div style="font-size:11px;color:var(--dim);margin-top:8px">Maak een back-up van je spelers, statistieken en geschiedenis, of zet er een terug. Alles blijft lokaal.</div>'));
 }
 function toggleRow(label,key){
   const r=el('div','setrow'); r.innerHTML=`<div class="l">${label}</div>`;
@@ -1544,15 +1551,43 @@ function showWinner(idx,kind){
   let btns;
   if(kind==='match'){
     btns=`<button class="btn btn-primary" data-win="newgame">Nieuw spel</button>
-      <div class="wrow"><button class="btn btn-secondary" data-win="ranglijst">Ranglijst</button><button class="btn btn-secondary" data-win="players">Spelers</button></div>`;
+      <div class="wrow"><button class="btn btn-secondary" data-win="share">Delen</button><button class="btn btn-secondary" data-win="ranglijst">Ranglijst</button></div>`;
   } else {
     btns=`<button class="btn btn-primary" data-win="continue">Volgende ${kind==='set'?'set':'leg'}</button>
-      <div class="wrow"><button class="btn btn-secondary" data-win="ranglijst">Ranglijst</button><button class="btn btn-secondary" data-win="newgame">Nieuw spel</button></div>`;
+      <div class="wrow"><button class="btn btn-secondary" data-win="share">Delen</button><button class="btn btn-secondary" data-win="newgame">Nieuw spel</button></div>`;
   }
+  const det = MODE_LABEL[GAME.type]||GAME.type;
+  lastShareText = `${pl.name} wint — ${det}${ /(\d)/.test(sub)?' · '+sub.replace(/^[^·]*· /,''):'' } · via OCHE Dart Scorebord`;
   inner.innerHTML=`<div class="wl">Winnaar</div><div class="trophy">${icon('trophy',44,1.75)}</div>
     <div class="wav">${avInit(pl,34)}</div><div class="wn">${pl.name} wint</div><div class="ws">${sub}</div>
     <div class="wchips">${chips}</div><div class="wbtns">${btns}</div>`;
   $('#winner').classList.add('show');
+}
+let lastShareText='';
+async function shareResult(){
+  const text=lastShareText||'OCHE — Dart Scorebord';
+  if(navigator.share){ try{ await navigator.share({title:'OCHE',text}); return; }catch(e){ if(e.name==='AbortError') return; } }
+  try{ await navigator.clipboard.writeText(text); toast('Uitslag gekopieerd'); }catch(e){ toast('Delen niet beschikbaar'); }
+}
+async function exportData(){
+  const data=JSON.stringify(STATE,null,2);
+  const fname='oche-backup-'+new Date().toISOString().slice(0,10)+'.json';
+  try{ const file=new File([data],fname,{type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'OCHE back-up'}); return; } }catch(e){ if(e.name==='AbortError') return; }
+  const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  toast('Back-up opgeslagen');
+}
+function importData(){
+  const inp=document.createElement('input'); inp.type='file'; inp.accept='application/json,.json';
+  inp.onchange=()=>{ const f=inp.files&&inp.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ try{ const s=JSON.parse(rd.result); if(!s||!Array.isArray(s.players)) throw 0;
+      if(confirm('Huidige gegevens vervangen door deze back-up? Dit kan niet ongedaan worden gemaakt.')){
+        STATE=s; if(!STATE.settings) STATE.settings={}; if(!STATE.history) STATE.history=[]; save();
+        applyTheme(STATE.settings.theme||'oche'); toast('Gegevens geïmporteerd'); showTab('instellingen'); } }
+      catch(e){ toast('Ongeldig back-upbestand'); } };
+    rd.readAsText(f); };
+  inp.click();
 }
 function otherSets(idx){ let m=0; GAME.players.forEach((p,i)=>{if(i!==idx)m=Math.max(m,p.setsWon);}); return m; }
 function otherLegs(idx){ let m=0; GAME.players.forEach((p,i)=>{if(i!==idx)m=Math.max(m,p.legsWon);}); return m; }
@@ -1607,6 +1642,7 @@ function recordGameStats(winIdx){
 $('#winner').addEventListener('click',e=>{
   const btn=e.target.closest('[data-win]'); if(!btn) return;
   const act=btn.dataset.win;
+  if(act==='share'){ shareResult(); return; }
   if(act==='continue'){ // reset for next leg
     GAME.players.forEach(p=>Object.assign(p,freshLegReset(p))); GAME.darts=[]; GAME.cur=0; GAME.round=1; GAME.history=[];
     $('#winner').classList.remove('show'); renderGameScreen();
