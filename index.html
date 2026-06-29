@@ -345,6 +345,18 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .handle{width:42px;height:5px;border-radius:3px;background:#3a4d42;margin:6px auto 16px;}
 .sheet h2{font-size:19px;font-weight:800;display:flex;align-items:center;gap:10px;}
 .sheet .sh-sub{font-size:13px;color:var(--txt2);margin:3px 0 16px;}
+.rules{display:flex;flex-direction:column;gap:8px;}
+.rule{background:var(--bg0);border:1px solid rgba(255,255,255,.05);border-radius:14px;overflow:hidden;}
+.rule[open]{border-color:var(--gold-border);}
+.rule summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:11px;padding:14px 15px;font-weight:700;font-size:15px;}
+.rule summary::-webkit-details-marker{display:none;}
+.rule summary .ri{color:var(--brass);display:flex;line-height:0;}
+.rule summary .rt{flex:1;}
+.rule summary .rpro{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--brass);background:var(--bg3);padding:2px 6px;border-radius:7px;margin-left:6px;vertical-align:middle;}
+.rule summary .rcar{color:var(--dim);transition:transform .2s;font-size:13px;}
+.rule[open] summary .rcar{transform:rotate(90deg);color:var(--brass);}
+.rule .rbody{padding:0 15px 15px;font-size:13.5px;line-height:1.6;color:#d8e2da;}
+.rule .rbody b{color:var(--chalk);}
 
 /* winner overlay */
 #winner{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;
@@ -503,7 +515,10 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
         <div class="sub">Dart Scorebord</div>
         <div class="divider"></div>
       </div>
-      <h1 class="title">Spelmodus</h1>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <h1 class="title" style="margin-bottom:6px;">Spelmodus</h1>
+        <button style="color:var(--brass);font-weight:800;font-size:15px;display:flex;align-items:center;gap:5px;" id="rulesBtn">Spelregels</button>
+      </div>
       <div id="modus-body"></div>
     </div>
     <div class="sticky-action">
@@ -674,6 +689,7 @@ const ICONS={
   chart:'<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>',
   flame:'<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
   undo:'<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
 };
 function icon(name,size,sw){ size=size||20; return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 function avInit(p,size){ return p.isBot ? icon('bot',size||20) : p.initials; }
@@ -2273,6 +2289,33 @@ function openGameSettings(){
   sh.querySelector('#gsClose').onclick=closeSheet;
   showSheet();
 }
+
+/* ============ RULES GUIDE ============ */
+const RULES=[
+  {k:'x01',ic:'target',t:'x01 (301 / 501 / 701)',d:'Begin op 301, 501 of 701 en tel af naar precies <b>0</b>. Per beurt gooi je drie pijlen; de som wordt van je score afgetrokken. Kom je onder 0, blijf je op 1 staan (bij double-out) of eindig je niet op een dubbel, dan is het <b>bust</b>: je beurt vervalt en je score blijft staan. Sluit af volgens de gekozen checkout (Double / Master / Straight). Gespeeld over legs en sets (first to of best of).'},
+  {k:'cricket',ic:'crosshair',t:'Cricket',d:'Sluit de getallen <b>15 t/m 20</b> en de <b>bull</b> door ze elk 3× te raken (triple telt als 3, dubbel als 2). Heb je een nummer gesloten en je tegenstander nog niet, dan <b>scoor je punten</b> met dat nummer. Wie alles gesloten heeft én genoeg punten, wint. Varianten: <b>Standaard</b>, <b>Cut-Throat</b> (punten gaan naar tegenstanders, laagste wint) en <b>No Score</b> (alleen sluiten).'},
+  {k:'atc',ic:'clock',t:'Around the Clock',d:'Raak <b>1 t/m 20 op volgorde</b>, eventueel met de bull als slot. Per beurt drie pijlen; raak je je doelgetal, dan schuif je door. De eerste die de hele klok rond is, wint.'},
+  {k:'bob',ic:'crosshair',t:"Bob's 27",d:'Start met <b>27 punten</b> en jaag de dubbels op volgorde: D1 → D20 → bull. Raak je een dubbel: <b>+2× het getal</b>. Mis je alle drie de pijlen: <b>−2× het getal</b>. Zak je onder 0, dan lig je eruit. De hoogste eindscore wint.'},
+  {k:'countup',ic:'chart',t:'Count Up',premium:true,d:'Scoor in een vast aantal rondes <b>zo veel mogelijk punten</b> — puur scoren, niets aftrekken. Hoogste totaal na alle rondes wint. Ideaal om je scoregemiddelde te trainen.'},
+  {k:'cotrain',ic:'target',t:'Checkout-training',premium:true,d:'Je krijgt steeds een willekeurige finish (<b>41–170</b>). Probeer die in 3 pijlen uit te gooien, eindigend op een dubbel. Je <b>trefkans</b> (uitgegooid ÷ pogingen) bepaalt de winnaar.'},
+  {k:'doubles',ic:'crosshair',t:'Dubbels-training',premium:true,d:'Werk D1 → D20 → bull af. Per dubbel krijg je 3 pijlen; raak je ’m, dan telt een <b>treffer</b>. De hoogste trefkans-% wint. Perfect voor je finishes.'},
+  {k:'trebles',ic:'target',t:'Trebles-training',premium:true,d:'Werk T1 → T20 af. Per triple 3 pijlen; raak je ’m, dan telt een <b>treffer</b>. De hoogste trefkans-% wint. Voor je scoringspijlen.'},
+  {k:'killer',ic:'skull',t:'Killer',d:'Iedereen kiest een nummer en heeft <b>3 levens</b>. Raak eerst je eigen dubbel om <b>killer</b> te worden. Als killer haal je levens weg bij anderen door <b>hun</b> dubbel te raken. De laatste met levens over wint.'},
+  {k:'shanghai',ic:'zap',t:'Shanghai',d:'20 rondes (1 t/m 20). Scoor met single, double en triple van het rondegetal. Gooi je een <b>Shanghai</b> — single + dubbel + triple van hetzelfde getal in één beurt — dan win je direct. Anders wint de hoogste score na ronde 20.'},
+  {k:'halveit',ic:'flame',t:'Halve It',premium:true,d:'Vaste rondes met doelen (20 · 16 · dubbel · 14 · triple · bull). Raak je in een ronde <b>niets</b> van het doel, dan wordt je score <b>gehalveerd</b>. Hoogste score wint — risico en precisie.'},
+  {k:'bermuda',ic:'zap',t:'Bermuda',premium:true,d:'12 doelen op rij: 12 · 13 · 14 · dubbel · 15 · 16 · 17 · triple · 18 · 19 · 20 · bull. Mis je in een ronde <b>alles</b>, dan wordt je score gehalveerd. Hoogste score na alle doelen wint.'},
+  {k:'golf',ic:'crosshair',t:'Golf',premium:true,d:'9 holes (1 t/m 9). Per hole 3 pijlen op dat nummer: <b>triple = 1 slag</b>, dubbel = 2, single = 3, mis = 5. Net als bij golf wint de <b>laagste</b> totaalscore.'},
+  {k:'gotcha',ic:'target',t:'Gotcha',premium:true,d:'Tel op naar <b>exact</b> het doel (201/301/501). Erover = bust, beurt vervalt. Land je precies op de score van een ander, dan slaat dat die speler <b>terug naar 0</b>. Wie eerst exact op het doel staat, wint.'},
+  {k:'tourney',ic:'trophy',t:'Toernooi',premium:true,d:'Speel een reeks x01-wedstrijden met 3+ spelers. <b>Knock-out</b>: verliezen = uitgeschakeld, via het schema naar de finale (oneven aantal? dan een vrije ronde). <b>Poule</b>: iedereen speelt tegen iedereen, ranglijst op winst en daarna legsaldo. De bovenste pakt de titel.'},
+];
+function openRulesSheet(){
+  const sh=$('#sheet');
+  const items=RULES.map(r=>`<details class="rule"><summary><span class="ri">${icon(r.ic,18)}</span><span class="rt">${r.t}${r.premium?'<span class="rpro">PRO</span>':''}</span><span class="rcar">▶</span></summary><div class="rbody">${r.d}</div></details>`).join('');
+  sh.innerHTML=`<div class="handle"></div><h2><span style="color:var(--brass)">${icon('book',22)}</span> Spelregels</h2>
+    <div class="sh-sub">Tik op een spel voor de regels</div>
+    <div class="rules">${items}</div>`;
+  showSheet();
+}
 function openPremiumSheet(){
   const sh=$('#sheet');
   const proModes=Object.keys(MODES).filter(k=>MODES[k].premium).map(k=>MODES[k].t);
@@ -2306,6 +2349,7 @@ function handleAct(act){
 applyTheme(STATE.settings.theme||'oche');
 $('#startBtn').onclick=startGame;
 $('#startModeBtn').onclick=startGame;
+$('#rulesBtn').onclick=openRulesSheet;
 document.querySelectorAll('#tabbar [data-ic]').forEach(b=>{ b.querySelector('.ti').innerHTML=icon(b.dataset.ic,23); });
 $('#chartsBtn').innerHTML=icon('chart',18)+' Bekijk grafieken';
 showTab('spel');
