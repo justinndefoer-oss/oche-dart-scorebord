@@ -1575,12 +1575,28 @@ function missDart(){
   if(GAME.type==='cricket'||GAME.type==='killer'||GAME.type==='shanghai'){ pushHistory(); GAME.darts.push({v:0,m:0,miss:true}); if(GAME.darts.length>=3){renderGameScreen(); if(GAME.auto&&!curIsBot())setTimeout(nextPlayer,400);return;} renderGameScreen(); return; }
   x01Dart(0,1);
 }
+function openGameSettings(){
+  const sh=$('#sheet'); const s=STATE.settings;
+  sh.innerHTML=`<div class="handle"></div><h2>${icon('settings',22)} Snelle instellingen</h2>
+    <div class="sh-sub">Aanpassen zonder het spel te verlaten</div>
+    <div class="group" id="gs"></div>
+    <button class="btn btn-primary" id="gsClose" style="margin-top:14px">Terug naar spel</button>`;
+  const g=sh.querySelector('#gs');
+  [['sound','volume','Geluid'],['autoContinue','play','Auto doorgaan'],['vibrate','vibrate','Trillen bij bust']].forEach(([key,ic,label])=>{
+    const r=el('div','setrow'); r.innerHTML=`<div class="l">${icon(ic,18)} ${label}</div>`;
+    const t=el('div',s[key]?'toggle on':'toggle');
+    t.onclick=()=>{ s[key]=!s[key]; save(); t.classList.toggle('on'); if(key==='autoContinue'&&GAME){ GAME.auto=s.autoContinue; renderGameScreen(); } };
+    r.appendChild(t); g.appendChild(r);
+  });
+  sh.querySelector('#gsClose').onclick=closeSheet;
+  showSheet();
+}
 function handleAct(act){
   if(act==='undo') undo();
   else if(act==='next') nextPlayer();
   else if(act==='toggleAuto'){ GAME.auto=!GAME.auto; renderGameScreen(); }
   else if(act==='stop'){ if(confirm('Spel stoppen?')){ GAME=null; showTab('spel'); } }
-  else if(act==='gameSettings'){ showTab('instellingen'); }
+  else if(act==='gameSettings'){ openGameSettings(); }
 }
 
 /* ============ INIT ============ */
