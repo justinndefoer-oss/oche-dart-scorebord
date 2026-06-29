@@ -1,0 +1,17 @@
+{
+  "name": "OCHE — Dart Scorebord",
+  "short_name": "OCHE",
+  "description": "Offline dartscorebord — x01, Cricket, Around the Clock, Killer, Shanghai, Bob's 27. Geen account, alles lokaal opgeslagen.",
+  "lang": "nl",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b1510",
+  "theme_color": "#0b1510",
+  "categories": ["games", "sports"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
