@@ -178,6 +178,10 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* ===== GAME SCREEN ===== */
 #game{background:radial-gradient(120% 80% at 50% 0%,#15271d,#0b1510);}
 .gamewrap{flex:1;display:flex;flex-direction:column;padding:calc(var(--safe-top) + 8px) 14px calc(8px + var(--safe-bottom));overflow:hidden;}
+#game-body > div{flex:1;display:flex;flex-direction:column;min-height:0;}
+.inpzone{margin-top:auto;}
+#game-body .bigcard{flex:1 1 auto;display:flex;flex-direction:column;justify-content:center;}
+#game-body .bigcard .big{margin:10px 0;}
 .ctrlbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;}
 .ctrlbar .gl{font-weight:800;font-size:15px;line-height:1.1;}
 .ctrlbar .gl .gs{font-size:9px;font-weight:700;letter-spacing:2px;color:var(--dim);text-transform:uppercase;display:block;margin-top:2px;}
@@ -976,7 +980,7 @@ function ctrlBar(label,sub){
 }
 function multSeg(opts){
   opts=opts||[['1','Single'],['2','Double'],['3','Triple']];
-  return `<div class="seg mult">${opts.map(([v,l])=>`<button data-mult="${v}" class="${GAME.mult==v?'on':''}">${l}</button>`).join('')}</div>`;
+  return `<div class="seg mult inpzone">${opts.map(([v,l])=>`<button data-mult="${v}" class="${GAME.mult==v?'on':''}">${l}</button>`).join('')}</div>`;
 }
 function numpadHTML(){
   let h='<div class="numpad">';
@@ -1181,7 +1185,7 @@ function renderATC(){
   const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].hit?'green':'red'):''}"></div>`).join('');
   return `<div>${ctrlBar('Around the Clock',STATE.setup.atcStart+' → '+end+' · BULL '+(useBull?'AAN':'UIT'))}${strip}${big}${grid}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
-    <div class="bigactions"><button class="bigact-miss" data-atc="0">Mis</button><button class="bigact-hit" data-atc="1">Raak ${tlabel}</button></div>
+    <div class="bigactions inpzone"><button class="bigact-miss" data-atc="0">Mis</button><button class="bigact-hit" data-atc="1">Raak ${tlabel}</button></div>
     <div class="subactions"><button data-act="undo">${icon('undo',15)} Undo</button><button data-act="next">Volgende speler</button></div></div>`;
 }
 function atcThrow(hit){
@@ -1275,7 +1279,7 @@ function renderShanghai(){
   const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].m?'green':'red'):''}"></div>`).join('');
   return `<div>${ctrlBar(icon('zap',16)+' Shanghai','RONDE '+rnd+' VAN 20')}${heads}${big}${banner}${prog}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
-    <div class="numpad" style="grid-template-columns:repeat(3,1fr)">
+    <div class="numpad inpzone" style="grid-template-columns:repeat(3,1fr)">
       <button data-smult="1">Single ${rnd}</button><button data-smult="2">Double ${rnd*2}</button><button data-smult="3">Triple ${rnd*3}</button></div>
     <div class="actions"><button class="act-miss" data-smult="0">Mis</button><button class="act-undo" data-act="undo">${icon('undo',16)}</button>
     <button class="act-next" data-act="next" style="grid-column:span 2">Volgende</button></div></div>`;
@@ -1312,7 +1316,7 @@ function renderBob(){
     const cls= idx<ti?(cur.hitMap&&cur.hitMap[n]?'green':'red') : (n===cur.target?'cur':''); grid+=`<div class="pcell ${cls}">${n===25?'B':n}</div>`; });
   grid+='</div>';
   return `<div>${ctrlBar(icon('crosshair',16)+" Bob's 27",'DUBBELS D1 → BULL')}${strip}${big}${tiles}${grid}
-    <div class="bigactions"><button class="bigact-miss" data-bob="0">Mis</button><button class="bigact-hit" data-bob="1">Raak D${tl}</button></div>
+    <div class="bigactions inpzone"><button class="bigact-miss" data-bob="0">Mis</button><button class="bigact-hit" data-bob="1">Raak D${tl}</button></div>
     <div class="subactions"><button data-act="undo">${icon('undo',15)} Undo</button><button data-act="next">Volgende ronde</button></div></div>`;
 }
 function bobThrow(hit){
