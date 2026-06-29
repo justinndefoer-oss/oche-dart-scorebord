@@ -1026,9 +1026,11 @@ function renderX01(){
   const cur=curP();
   const remaining = cur.score - turnSum();
   const dartsLeft = 3 - GAME.darts.length;
+  const needDoubleIn = STATE.setup.checkIn==='double' && !cur.checkedIn;
   const route = bestRoute(remaining, dartsLeft);  // route that actually fits the darts left
   let cobar='';
-  if(route) cobar=`<div class="cobar"><span class="l">CHECKOUT ${remaining}</span><span class="r">${route}</span></div>`;
+  if(needDoubleIn) cobar=`<div class="cobar"><span class="l">DUBBEL IN</span><span class="r">Raak een dubbel om te starten</span></div>`;
+  else if(route) cobar=`<div class="cobar"><span class="l">CHECKOUT ${remaining}</span><span class="r">${route}</span></div>`;
   else cobar=`<div class="cobar" style="opacity:.5"><span class="l">REST ${remaining}</span><span class="r">—</span></div>`;
   const slots=dartSlotsX01();
   return `<div>${ctrlBar(s.points+' · '+co,sub)}${cards}${cobar}${slots}${multSeg()}${numpadHTML()}
@@ -1047,18 +1049,20 @@ function dartSlotsX01(){
   return h;
 }
 function dartLabel(d){ if(d.v===0)return 'Miss'; if(d.v===25)return d.m===2?'Bull':'25'; const pre=d.m===3?'T':d.m===2?'D':''; return pre+d.v; }
-function dartValue(d){ return d.v*d.m; }
+function dartValue(d){ return d.noScore?0:d.v*d.m; }
 function turnSum(){ return GAME.darts.reduce((a,d)=>a+dartValue(d),0); }
 
 function x01Dart(v,m){
   const cur=curP();
   if(GAME.darts.length>=3) return;
   pushHistory();
-  GAME.darts.push({v,m});
-  const remaining=cur.score-turnSum();
-  // check-in for double-in
-  // bust / finish logic
   const isDouble = (m===2)||(v===25&&m===2);
+  // double-in: until the player hits a double, darts don't score
+  let noScore=false;
+  if(STATE.setup.checkIn==='double' && !cur.checkedIn){ if(isDouble) cur.checkedIn=true; else noScore=true; }
+  GAME.darts.push({v,m,noScore});
+  const remaining=cur.score-turnSum();
+  // bust / finish logic
   if(remaining<0 || remaining===1 && STATE.setup.checkout==='double' || (remaining===0 && STATE.setup.checkout==='double' && !isDouble)){
     bustTurn(); return;
   }
@@ -1530,7 +1534,10 @@ function botThrowOne(prof){
   const t=GAME.type;
   if(t==='x01'){
     const cur=curP(); const rem=cur.score-turnSum();
-    if(rem<=170 && checkoutRoute(rem) && Math.random()<prof.doubleAcc){
+    if(STATE.setup.checkIn==='double' && !cur.checkedIn){
+      // must check in on a double first
+      if(Math.random()<prof.doubleAcc) x01Dart(20,2); else x01Dart([1,5,7,12][Math.floor(Math.random()*4)],1);
+    } else if(rem<=170 && checkoutRoute(rem) && Math.random()<prof.doubleAcc){
       // attempt finish: hit the route's first dart value as the remaining
       const route=checkoutRoute(rem).split(' '); const first=route[0];
       const {v,m}=parseDart(first); x01Dart(v,m);
