@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="OCHE">
 <meta name="theme-color" content="#0b1510">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 <title>OCHE — Dart Scorebord</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -510,7 +513,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* ============ STATE ============ */
 const DEFAULT_STATE = {
   setup:{ type:'x01', points:501, checkout:'double', checkIn:'straight', format:'firstTo', sets:1, legs:3,
-    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, selectedPlayers:[1,2] },
+    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, selectedPlayers:[1,2] },
   players:[
     {id:1,name:'Justin',initials:'JT',isBot:false,stats:{avg:61.4,games:128,wins:82,checkoutPct:38,dartsPerLeg:14.2,avgHistory:[45,52,58,60,46,65,68,72,65,68],scoreDist:{'26+':30,'41+':58,'60+':80,'100+':52,'140+':34,'180':18},doubles:{D20:44,D16:51,Bull:29}}},
     {id:2,name:'Sanne',initials:'SD',isBot:false,stats:{avg:54.8,games:96,wins:49,checkoutPct:32,dartsPerLeg:15.8,avgHistory:[40,48,52,55,50,58,54,60,56,58],scoreDist:{'26+':38,'41+':62,'60+':70,'100+':40,'140+':22,'180':9},doubles:{D20:36,D16:42,Bull:24}}},
@@ -518,6 +521,7 @@ const DEFAULT_STATE = {
     {id:4,name:'Dart Robot',initials:'🤖',isBot:true,botLevel:'gevorderd',adaptive:true,stats:{avg:75,games:0,wins:0,checkoutPct:42,dartsPerLeg:13.5,avgHistory:[],scoreDist:{},doubles:{}}},
   ],
   settings:{ sound:true, voice:true, autoContinue:true, botStrength:'gevorderd', adaptive:true, vibrate:false, keepScreen:true, voiceCaller:'Russ Bray' },
+  history:[],
   nextId:5,
 };
 let STATE = load();
@@ -697,14 +701,16 @@ function updateStartBtn(){ $('#startBtn').textContent = STATE.setup.type==='x01'
 /* ============ SPELMODUS ============ */
 const MODES={ atc:{ic:'clock',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde',grp:'training'},
   bob:{ic:'crosshair',t:"Bob's 27",d:'Dubbels jagen, blijf boven 0',grp:'training'},
+  countup:{ic:'chart',t:'Count Up',d:'Scoor zo hoog mogelijk in X rondes',grp:'training'},
   killer:{ic:'skull',t:'Killer',d:'Word killer, sloop levens',grp:'party'},
-  shanghai:{ic:'zap',t:'Shanghai',d:'Single, double, triple winst',grp:'party'} };
+  shanghai:{ic:'zap',t:'Shanghai',d:'Single, double, triple winst',grp:'party'},
+  halveit:{ic:'flame',t:'Halve It',d:'Mis de ronde = score gehalveerd',grp:'party'} };
 function renderModus(){
   const b=$('#modus-body'); b.innerHTML='';
   b.appendChild(el('div','caps','Trainingsmodi'));
-  const g1=el('div','modegrid'); ['atc','bob'].forEach(k=>g1.appendChild(modeCard(k))); b.appendChild(g1);
+  const g1=el('div','modegrid'); Object.keys(MODES).filter(k=>MODES[k].grp==='training').forEach(k=>g1.appendChild(modeCard(k))); b.appendChild(g1);
   b.appendChild(el('div','caps','Party'));
-  const g2=el('div','modegrid'); ['killer','shanghai'].forEach(k=>g2.appendChild(modeCard(k))); b.appendChild(g2);
+  const g2=el('div','modegrid'); Object.keys(MODES).filter(k=>MODES[k].grp==='party').forEach(k=>g2.appendChild(modeCard(k))); b.appendChild(g2);
   // mode-specific settings
   const m=STATE.setup.mode;
   b.appendChild(el('div','caps','Instellingen · '+MODES[m].t));
@@ -716,6 +722,10 @@ function renderModus(){
     const tr=el('div','setrow'); tr.style.margin='8px 0 0';
     tr.innerHTML=`<div class="l">${icon('target',18)} Bull aan het eind</div>`; const tg=el('div',STATE.setup.atcBull?'toggle on':'toggle');
     tg.onclick=()=>{STATE.setup.atcBull=!STATE.setup.atcBull;save();tg.classList.toggle('on');}; tr.appendChild(tg); set.appendChild(tr);
+  } else if(m==='countup'){
+    set.appendChild(stepper('Rondes','cuRounds',3,20));
+  } else if(m==='halveit'){
+    set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">6 rondes: 20 · 16 · dubbel · 14 · triple · bull. Raak je in een ronde niks van het doel, dan wordt je score gehalveerd.</div>`;
   } else if(m==='killer'){
     set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">3 levens · dubbel om te killen. Elke speler kiest een nummer bij de start.</div>`;
   } else if(m==='shanghai'){
@@ -754,6 +764,34 @@ function renderSpelers(){
     b.appendChild(makeSwipeRow(row,()=>deletePlayer(p.id)));
   });
   b.appendChild(el('div',null,'<div style="text-align:center;color:var(--dim);font-size:11px;margin-top:6px">Veeg een speler naar links om te verwijderen</div>'));
+  renderHistory(b);
+}
+const MODE_LABEL={x01:'x01',cricket:'Cricket',atc:'Around the Clock',killer:'Killer',shanghai:'Shanghai',bob:"Bob's 27"};
+const MODE_ABBR={x01:'01',cricket:'CR',atc:'AC',killer:'KL',shanghai:'SH',bob:'27'};
+function renderHistory(b){
+  const hist=STATE.history||[];
+  const head=el('div'); head.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px';
+  head.innerHTML='<div class="caps" style="margin:0">Recente partijen</div>';
+  if(hist.length){ const clr=el('button',null,'Wissen'); clr.style.cssText='color:var(--dim);font-size:12px;font-weight:700;';
+    clr.onclick=()=>{ if(confirm('Spelgeschiedenis wissen?')){ STATE.history=[]; save(); renderSpelers(); } }; head.appendChild(clr); }
+  b.appendChild(head);
+  if(!hist.length){ b.appendChild(el('div','empty','Nog geen partijen gespeeld.<br>Speel een spel — het verschijnt hier.')); return; }
+  hist.slice(0,12).forEach(h=>{
+    const row=el('div','prow'); row.style.marginBottom='8px';
+    const others=h.players.filter(n=>n!==h.winner);
+    const vs=others.length?' vs '+others.join(', '):'';
+    row.innerHTML=`<div class="avatar" style="font-size:13px">${MODE_ABBR[h.type]||'·'}</div>
+      <div class="info"><div class="nm">${h.winner} wint <span style="color:var(--dim);font-weight:600">· ${MODE_LABEL[h.type]||h.type}</span></div>
+      <div class="meta">${h.detail||''}${vs}</div></div>
+      <div style="font-size:11px;color:var(--dim);text-align:right;white-space:nowrap">${timeAgo(h.date)}</div>`;
+    b.appendChild(row);
+  });
+}
+function timeAgo(ts){
+  const d=Math.floor((Date.now()-ts)/1000);
+  if(d<60) return 'nu'; if(d<3600) return Math.floor(d/60)+' min'; if(d<86400) return Math.floor(d/3600)+' u';
+  const days=Math.floor(d/86400); if(days<7) return days+' d';
+  return new Date(ts).toLocaleDateString('nl-NL',{day:'numeric',month:'short'});
 }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
 
@@ -868,7 +906,7 @@ function startGame(){
   const type = activeTab==='spel' ? STATE.setup.type : STATE.setup.mode;
   GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, darts:[], mult:1,
     history:[], setsTarget:STATE.setup.sets, legsTarget:STATE.setup.legs, auto:STATE.settings.autoContinue,
-    round:1, finished:false };
+    round:1, finished:false, cuRounds:STATE.setup.cuRounds };
   if(type==='killer'){ GAME.pickIndex=0; renderGameScreen(); openKillerPick(); return; }
   renderGameScreen();
 }
@@ -880,8 +918,11 @@ function freshPlayerGame(type){
   if(type==='shanghai') return {...base,points:0};
   if(type==='bob') return {...base,balance:27,target:1};
   if(type==='killer') return {...base,number:null,lives:3,isKiller:false,eliminated:false};
+  if(type==='countup') return {...base,score:0};
+  if(type==='halveit') return {...base,score:0};
   return base;
 }
+const HALVE_TARGETS=[{label:'20',t:'n',n:20},{label:'16',t:'n',n:16},{label:'Dubbel',t:'D'},{label:'14',t:'n',n:14},{label:'Triple',t:'T'},{label:'Bull',t:'B'}];
 function curP(){ return GAME.players[GAME.cur]; }
 function pushHistory(){ GAME.history.push(JSON.stringify({players:GAME.players,cur:GAME.cur,darts:GAME.darts,round:GAME.round,pickIndex:GAME.pickIndex,mult:GAME.mult})); if(GAME.history.length>60)GAME.history.shift(); }
 function undo(){
@@ -902,6 +943,8 @@ function renderGameScreen(){
   else if(GAME.type==='killer') b.innerHTML=renderKiller();
   else if(GAME.type==='shanghai') b.innerHTML=renderShanghai();
   else if(GAME.type==='bob') b.innerHTML=renderBob();
+  else if(GAME.type==='countup') b.innerHTML=renderCountUp();
+  else if(GAME.type==='halveit') b.innerHTML=renderHalveIt();
   bindGame();
   maybeBotTurn();
 }
@@ -1003,6 +1046,7 @@ function nextPlayer(){
   const cur=curP();
   // commit turn for scoring modes that accumulate per turn
   if(GAME.type==='x01' && GAME.darts.length>0 && cur.score-turnSum()>1){ commitX01Turn(); }
+  if(GAME.type==='halveit' && GAME.darts.length>0){ const sum=GAME.darts.reduce((a,d)=>a+(d.val||0),0); if(sum===0) cur.score=Math.floor(cur.score/2); else cur.score+=sum; cur.lastTurn=sum; }
   GAME.darts=[]; GAME.mult=1;
   GAME.cur=(GAME.cur+1)%GAME.players.length;
   // skip eliminated in killer
@@ -1010,6 +1054,8 @@ function nextPlayer(){
   if(GAME.cur===0) GAME.round++;
   // shanghai end after 20 rounds
   if(GAME.type==='shanghai' && GAME.round>20){ shanghaiEnd(); return; }
+  if(GAME.type==='countup' && GAME.round>GAME.cuRounds){ highestWins(); return; }
+  if(GAME.type==='halveit' && GAME.round>HALVE_TARGETS.length){ highestWins(); return; }
   renderGameScreen();
 }
 function curIsBot(){ return getPlayer(curP().id).isBot; }
@@ -1267,6 +1313,60 @@ function bobThrow(hit){
 function nextBobTarget(t){ const i=BOB_TARGETS.indexOf(t); return i<BOB_TARGETS.length-1?BOB_TARGETS[i+1]:null; }
 function allBobDone(){ return GAME.players.every(p=>p.target===null||p.balance<0); }
 function bobEnd(){ let best=-9999,wi=0; GAME.players.forEach((p,i)=>{ if(p.balance>best){best=p.balance;wi=i;} }); GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); }
+function highestWins(){ let best=-Infinity,wi=0; GAME.players.forEach((p,i)=>{ if(p.score>best){best=p.score;wi=i;} }); GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); }
+
+/* ---- COUNT UP ---- */
+function renderCountUp(){
+  let heads='<div class="cheaders">';
+  GAME.players.slice(0,2).forEach((p,i)=>{ const pl=getPlayer(p.id);
+    heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${pl.name}</div><div class="sc">${p.score}</div></div>`; });
+  heads+='</div>';
+  const big=`<div class="bigcard"><div class="lbl">Ronde ${GAME.round} van ${GAME.cuRounds}</div><div class="big">${turnSum()}</div><div class="hint">Scoor zo veel mogelijk</div></div>`;
+  return `<div>${ctrlBar(icon('chart',16)+' Count Up','RONDE '+GAME.round+' VAN '+GAME.cuRounds)}${heads}${big}${dartSlotsX01()}${multSeg()}${numpadHTML()}
+    <div class="actions"><button class="act-bull" data-bull="1">Bull</button><button class="act-miss" data-miss="1">Miss</button>
+    <button class="act-undo" data-act="undo">${icon('undo',16)}</button><button class="act-next" data-act="next" ${GAME.darts.length===0?'disabled':''}>Volgende</button></div></div>`;
+}
+function countUpDart(v,m){
+  if(GAME.darts.length>=3) return;
+  pushHistory(); GAME.darts.push({v,m}); curP().score+=v*m;
+  if(GAME.darts.length>=3){ renderGameScreen(); if(GAME.auto&&!curIsBot()) setTimeout(nextPlayer,450); return; }
+  renderGameScreen();
+}
+
+/* ---- HALVE IT ---- */
+function halveValue(tg,v,m){
+  if(tg.t==='n') return v===tg.n ? v*m : 0;
+  if(tg.t==='D') return m===2 ? v*m : 0;
+  if(tg.t==='T') return m===3 ? v*m : 0;
+  if(tg.t==='B') return v===25 ? v*m : 0;
+  return 0;
+}
+function renderHalveIt(){
+  const tg=HALVE_TARGETS[GAME.round-1];
+  let heads='<div class="cheaders">';
+  GAME.players.slice(0,2).forEach((p,i)=>{ const pl=getPlayer(p.id);
+    heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${pl.name}</div><div class="sc">${p.score}</div></div>`; });
+  heads+='</div>';
+  const turn=GAME.darts.reduce((a,d)=>a+(d.val||0),0);
+  const big=`<div class="bigcard"><div class="lbl">Deze ronde · raak</div><div class="big">${tg.label}</div><div class="hint">${turn>0?('+'+turn+' deze beurt'):'Mis alles = score gehalveerd'}</div></div>`;
+  let tiles='<div class="darttiles">';
+  for(let i=0;i<3;i++){ const d=GAME.darts[i]; if(d===undefined) tiles+='<div class="dtile">–</div>'; else tiles+=`<div class="dtile ${d.val>0?'hit':'miss'}">${d.val>0?'+'+d.val:dartLabel(d)}</div>`; }
+  tiles+='</div>';
+  let prog='<div class="pgrid" style="grid-template-columns:repeat(6,1fr)">';
+  HALVE_TARGETS.forEach((t,i)=>{ const cls=i<GAME.round-1?'hit':(i===GAME.round-1?'cur':''); prog+=`<div class="pcell ${cls}">${t.label.slice(0,3)}</div>`; });
+  prog+='</div>';
+  return `<div>${ctrlBar(icon('flame',16)+' Halve It','RONDE '+GAME.round+' VAN '+HALVE_TARGETS.length)}${heads}${big}${tiles}${prog}${multSeg()}${numpadHTML()}
+    <div class="actions"><button class="act-bull" data-bull="1">Bull</button><button class="act-miss" data-miss="1">Miss</button>
+    <button class="act-undo" data-act="undo">${icon('undo',16)}</button><button class="act-next" data-act="next" ${GAME.darts.length===0?'disabled':''}>Volgende</button></div></div>`;
+}
+function halveItThrow(v,m){
+  if(GAME.darts.length>=3) return;
+  pushHistory();
+  const tg=HALVE_TARGETS[GAME.round-1];
+  GAME.darts.push({v,m,val:halveValue(tg,v,m)});
+  if(GAME.darts.length>=3){ renderGameScreen(); if(GAME.auto&&!curIsBot()) setTimeout(nextPlayer,500); return; }
+  renderGameScreen();
+}
 
 /* ============ BUST / WINNER ============ */
 function showBust(sub){ $('#bust-sub').textContent=sub||''; const e=$('#bust'); e.classList.add('show'); setTimeout(()=>e.classList.remove('show'),1300); }
@@ -1306,10 +1406,37 @@ function chipsForGame(p,pl){
   if(GAME.type==='bob') return `<div class="wchip green"><div class="v">${p.balance}</div><div class="k">Saldo</div></div>`;
   if(GAME.type==='atc') return `<div class="wchip brass"><div class="v">${p.hits}</div><div class="k">Geraakt</div></div>`;
   if(GAME.type==='killer') return `<div class="wchip green"><div class="v">${p.lives}</div><div class="k">Levens over</div></div>`;
+  if(GAME.type==='countup'||GAME.type==='halveit') return `<div class="wchip brass"><div class="v">${p.score}</div><div class="k">Punten</div></div>`;
   return '';
 }
 function recordGameStats(winIdx){
-  GAME.players.forEach((gp,i)=>{ const pl=getPlayer(gp.id); pl.stats.games++; if(i===winIdx) pl.stats.wins++; });
+  const winName=getPlayer(GAME.players[winIdx].id).name;
+  GAME.players.forEach((gp,i)=>{
+    const pl=getPlayer(gp.id); const st=pl.stats; st.games++; if(i===winIdx) st.wins++;
+    if(GAME.type==='x01'){
+      const scored=STATE.setup.points-(gp.score||0);
+      const darts=gp.dartsThrown||(gp.turnScores?gp.turnScores.length*3:0);
+      if(darts>0 && scored>0){
+        const avg=+(scored/darts*3).toFixed(1);
+        st.avgHistory=(st.avgHistory||[]).concat(avg); if(st.avgHistory.length>10) st.avgHistory=st.avgHistory.slice(-10);
+        st.avg=+(st.avgHistory.reduce((a,b)=>a+b,0)/st.avgHistory.length).toFixed(1);
+        st.dartsPerLeg=+((((st.dartsPerLeg||darts)*(st.games-1))+darts)/st.games).toFixed(1);
+      }
+    }
+  });
+  let detail='';
+  if(GAME.type==='x01') detail=STATE.setup.points+' · '+GAME.players[winIdx].setsWon+'–'+otherSets(winIdx)+' in sets';
+  else if(GAME.type==='cricket') detail='Cricket';
+  else if(GAME.type==='shanghai') detail=GAME.players[winIdx].points+' punten';
+  else if(GAME.type==='bob') detail='saldo '+GAME.players[winIdx].balance;
+  else if(GAME.type==='atc') detail='Around the Clock';
+  else if(GAME.type==='killer') detail='Killer';
+  else if(GAME.type==='countup') detail=GAME.players[winIdx].score+' punten';
+  else if(GAME.type==='halveit') detail=GAME.players[winIdx].score+' punten';
+  STATE.history=(STATE.history||[]);
+  STATE.history.unshift({ date:Date.now(), type:GAME.type, winner:winName,
+    players:GAME.players.map(p=>getPlayer(p.id).name), detail });
+  if(STATE.history.length>50) STATE.history.length=50;
   save();
 }
 
@@ -1368,6 +1495,13 @@ function botThrowOne(prof){
     if(!cur.isKiller){ killerHit(cur.number); } // try own (double handled by mult; force double sometimes)
     else { const victim=GAME.players.find(p=>!p.eliminated&&p!==cur); GAME.mult=1; killerHit(victim?victim.number:cur.number); }
   }
+  else if(t==='countup'){ const hit=botScoreDart(prof); countUpDart(hit.v,hit.m); }
+  else if(t==='halveit'){
+    const tg=HALVE_TARGETS[GAME.round-1]; let v=20,m=1;
+    if(Math.random()<prof.acc){ if(tg.t==='n'){v=tg.n;m=1;} else if(tg.t==='D'){v=16;m=2;} else if(tg.t==='T'){v=20;m=3;} else {v=25;m=2;} }
+    else { v=[1,5,7,9,12][Math.floor(Math.random()*5)]; m=1; }
+    halveItThrow(v,m);
+  }
   // continue bot turn
   if(GAME && !GAME.finished && curIsBot() && GAME.darts.length>0 && GAME.darts.length<3 && !$('#winner').classList.contains('show')){
     setTimeout(()=>botThrowOne(prof),650);
@@ -1388,9 +1522,9 @@ function parseDart(s){ if(s==='Bull')return{v:25,m:2}; if(s==='25')return{v:25,m
 /* ============ GAME EVENT BINDING ============ */
 function bindGame(){
   const b=$('#game-body');
-  b.querySelectorAll('[data-num]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const n=+el.dataset.num; const m=GAME.mult; GAME.mult=1; x01Dart(n,m); });
+  b.querySelectorAll('[data-num]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const n=+el.dataset.num; const m=GAME.mult; GAME.mult=1; scoreDart(n,m); });
   b.querySelectorAll('[data-mult]').forEach(el=>el.onclick=()=>{ GAME.mult=GAME.mult==el.dataset.mult?1:+el.dataset.mult; renderGameScreen(); });
-  b.querySelectorAll('[data-bull]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult===2?2:1; GAME.mult=1; x01Dart(25,m); });
+  b.querySelectorAll('[data-bull]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult===2?2:1; GAME.mult=1; scoreDart(25,m); });
   b.querySelectorAll('[data-miss]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; missDart(); });
   b.querySelectorAll('[data-cnum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult;GAME.mult=1; cricketHit(+el.dataset.cnum,m); });
   b.querySelectorAll('[data-knum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult;GAME.mult=1; killerHit(+el.dataset.knum); GAME.mult=1; });
@@ -1403,9 +1537,17 @@ function bindGame(){
     b.querySelectorAll('[data-knum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; killerHit(+el.dataset.knum); GAME.mult=1; });
   }
 }
+function scoreDart(v,m){
+  if(GAME.type==='countup') countUpDart(v,m);
+  else if(GAME.type==='halveit') halveItThrow(v,m);
+  else x01Dart(v,m);
+}
 function missDart(){
+  GAME.mult=1;
+  if(GAME.type==='countup'){ countUpDart(0,1); return; }
+  if(GAME.type==='halveit'){ halveItThrow(0,1); return; }
   if(GAME.type==='cricket'||GAME.type==='killer'||GAME.type==='shanghai'){ pushHistory(); GAME.darts.push({v:0,m:0,miss:true}); if(GAME.darts.length>=3){renderGameScreen(); if(GAME.auto&&!curIsBot())setTimeout(nextPlayer,400);return;} renderGameScreen(); return; }
-  GAME.mult=1; x01Dart(0,1);
+  x01Dart(0,1);
 }
 function handleAct(act){
   if(act==='undo') undo();
