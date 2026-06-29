@@ -1002,7 +1002,7 @@ function multSeg(opts){
 }
 function numpadHTML(){
   let h='<div class="numpad">';
-  for(let n=1;n<=20;n++) h+=`<button data-num="${n}" class="${n===20?'hl':''}">${n}</button>`;
+  for(let n=1;n<=20;n++) h+=`<button data-num="${n}">${n}</button>`;
   return h+'</div>';
 }
 
