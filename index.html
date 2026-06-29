@@ -1425,6 +1425,9 @@ save();
 
 /* keep screen awake */
 if(STATE.settings.keepScreen && 'wakeLock' in navigator){ navigator.wakeLock.request('screen').catch(()=>{}); }
+
+/* service worker: offline support + auto-update (network-first) */
+if('serviceWorker' in navigator){ window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
 </body>
 </html>
