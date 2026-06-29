@@ -1,0 +1,24 @@
+{
+  "name": "oche-dart-scorebord",
+  "version": "2.4.0",
+  "private": true,
+  "description": "OCHE — offline dart scorebord (PWA, wrapped for the stores with Capacitor)",
+  "type": "module",
+  "scripts": {
+    "sync-web": "node scripts/sync-web.mjs",
+    "add:ios": "npm run sync-web && npx cap add ios",
+    "add:android": "npm run sync-web && npx cap add android",
+    "ios": "npm run sync-web && npx cap sync ios && npx cap open ios",
+    "android": "npm run sync-web && npx cap sync android && npx cap open android",
+    "icons": "npx @capacitor/assets generate --assetPath assets"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.2.0",
+    "@capacitor/ios": "^6.2.0",
+    "@capacitor/android": "^6.2.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.2.0",
+    "@capacitor/assets": "^3.0.5"
+  }
+}
