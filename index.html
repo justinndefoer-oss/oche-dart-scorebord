@@ -942,8 +942,9 @@ function renderSettings(){
   b.appendChild(el('div','caps','OCHE Pro'));
   const pro=el('div','setrow');
   pro.innerHTML=`<div class="l"><span style="color:var(--brass)">${icon('sparkles',18)}</span> Pro ${s.premium?'<span style="color:var(--green);font-weight:700;font-size:12px">· Actief</span>':'<span style="color:var(--dim);font-weight:600;font-size:12px">· extra modi</span>'}</div>`;
-  const pbtn=el('button','btn btn-secondary',s.premium?'Actief':'Ontgrendel'); pbtn.style.cssText='width:auto;padding:9px 16px;font-size:13px';
-  if(s.premium){ pbtn.disabled=true; } else pbtn.onclick=openPremiumSheet;
+  const pbtn=el('button','btn btn-secondary',s.premium?'Zet uit (test)':'Ontgrendel'); pbtn.style.cssText='width:auto;padding:9px 16px;font-size:13px';
+  if(s.premium){ pbtn.onclick=()=>{ s.premium=false; save(); renderSettings(); toast('Basis versie — reclame & Pro-modi vergrendeld'); }; }
+  else pbtn.onclick=openPremiumSheet;
   pro.appendChild(pbtn); b.appendChild(pro);
 
   b.appendChild(el('div','caps','Gegevens'));
