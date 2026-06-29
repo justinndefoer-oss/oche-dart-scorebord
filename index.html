@@ -236,7 +236,8 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* numpad */
 .numpad{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:8px;}
 .numpad button{background:var(--numkey);border-radius:11px;padding:13px 0;font-weight:800;font-size:17px;color:var(--chalk);border:1px solid transparent;transition:transform .06s,background .06s;}
-.numpad button:active{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--ink-gold);transform:scale(.94);}
+.numpad button:active,.numpad button.tapped{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--ink-gold);transform:scale(.94);}
+.actions button.tapped{transform:scale(.94);filter:brightness(1.3);}
 
 /* action row */
 .actions{display:grid;grid-template-columns:1fr 1fr 1fr 1.4fr;gap:7px;}
@@ -1569,21 +1570,21 @@ function botScoreDart(prof){
 function parseDart(s){ if(s==='Bull')return{v:25,m:2}; if(s==='25')return{v:25,m:1}; const m=s[0]==='T'?3:s[0]==='D'?2:1; const v=parseInt(s.replace(/[TDS]/,''),10); return {v,m}; }
 
 /* ============ GAME EVENT BINDING ============ */
+function flashKey(el,cb){ if(el) el.classList.add('tapped'); setTimeout(cb,100); }
 function bindGame(){
   const b=$('#game-body');
-  b.querySelectorAll('[data-num]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const n=+el.dataset.num; const m=GAME.mult; GAME.mult=1; scoreDart(n,m); });
+  b.querySelectorAll('[data-num]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const n=+el.dataset.num; const m=GAME.mult; GAME.mult=1; flashKey(el,()=>scoreDart(n,m)); });
   b.querySelectorAll('[data-mult]').forEach(el=>el.onclick=()=>{ GAME.mult=GAME.mult==el.dataset.mult?1:+el.dataset.mult; renderGameScreen(); });
-  b.querySelectorAll('[data-bull]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult===2?2:1; GAME.mult=1; scoreDart(25,m); });
-  b.querySelectorAll('[data-miss]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; missDart(); });
-  b.querySelectorAll('[data-cnum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult;GAME.mult=1; cricketHit(+el.dataset.cnum,m); });
-  b.querySelectorAll('[data-knum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult;GAME.mult=1; killerHit(+el.dataset.knum); GAME.mult=1; });
+  b.querySelectorAll('[data-bull]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const m=GAME.mult===2?2:1; GAME.mult=1; flashKey(el,()=>scoreDart(25,m)); });
+  b.querySelectorAll('[data-miss]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; flashKey(el,()=>missDart()); });
+  b.querySelectorAll('[data-cnum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const cn=+el.dataset.cnum; const m=GAME.mult;GAME.mult=1; flashKey(el,()=>cricketHit(cn,m)); });
   b.querySelectorAll('[data-atc]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; atcThrow(+el.dataset.atc); });
   b.querySelectorAll('[data-bob]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; bobThrow(+el.dataset.bob); });
-  b.querySelectorAll('[data-smult]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; shanghaiThrow(+el.dataset.smult); });
+  b.querySelectorAll('[data-smult]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const sm=+el.dataset.smult; flashKey(el,()=>shanghaiThrow(sm)); });
   b.querySelectorAll('[data-act]').forEach(el=>el.onclick=()=>handleAct(el.dataset.act));
-  // killer mult special (need to keep mult for double)
+  // killer number keys (keep mult for double)
   if(GAME.type==='killer'){
-    b.querySelectorAll('[data-knum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; killerHit(+el.dataset.knum); GAME.mult=1; });
+    b.querySelectorAll('[data-knum]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const kn=+el.dataset.knum; flashKey(el,()=>{ killerHit(kn); GAME.mult=1; }); });
   }
 }
 function scoreDart(v,m){
