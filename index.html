@@ -1425,6 +1425,21 @@ save();
 
 /* keep screen awake */
 if(STATE.settings.keepScreen && 'wakeLock' in navigator){ navigator.wakeLock.request('screen').catch(()=>{}); }
+
+/* DIAGNOSTIC v12 */
+if(true){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;top:90px;left:8px;right:8px;z-index:99999;background:#000;color:#3f6;font:12px monospace;padding:10px;border:1px solid #3f6;white-space:pre;border-radius:8px;';
+  const upd=()=>{ const h=document.documentElement, b=document.body, a=document.getElementById('app'), t=document.getElementById('tabbar');
+    d.textContent='screenH='+screen.height+'  innerH='+window.innerHeight
+      +'\ndocClientH='+h.clientHeight+'  vVP='+(window.visualViewport?Math.round(window.visualViewport.height):'?')
+      +'\nhtmlOff='+h.offsetHeight+'  bodyOff='+b.offsetHeight
+      +'\nappOff='+a.offsetHeight+'  appBottom='+Math.round(a.getBoundingClientRect().bottom)
+      +'\ntabBottom='+Math.round(t.getBoundingClientRect().bottom)
+      +'\nstandalone='+navigator.standalone; };
+  upd(); setTimeout(upd,500); window.addEventListener('resize',upd);
+  d.onclick=()=>d.remove(); document.body.appendChild(d);
+}
 </script>
 </body>
 </html>
