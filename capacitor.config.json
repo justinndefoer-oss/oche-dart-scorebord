@@ -1,0 +1,7 @@
+{
+  "appId": "nl.oche.dartscorebord",
+  "appName": "OCHE",
+  "webDir": "www",
+  "backgroundColor": "#0b1510",
+  "server": { "androidScheme": "https" }
+}
