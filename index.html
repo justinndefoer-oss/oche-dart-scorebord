@@ -370,6 +370,27 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 #winner .wrow{display:flex;gap:10px;}
 #winner .wrow .btn{font-size:14px;}
 
+/* interstitial ad (free tier, after a full match) */
+#adscreen{position:absolute;inset:0;z-index:300;display:none;flex-direction:column;
+  background:radial-gradient(120% 80% at 50% 0%,#13241b 0%,var(--bg0) 70%);}
+#adscreen.show{display:flex;animation:fadeIn .25s ease;}
+#adscreen .adtop{display:flex;align-items:center;justify-content:space-between;
+  padding:calc(var(--safe-top) + 12px) 16px 10px;}
+#adscreen .adlbl{font-size:10px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  color:var(--dim);border:1px solid rgba(var(--brass-rgb),.25);border-radius:6px;padding:4px 8px;}
+#adscreen .adclose{width:40px;height:40px;border-radius:50%;border:1px solid rgba(var(--brass-rgb),.25);
+  background:var(--bg1);color:var(--txt2);font-weight:800;font-size:15px;display:flex;align-items:center;
+  justify-content:center;}
+#adscreen .adclose:disabled{opacity:.6;}
+#adscreen .adbody{flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;text-align:center;padding:0 28px;gap:6px;}
+#adscreen .adbody .spark{color:var(--brass);line-height:0;margin-bottom:6px;}
+#adscreen .adbody h3{font-size:30px;font-weight:900;letter-spacing:-1px;margin:0;}
+#adscreen .adbody .adsub{color:var(--txt2);font-size:15px;max-width:300px;margin:2px 0 14px;line-height:1.5;}
+#adscreen .adperks{font-size:14px;color:var(--txt2);line-height:2;text-align:left;}
+#adscreen .adperks b{color:var(--chalk);font-weight:700;}
+#adscreen .adfoot{padding:0 24px calc(var(--safe-bottom) + 22px);display:flex;flex-direction:column;gap:10px;}
+
 /* bust banner */
 #bust{position:absolute;top:calc(var(--safe-top) + 14px);left:20px;right:20px;z-index:150;display:none;
   background:linear-gradient(180deg,#e05656,var(--red));border-radius:16px;padding:16px;text-align:center;
@@ -506,6 +527,16 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   <div id="winner">
     <div class="rays"></div>
     <div class="inner" id="winner-inner"></div>
+  </div>
+
+  <!-- interstitial ad (free tier) -->
+  <div id="adscreen">
+    <div class="adtop">
+      <span class="adlbl">Advertentie</span>
+      <button class="adclose" id="adclose" disabled>5</button>
+    </div>
+    <div class="adbody" id="adbody"></div>
+    <div class="adfoot" id="adfoot"></div>
   </div>
 
   <!-- generic sheet -->
@@ -1707,6 +1738,7 @@ function showBust(sub){ Sound.bust(); $('#bust-sub').textContent=sub||''; const 
 function hideBust(){ $('#bust').classList.remove('show'); }
 
 function showWinner(idx,kind){
+  lastWinKind=kind;
   const p=GAME.players[idx]; const pl=getPlayer(p.id);
   Sound.finish(); Sound.say(kind==='match'?'Game shot and the match. '+pl.name+' wins':'Game shot. '+pl.name);
   const inner=$('#winner-inner');
@@ -1811,17 +1843,49 @@ function recordGameStats(winIdx){
   save();
 }
 
+let lastWinKind='';
 $('#winner').addEventListener('click',e=>{
   const btn=e.target.closest('[data-win]'); if(!btn) return;
   const act=btn.dataset.win;
   if(act==='share'){ shareResult(); return; }
+  // Free tier: a full-screen ad runs after a completed MATCH (not a leg/set),
+  // gating the move to a new game. Pro removes it.
+  if(lastWinKind==='match' && !STATE.settings.premium){
+    showInterstitial(()=>doWinAct(act)); return;
+  }
+  doWinAct(act);
+});
+function doWinAct(act){
   if(act==='continue'){ // reset for next leg
     GAME.players.forEach(p=>Object.assign(p,freshLegReset(p))); GAME.darts=[]; GAME.cur=0; GAME.round=1; GAME.history=[];
     $('#winner').classList.remove('show'); renderGameScreen();
   } else if(act==='newgame'){ $('#winner').classList.remove('show'); GAME=null; showTab('spel'); }
   else if(act==='players'){ $('#winner').classList.remove('show'); GAME=null; showTab('spelers'); }
   else if(act==='ranglijst'){ $('#winner').classList.remove('show'); GAME=null; showTab('spelers'); }
-});
+}
+
+/* ---- interstitial ad (free tier) ---- */
+const AD_SECONDS=5;
+let adTimer=null;
+function showInterstitial(cb){
+  const body=$('#adbody'), foot=$('#adfoot'), closeBtn=$('#adclose');
+  body.innerHTML=`<div class="spark">${icon('sparkles',40,1.6)}</div>
+    <h3>OCHE Pro</h3>
+    <div class="adsub">Speel zonder reclame en ontgrendel alle extra spelmodi.</div>
+    <div class="adperks"><b>✓ Geen advertenties</b><br>✓ Alle Pro-spelmodi<br>✓ Eenmalige aankoop · alles blijft lokaal</div>`;
+  foot.innerHTML=`<button class="btn btn-primary" id="adPro">Verwijder advertenties</button>`;
+  let n=AD_SECONDS;
+  closeBtn.disabled=true; closeBtn.textContent=n;
+  $('#adscreen').classList.add('show');
+  clearInterval(adTimer);
+  adTimer=setInterval(()=>{ n--;
+    if(n<=0){ clearInterval(adTimer); closeBtn.disabled=false; closeBtn.innerHTML='✕'; }
+    else closeBtn.textContent=n;
+  },1000);
+  const finish=()=>{ clearInterval(adTimer); $('#adscreen').classList.remove('show'); };
+  closeBtn.onclick=()=>{ if(closeBtn.disabled) return; finish(); cb(); };
+  foot.querySelector('#adPro').onclick=()=>{ finish(); cb(); openPremiumSheet(); };
+}
 function freshLegReset(p){
   const t=GAME.type;
   if(t==='x01') return {score:p.startScore||STATE.setup.points,lastTurn:0,turnScores:[],dartsThrown:0,checkedIn:STATE.setup.checkIn==='straight'};
