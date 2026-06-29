@@ -1089,6 +1089,7 @@ function commitX01Turn(){
 
 /* ---- next player / leg / set ---- */
 function nextPlayer(){
+  if(!GAME) return;               // game may have been stopped while a timer was pending
   hideBust();
   if(GAME.finished) return;
   GAME.turnAdvancing=false;
@@ -1100,6 +1101,8 @@ function nextPlayer(){
   GAME.cur=(GAME.cur+1)%GAME.players.length;
   // skip eliminated in killer
   if(GAME.type==='killer'){ let guard=0; while(curP().eliminated && guard<10){ GAME.cur=(GAME.cur+1)%GAME.players.length; guard++; } }
+  // bob: end when everyone is done, otherwise skip players who already finished their doubles
+  if(GAME.type==='bob'){ if(allBobDone()){ bobEnd(); return; } let guard=0; while(curP().target==null && guard<10){ GAME.cur=(GAME.cur+1)%GAME.players.length; guard++; } }
   if(GAME.cur===0) GAME.round++;
   // shanghai end after 20 rounds
   if(GAME.type==='shanghai' && GAME.round>20){ shanghaiEnd(); return; }
@@ -1340,7 +1343,9 @@ function renderBob(){
     <div class="subactions"><button data-act="undo">${icon('undo',15)} Undo</button><button data-act="next">Volgende ronde</button></div></div>`;
 }
 function bobThrow(hit){
-  const cur=curP(); pushHistory();
+  const cur=curP();
+  if(cur.target==null){ nextPlayer(); return; }   // player already finished all doubles
+  pushHistory();
   if(!cur.hitMap) cur.hitMap={};
   GAME.darts.push({hit:!!hit});
   if(hit){ cur.balance+=cur.target*2; cur.hitMap[cur.target]=true; }
@@ -1556,7 +1561,7 @@ function botThrowOne(prof){
   if(GAME && !GAME.finished && !GAME.turnAdvancing && curIsBot() && GAME.darts.length>0 && GAME.darts.length<3 && !$('#winner').classList.contains('show')){
     setTimeout(()=>botThrowOne(prof),650);
   } else if(GAME && !GAME.finished && !GAME.turnAdvancing && curIsBot() && (GAME.darts.length>=3||GAME.darts.length===0) && !$('#winner').classList.contains('show')){
-    setTimeout(()=>{ if(curIsBot()&&!GAME.finished&&!GAME.turnAdvancing) nextPlayer(); },650);
+    setTimeout(()=>{ if(GAME&&!GAME.finished&&!GAME.turnAdvancing&&curIsBot()) nextPlayer(); },650);
   }
 }
 function botScoreDart(prof){
