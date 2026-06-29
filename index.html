@@ -1054,6 +1054,7 @@ function bustTurn(){
   cur.dartsThrown += GAME.darts.length;
   showBust('Score blijft '+cur.score);
   GAME.darts=[];
+  GAME.turnAdvancing=true;
   setTimeout(()=>{ nextPlayer(); },900);
 }
 function recordTurn(cur){ const t=turnSum(); cur.lastTurn=t; cur.turnScores.push(t); }
@@ -1066,6 +1067,7 @@ function commitX01Turn(){
 function nextPlayer(){
   hideBust();
   if(GAME.finished) return;
+  GAME.turnAdvancing=false;
   const cur=curP();
   // commit turn for scoring modes that accumulate per turn
   if(GAME.type==='x01' && GAME.darts.length>0 && cur.score-turnSum()>1){ commitX01Turn(); }
@@ -1526,11 +1528,11 @@ function botThrowOne(prof){
     else { v=[1,5,7,9,12][Math.floor(Math.random()*5)]; m=1; }
     halveItThrow(v,m);
   }
-  // continue bot turn
-  if(GAME && !GAME.finished && curIsBot() && GAME.darts.length>0 && GAME.darts.length<3 && !$('#winner').classList.contains('show')){
+  // continue bot turn (skip if a turn transition is already pending, e.g. after a bust)
+  if(GAME && !GAME.finished && !GAME.turnAdvancing && curIsBot() && GAME.darts.length>0 && GAME.darts.length<3 && !$('#winner').classList.contains('show')){
     setTimeout(()=>botThrowOne(prof),650);
-  } else if(GAME && !GAME.finished && curIsBot() && (GAME.darts.length>=3||GAME.darts.length===0) && !$('#winner').classList.contains('show')){
-    setTimeout(()=>{ if(curIsBot()&&!GAME.finished) nextPlayer(); },650);
+  } else if(GAME && !GAME.finished && !GAME.turnAdvancing && curIsBot() && (GAME.darts.length>=3||GAME.darts.length===0) && !$('#winner').classList.contains('show')){
+    setTimeout(()=>{ if(curIsBot()&&!GAME.finished&&!GAME.turnAdvancing) nextPlayer(); },650);
   }
 }
 function botScoreDart(prof){
