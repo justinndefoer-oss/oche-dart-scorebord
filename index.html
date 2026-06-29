@@ -19,10 +19,10 @@
 :root{
   --bg0:#0b1510; --bg1:#12201a; --bg2:#1a2c23; --bg3:#243a2f;
   --numkey:#162420; --card-dark:#101c16;
-  --brass:#e8b04b; --brass-hi:#f0bd5e;
+  --brass:#e8b04b; --brass-hi:#f0bd5e; --brass-rgb:232,176,75;
   --chalk:#f4ecd8; --green:#1f9e57; --green-hi:#28b566;
   --red:#d23b3b; --txt2:#a9b8ad; --dim:#6b7d72;
-  --gold-border:rgba(232,176,75,.25);
+  --gold-border:rgba(var(--brass-rgb),.25);
   --ink-gold:#1a1206; --ink-green:#04140b;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
@@ -40,7 +40,7 @@ body{
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
 input{font-family:inherit;}
 
-@keyframes glowPulse{0%,100%{box-shadow:0 0 0 1.5px #e8b04b,0 0 8px rgba(232,176,75,.10)}50%{box-shadow:0 0 0 1.5px #e8b04b,0 0 16px rgba(232,176,75,.22)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 0 1.5px var(--brass),0 0 8px rgba(var(--brass-rgb),.10)}50%{box-shadow:0 0 0 1.5px var(--brass),0 0 16px rgba(var(--brass-rgb),.22)}}
 @keyframes winIn{0%{opacity:0;transform:scale(.82)}100%{opacity:1;transform:scale(1)}}
 @keyframes bustDrop{0%{transform:translateY(-130%);opacity:0}60%{transform:translateY(6%)}100%{transform:translateY(0);opacity:1}}
 @keyframes sheetUp{0%{transform:translateY(100%)}100%{transform:translateY(0)}}
@@ -72,7 +72,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   font-weight:800;font-size:16px;padding:16px;width:100%;transition:transform .08s;}
 .btn:active{transform:scale(.97);}
 .btn-primary{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--ink-gold);
-  box-shadow:0 10px 26px rgba(232,176,75,.30);}
+  box-shadow:0 10px 26px rgba(var(--brass-rgb),.30);}
 .btn-green{background:linear-gradient(180deg,var(--green-hi),var(--green));color:var(--ink-green);
   box-shadow:0 10px 24px rgba(31,158,87,.30);}
 .btn-secondary{background:var(--bg2);color:var(--chalk);border:1px solid var(--gold-border);font-size:15px;}
@@ -138,7 +138,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* mode cards */
 .modegrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .modecard{background:var(--card-dark);border-radius:16px;padding:15px;border:1px solid transparent;}
-.modecard.on{border-color:var(--brass);background:linear-gradient(160deg,rgba(232,176,75,.07),var(--card-dark));}
+.modecard.on{border-color:var(--brass);background:linear-gradient(160deg,rgba(var(--brass-rgb),.07),var(--card-dark));}
 .modecard .ic{color:var(--brass);height:26px;}
 .modecard .t{font-weight:800;font-size:15px;margin-top:8px;}
 .modecard .d{font-size:11px;color:var(--txt2);margin-top:4px;line-height:1.35;}
@@ -215,7 +215,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .pcard .last{font-size:10px;color:var(--txt2);margin-top:3px;}
 
 /* checkout bar */
-.cobar{background:rgba(232,176,75,.10);border:1px solid var(--gold-border);border-radius:12px;
+.cobar{background:rgba(var(--brass-rgb),.10);border:1px solid var(--gold-border);border-radius:12px;
   padding:9px 13px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .cobar .l{font-size:11px;font-weight:800;color:var(--brass);letter-spacing:1px;}
 .cobar .r{font-size:13px;font-weight:700;color:var(--chalk);}
@@ -309,7 +309,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .killrow .info{flex:1;min-width:0;}
 .killrow .nm{font-weight:700;font-size:15px;display:flex;align-items:center;gap:7px;}
 .killrow.dead .nm{text-decoration:line-through;}
-.killbadge{background:rgba(232,176,75,.15);color:var(--brass);font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;letter-spacing:1px;}
+.killbadge{background:rgba(var(--brass-rgb),.15);color:var(--brass);font-size:9px;font-weight:800;padding:2px 7px;border-radius:8px;letter-spacing:1px;}
 .killrow .sub{font-size:11px;color:var(--txt2);margin-top:2px;}
 .killrow .sub.red{color:var(--red);}
 .lives{display:flex;gap:5px;}
@@ -324,7 +324,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 
 /* ===== bottom nav ===== */
 .tabbar{display:flex;background:rgba(11,21,16,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-  border-top:1px solid rgba(232,176,75,.12);padding-bottom:var(--safe-bottom);flex:none;z-index:50;}
+  border-top:1px solid rgba(var(--brass-rgb),.12);padding-bottom:var(--safe-bottom);flex:none;z-index:50;}
 .tabbar button{flex:1;padding:10px 0 8px;display:flex;flex-direction:column;align-items:center;gap:3px;}
 .tabbar .ti{display:flex;align-items:center;justify-content:center;color:var(--dim);}
 .tabbar .tl{font-size:10px;font-weight:700;color:var(--dim);}
@@ -348,13 +348,13 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   background:radial-gradient(60% 50% at 50% 38%,#1a2c23,#0b1510);overflow:hidden;max-width:520px;margin:0 auto;}
 #winner.show{display:flex;animation:fadeIn .3s ease;}
 #winner .rays{position:absolute;top:30%;left:50%;width:700px;height:700px;transform:translate(-50%,-50%);
-  background:conic-gradient(from 0deg,transparent 0deg,rgba(232,176,75,.10) 12deg,transparent 24deg,rgba(232,176,75,.10) 36deg,transparent 48deg);
+  background:conic-gradient(from 0deg,transparent 0deg,rgba(var(--brass-rgb),.10) 12deg,transparent 24deg,rgba(var(--brass-rgb),.10) 36deg,transparent 48deg);
   animation:rays 30s linear infinite;border-radius:50%;}
 #winner .inner{position:relative;text-align:center;animation:winIn .6s cubic-bezier(.2,.8,.25,1);padding:0 24px;}
 #winner .wl{font-size:11px;font-weight:800;letter-spacing:4px;color:var(--brass);text-transform:uppercase;}
 #winner .trophy{color:var(--brass);margin:10px 0;line-height:0;}
 #winner .wav{width:78px;height:78px;border-radius:50%;background:var(--bg3);margin:0 auto 14px;
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;border:2.5px solid var(--brass);box-shadow:0 0 30px rgba(232,176,75,.4);}
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;border:2.5px solid var(--brass);box-shadow:0 0 30px rgba(var(--brass-rgb),.4);}
 #winner .wn{font-weight:900;font-size:42px;letter-spacing:-1.5px;}
 #winner .ws{font-size:14px;color:var(--txt2);margin-top:6px;}
 #winner .wchips{display:flex;gap:10px;justify-content:center;margin:22px 0;}
@@ -398,7 +398,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .killgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:6px 0 16px;}
 .killgrid button{aspect-ratio:1;border-radius:12px;background:var(--bg2);font-weight:800;font-size:17px;color:var(--chalk);border:1px solid transparent;}
 .killgrid button.occ{background:#0d1813;color:var(--dim);text-decoration:line-through;opacity:.6;}
-.killgrid button.sel{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--ink-gold);box-shadow:0 0 18px rgba(232,176,75,.45);}
+.killgrid button.sel{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--ink-gold);box-shadow:0 0 18px rgba(var(--brass-rgb),.45);}
 
 .levelrow{display:flex;align-items:center;gap:12px;background:var(--card-dark);border-radius:14px;padding:14px;margin-bottom:8px;border:1px solid transparent;}
 .levelrow.on{border-color:var(--brass);animation:glowPulse 2.6s ease-in-out infinite;}
@@ -524,7 +524,7 @@ const DEFAULT_STATE = {
     {id:3,name:'Milan',initials:'MV',isBot:false,stats:{avg:48.1,games:61,wins:26,checkoutPct:28,dartsPerLeg:17.2,avgHistory:[38,42,45,40,48,46,50,47,49,48],scoreDist:{'26+':44,'41+':58,'60+':60,'100+':30,'140+':14,'180':5},doubles:{D20:28,D16:33,Bull:18}}},
     {id:4,name:'Dart Robot',initials:'🤖',isBot:true,botLevel:'gevorderd',adaptive:true,stats:{avg:75,games:0,wins:0,checkoutPct:42,dartsPerLeg:13.5,avgHistory:[],scoreDist:{},doubles:{}}},
   ],
-  settings:{ sound:true, voice:true, autoContinue:true, botStrength:'gevorderd', adaptive:true, vibrate:false, keepScreen:true, voiceCaller:'Russ Bray' },
+  settings:{ sound:true, voice:true, autoContinue:true, botStrength:'gevorderd', adaptive:true, vibrate:false, keepScreen:true, voiceCaller:'Russ Bray', theme:'oche' },
   history:[],
   nextId:5,
 };
@@ -591,6 +591,22 @@ const ICONS={
 };
 function icon(name,size,sw){ size=size||20; return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 function avInit(p,size){ return p.isBot ? icon('bot',size||20) : p.initials; }
+
+/* ============ themes ============ */
+const THEMES={
+  oche:    {label:'Oche',    bg0:'#0b1510',bg1:'#12201a',bg2:'#1a2c23',bg3:'#243a2f',numkey:'#162420',card:'#101c16',brass:'#e8b04b',brassHi:'#f0bd5e',brassRgb:'232,176,75',inkGold:'#1a1206'},
+  ember:   {label:'Ember',   bg0:'#140d0b',bg1:'#1f1512',bg2:'#2c1d18',bg3:'#3c2820',numkey:'#241712',card:'#1b110d',brass:'#e8854b',brassHi:'#f09a5e',brassRgb:'232,133,75',inkGold:'#1a0d06'},
+  midnight:{label:'Midnight',bg0:'#0a0f1a',bg1:'#111a2a',bg2:'#1a2740',bg3:'#243652',numkey:'#14203a',card:'#0f1828',brass:'#5ab0e8',brassHi:'#74c0f0',brassRgb:'90,176,232',inkGold:'#04121f'},
+  royal:   {label:'Royal',   bg0:'#120c1a',bg1:'#1b1428',bg2:'#281c3a',bg3:'#382850',numkey:'#1c1430',card:'#160f22',brass:'#b888f0',brassHi:'#c79bf5',brassRgb:'184,136,240',inkGold:'#150a22'},
+};
+function applyTheme(name){
+  const t=THEMES[name]||THEMES.oche; const r=document.documentElement.style;
+  r.setProperty('--bg0',t.bg0); r.setProperty('--bg1',t.bg1); r.setProperty('--bg2',t.bg2); r.setProperty('--bg3',t.bg3);
+  r.setProperty('--numkey',t.numkey); r.setProperty('--card-dark',t.card);
+  r.setProperty('--brass',t.brass); r.setProperty('--brass-hi',t.brassHi); r.setProperty('--brass-rgb',t.brassRgb);
+  r.setProperty('--ink-gold',t.inkGold);
+  const meta=document.querySelector('meta[name=theme-color]'); if(meta) meta.content=t.bg0;
+}
 
 /* ============ NAV ============ */
 function showTab(tab){
@@ -860,6 +876,16 @@ function renderSettings(){
 
   b.appendChild(el('div','caps','Algemeen'));
   b.appendChild(group(toggleRow(icon('vibrate',18)+' Trillen bij bust','vibrate'), toggleRow(icon('moon',18)+' Schermsluiting uit','keepScreen')));
+
+  b.appendChild(el('div','caps','Weergave'));
+  const tr=el('div','setrow'); tr.style.flexDirection='column'; tr.style.alignItems='stretch'; tr.style.gap='12px';
+  tr.innerHTML=`<div class="l">${icon('sparkles',18)} Thema</div>`;
+  const sw=el('div'); sw.style.cssText='display:flex;gap:10px;';
+  Object.keys(THEMES).forEach(k=>{ const t=THEMES[k]; const btn=el('button');
+    btn.style.cssText=`flex:1;border-radius:12px;padding:11px 4px;border:2px solid ${s.theme===k?t.brass:'transparent'};background:${t.bg1};display:flex;flex-direction:column;align-items:center;gap:7px;`;
+    btn.innerHTML=`<span style="width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,${t.brassHi},${t.brass});border:1px solid ${t.bg3}"></span><span style="font-size:10px;font-weight:700;color:var(--txt2)">${t.label}</span>`;
+    btn.onclick=()=>{ s.theme=k; save(); applyTheme(k); renderSettings(); }; sw.appendChild(btn); });
+  tr.appendChild(sw); const grp=el('div','group'); grp.appendChild(tr); b.appendChild(grp);
 }
 function toggleRow(label,key){
   const r=el('div','setrow'); r.innerHTML=`<div class="l">${label}</div>`;
@@ -918,9 +944,9 @@ function openStatsSheet(id){
     </div>
     <div class="chartbox"><div class="ct">3-Dart gemiddelde · laatste 10</div>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:90px">
-        <defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(232,176,75,.35)"/><stop offset="100%" stop-color="rgba(232,176,75,0)"/></linearGradient></defs>
+        <defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(var(--brass-rgb),.35)"/><stop offset="100%" stop-color="rgba(var(--brass-rgb),0)"/></linearGradient></defs>
         <polyline points="0,100 ${pts} 100,100" fill="url(#ga)" stroke="none"/>
-        <polyline points="${pts}" fill="none" stroke="#e8b04b" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
+        <polyline points="${pts}" fill="none" stroke="var(--brass)" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>
       </svg></div>
     <div class="chartbox"><div class="ct">Score-verdeling</div><div class="bars">
       ${Object.entries(dist).map(([k,v])=>{const cls=k==='180'?'brass':(v===maxD?'green':'');return `<div class="bar ${cls}"><div class="fill" style="height:${(v/maxD)*100}%"></div><div class="bl">${k}</div></div>`;}).join('')}
@@ -1723,6 +1749,7 @@ function handleAct(act){
 }
 
 /* ============ INIT ============ */
+applyTheme(STATE.settings.theme||'oche');
 $('#startBtn').onclick=startGame;
 $('#startModeBtn').onclick=startGame;
 document.querySelectorAll('#tabbar [data-ic]').forEach(b=>{ b.querySelector('.ti').innerHTML=icon(b.dataset.ic,23); });
