@@ -732,9 +732,13 @@ function renderSetup(){
     const g2=el('div','grid2'); g2.style.marginTop='10px';
     g2.appendChild(stepper('Sets','sets',1,9)); g2.appendChild(stepper('Legs','legs',1,21));
     b.appendChild(g2);
+    const hcLocked = !STATE.settings.premium;
     const hc=el('div','setrow'); hc.style.marginTop='10px';
-    hc.innerHTML=`<div class="l">${icon('sparkles',18)} Handicap <span style="color:var(--dim);font-weight:600;font-size:12px">naar gemiddelde</span></div>`;
-    const ht=el('div',s.handicap?'toggle on':'toggle'); ht.onclick=()=>{s.handicap=!s.handicap;save();renderSetup();}; hc.appendChild(ht); b.appendChild(hc);
+    const proTag = hcLocked ? ` <span style="font-size:9px;font-weight:800;letter-spacing:1px;color:var(--brass);background:var(--bg3);padding:2px 7px;border-radius:8px;vertical-align:middle">PRO</span>` : '';
+    hc.innerHTML=`<div class="l">${icon('sparkles',18)} Handicap <span style="color:var(--dim);font-weight:600;font-size:12px">naar gemiddelde</span>${proTag}</div>`;
+    const ht=el('div',(s.handicap&&!hcLocked)?'toggle on':'toggle');
+    ht.onclick=()=>{ if(hcLocked){ openPremiumSheet(); return; } s.handicap=!s.handicap; save(); renderSetup(); };
+    hc.appendChild(ht); b.appendChild(hc);
   } else {
     b.appendChild(el('div','caps','Variant'));
     [['standard','Standaard Cricket','15–20 & Bull · sluit en scoor'],['cutthroat','Cut-Throat','Punten gaan naar tegenstanders'],['noscore','No Score','Alleen sluiten, geen punten']].forEach(([k,t,d])=>{
@@ -776,7 +780,7 @@ function handicapStarts(){
 function playerSelectList(){
   swipeRows.length=0;
   const wrap=el('div');
-  const useHc = activeTab==='spel' && STATE.setup.type==='x01' && STATE.setup.handicap;
+  const useHc = activeTab==='spel' && STATE.setup.type==='x01' && STATE.setup.handicap && STATE.settings.premium;
   const hc = useHc ? handicapStarts() : {};
   STATE.players.forEach(p=>{
     const on=STATE.setup.selectedPlayers.includes(p.id);
@@ -841,13 +845,13 @@ function updateStartBtn(){ $('#startBtn').textContent = STATE.setup.type==='x01'
 /* ============ SPELMODUS ============ */
 const MODES={ atc:{ic:'clock',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde',grp:'training'},
   bob:{ic:'crosshair',t:"Bob's 27",d:'Dubbels jagen, blijf boven 0',grp:'training'},
-  countup:{ic:'chart',t:'Count Up',d:'Scoor zo hoog mogelijk in X rondes',grp:'training'},
-  cotrain:{ic:'target',t:'Checkout-training',d:'Oefen finishes (41–170)',grp:'training'},
+  countup:{ic:'chart',t:'Count Up',d:'Scoor zo hoog mogelijk in X rondes',grp:'training',premium:true},
+  cotrain:{ic:'target',t:'Checkout-training',d:'Oefen finishes (41–170)',grp:'training',premium:true},
   doubles:{ic:'crosshair',t:'Dubbels-training',d:'D1 → Bull · trefkans op dubbels',grp:'training',premium:true},
   trebles:{ic:'target',t:'Trebles-training',d:'T1 → T20 · trefkans op triples',grp:'training',premium:true},
   killer:{ic:'skull',t:'Killer',d:'Word killer, sloop levens',grp:'party'},
   shanghai:{ic:'zap',t:'Shanghai',d:'Single, double, triple winst',grp:'party'},
-  halveit:{ic:'flame',t:'Halve It',d:'Mis de ronde = score gehalveerd',grp:'party'},
+  halveit:{ic:'flame',t:'Halve It',d:'Mis de ronde = score gehalveerd',grp:'party',premium:true},
   bermuda:{ic:'zap',t:'Bermuda',d:'12 doelen · mis = score gehalveerd',grp:'party',premium:true},
   golf:{ic:'crosshair',t:'Golf',d:'9 holes · laagste score wint',grp:'party',premium:true},
   gotcha:{ic:'target',t:'Gotcha',d:'Race naar het doel · sla terug',grp:'party',premium:true},
@@ -1132,7 +1136,7 @@ function startGame(){
   GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, darts:[], mult:1,
     history:[], setsTarget:STATE.setup.sets, legsTarget:STATE.setup.legs, auto:STATE.settings.autoContinue,
     round:1, finished:false, cuRounds:STATE.setup.cuRounds, coAttempts:STATE.setup.coAttempts };
-  if(type==='x01'){ const hs=STATE.setup.handicap?handicapStarts():null;
+  if(type==='x01'){ const hs=(STATE.setup.handicap&&STATE.settings.premium)?handicapStarts():null;
     GAME.players.forEach(gp=>{ gp.startScore = hs?hs[gp.id]:STATE.setup.points; gp.score=gp.startScore; }); }
   if(type==='halveit') GAME.targets=HALVE_TARGETS;
   if(type==='bermuda') GAME.targets=BERMUDA_TARGETS;
