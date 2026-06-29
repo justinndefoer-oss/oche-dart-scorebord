@@ -391,6 +391,45 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 #adscreen .adperks b{color:var(--chalk);font-weight:700;}
 #adscreen .adfoot{padding:0 24px calc(var(--safe-bottom) + 22px);display:flex;flex-direction:column;gap:10px;}
 
+/* tournament board */
+#screen-tourney .scroll{padding:calc(var(--safe-top) + 10px) 16px calc(40px + var(--safe-bottom));}
+.tchamp{text-align:center;background:linear-gradient(180deg,rgba(var(--brass-rgb),.16),var(--bg1));
+  border:1px solid rgba(var(--brass-rgb),.3);border-radius:18px;padding:22px 16px;margin:14px 0 6px;}
+.tchamp .trophy{color:var(--brass);line-height:0;}
+.tchamp .wl{font-size:11px;font-weight:800;letter-spacing:3px;color:var(--brass);text-transform:uppercase;margin-top:8px;}
+.tchamp .cn{font-size:30px;font-weight:900;letter-spacing:-1px;margin-top:2px;}
+.tnextcard{background:var(--bg1);border:1px solid var(--gold-border);border-radius:16px;padding:16px;margin:14px 0 6px;text-align:center;}
+.tnextcard .tnl{font-size:10px;font-weight:800;letter-spacing:2px;color:var(--dim);text-transform:uppercase;}
+.tnextcard .tvs{display:flex;align-items:center;justify-content:center;gap:12px;font-size:19px;font-weight:800;margin-top:8px;}
+.tnextcard .tvs .vs{color:var(--brass);font-size:13px;font-weight:700;}
+.kowrap{display:flex;gap:14px;overflow-x:auto;padding:6px 2px 10px;-webkit-overflow-scrolling:touch;}
+.kocol{display:flex;flex-direction:column;justify-content:space-around;gap:14px;min-width:140px;}
+.korh{font-size:10px;font-weight:800;letter-spacing:2px;color:var(--brass);text-transform:uppercase;text-align:center;}
+.komatch{background:var(--bg1);border:1px solid rgba(255,255,255,.06);border-radius:12px;overflow:hidden;}
+.komatch.cur{border-color:var(--brass);box-shadow:0 0 0 1px var(--brass);}
+.toline{display:flex;justify-content:space-between;align-items:center;padding:9px 11px;font-size:14px;font-weight:600;color:var(--txt2);}
+.toline+.toline{border-top:1px solid rgba(255,255,255,.06);}
+.toline.win{color:var(--chalk);font-weight:800;}
+.toline.win .ts{color:var(--brass);}
+.toline.bye .tn{opacity:.4;}
+.toline .ts{font-variant-numeric:tabular-nums;color:var(--dim);}
+.rrtable{background:var(--bg1);border:1px solid rgba(255,255,255,.06);border-radius:12px;overflow:hidden;}
+.rrh,.rrr{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:14px;}
+.rrh{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--dim);text-transform:uppercase;}
+.rrh span:first-child,.rrr span:first-child{width:16px;color:var(--dim);}
+.rrh span:not(:first-child):not(:nth-child(2)),.rrr span:not(:first-child):not(:nth-child(2)){width:30px;text-align:center;font-variant-numeric:tabular-nums;}
+.rrr{border-top:1px solid rgba(255,255,255,.06);font-weight:600;}
+.rrr.lead{background:rgba(var(--brass-rgb),.08);}
+.rrr.lead span:nth-child(2){color:var(--brass);font-weight:800;}
+.tfix{display:flex;flex-direction:column;gap:6px;}
+.tfixrow{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--bg1);
+  border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:10px 12px;font-size:14px;color:var(--txt2);}
+.tfixrow.cur{border-color:var(--brass);}
+.tfixrow.done{color:var(--chalk);}
+.tfixrow .sc{font-variant-numeric:tabular-nums;color:var(--dim);font-weight:700;min-width:36px;text-align:center;}
+.tfixrow .win{color:var(--brass);font-weight:800;}
+.tfixrow span:first-child{flex:1;}
+
 /* bust banner */
 #bust{position:absolute;top:calc(var(--safe-top) + 14px);left:20px;right:20px;z-index:150;display:none;
   background:linear-gradient(180deg,#e05656,var(--red));border-radius:16px;padding:16px;text-align:center;
@@ -505,6 +544,11 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
     </div>
   </section>
 
+  <!-- ===== TOERNOOI-OVERZICHT ===== -->
+  <section class="screen" id="screen-tourney">
+    <div class="scroll" id="tourney-body"></div>
+  </section>
+
   <!-- ===== GAME ===== -->
   <section class="screen" id="game">
     <div class="gamewrap" id="game-body"></div>
@@ -551,7 +595,8 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* ============ STATE ============ */
 const DEFAULT_STATE = {
   setup:{ type:'x01', points:501, checkout:'double', checkIn:'straight', format:'firstTo', sets:1, legs:3,
-    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, handicap:false, gotchaTarget:301, selectedPlayers:[1,2] },
+    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, handicap:false, gotchaTarget:301,
+    tourFormat:'ko', tourLegs:2, tourPoints:501, selectedPlayers:[1,2] },
   players:[
     {id:1,name:'Justin',initials:'JT',isBot:false,stats:{avg:61.4,games:128,wins:82,checkoutPct:38,dartsPerLeg:14.2,avgHistory:[45,52,58,60,46,65,68,72,65,68],scoreDist:{'26+':30,'41+':58,'60+':80,'100+':52,'140+':34,'180':18},doubles:{D20:44,D16:51,Bull:29}}},
     {id:2,name:'Sanne',initials:'SD',isBot:false,stats:{avg:54.8,games:96,wins:49,checkoutPct:32,dartsPerLeg:15.8,avgHistory:[40,48,52,55,50,58,54,60,56,58],scoreDist:{'26+':38,'41+':62,'60+':70,'100+':40,'140+':22,'180':9},doubles:{D20:36,D16:42,Bull:24}}},
@@ -560,6 +605,7 @@ const DEFAULT_STATE = {
   ],
   settings:{ sound:true, voice:true, autoContinue:true, botStrength:'gevorderd', adaptive:true, vibrate:false, keepScreen:true, voiceCaller:'Russ Bray', theme:'oche', premium:false },
   history:[],
+  tourney:null,
   nextId:5,
 };
 let STATE = load();
@@ -567,7 +613,13 @@ let GAME = null;
 let activeTab = 'spel';
 
 function load(){
-  try{ const s = JSON.parse(localStorage.getItem('oche-state')); if(s&&s.players) return s; }catch(e){}
+  try{ const s = JSON.parse(localStorage.getItem('oche-state'));
+    if(s&&s.players){ // fill in any new default keys added in later versions
+      s.setup = Object.assign({}, DEFAULT_STATE.setup, s.setup);
+      s.settings = Object.assign({}, DEFAULT_STATE.settings, s.settings);
+      return s;
+    }
+  }catch(e){}
   return JSON.parse(JSON.stringify(DEFAULT_STATE));
 }
 function save(){ try{ localStorage.setItem('oche-state', JSON.stringify(STATE)); }catch(e){} }
@@ -798,7 +850,8 @@ const MODES={ atc:{ic:'clock',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde'
   halveit:{ic:'flame',t:'Halve It',d:'Mis de ronde = score gehalveerd',grp:'party'},
   bermuda:{ic:'zap',t:'Bermuda',d:'12 doelen · mis = score gehalveerd',grp:'party',premium:true},
   golf:{ic:'crosshair',t:'Golf',d:'9 holes · laagste score wint',grp:'party',premium:true},
-  gotcha:{ic:'target',t:'Gotcha',d:'Race naar het doel · sla terug',grp:'party',premium:true} };
+  gotcha:{ic:'target',t:'Gotcha',d:'Race naar het doel · sla terug',grp:'party',premium:true},
+  tourney:{ic:'trophy',t:'Toernooi',d:'Knock-out of poule · x01-wedstrijden',grp:'party',premium:true} };
 function modeLocked(k){ return MODES[k] && MODES[k].premium && !STATE.settings.premium; }
 function renderModus(){
   const b=$('#modus-body'); b.innerHTML='';
@@ -831,6 +884,23 @@ function renderModus(){
   } else if(m==='gotcha'){
     const pr=el('div','pillrow'); [201,301,501].forEach(v=>{ const pl=el('div',STATE.setup.gotchaTarget===v?'pill on':'pill',v); pl.onclick=()=>{STATE.setup.gotchaTarget=v;save();renderModus();}; pr.appendChild(pl); }); set.appendChild(pr);
     set.appendChild(el('div',null,'<div style="font-size:12px;color:var(--txt2);margin-top:8px">Tel op naar exact het doel. Erover = bust. Land precies op de score van een ander en die valt terug naar 0. Eerst exact op het doel wint.</div>'));
+  } else if(m==='tourney'){
+    const fmtRow=el('div'); fmtRow.style.cssText='display:flex;gap:8px;margin-bottom:10px;';
+    [['ko','Knock-out'],['rr','Poule']].forEach(([k,l])=>{ const pl=el('div',STATE.setup.tourFormat===k?'pill on':'pill',l); pl.style.flex='1'; pl.style.textAlign='center';
+      pl.onclick=()=>{STATE.setup.tourFormat=k;save();renderModus();}; fmtRow.appendChild(pl); });
+    set.appendChild(fmtRow);
+    const lbl=el('div',null,'<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin:4px 0 6px">Per wedstrijd: first to legs</div>');
+    set.appendChild(lbl);
+    const legRow=el('div'); legRow.style.cssText='display:flex;gap:8px;margin-bottom:10px;';
+    [1,2,3].forEach(v=>{ const pl=el('div',STATE.setup.tourLegs===v?'pill on':'pill',v); pl.style.flex='1'; pl.style.textAlign='center';
+      pl.onclick=()=>{STATE.setup.tourLegs=v;save();renderModus();}; legRow.appendChild(pl); });
+    set.appendChild(legRow);
+    const ptRow=el('div'); ptRow.style.cssText='display:flex;gap:8px;';
+    [301,501,701].forEach(v=>{ const pl=el('div',STATE.setup.tourPoints===v?'pill on':'pill',v); pl.style.flex='1'; pl.style.textAlign='center';
+      pl.onclick=()=>{STATE.setup.tourPoints=v;save();renderModus();}; ptRow.appendChild(pl); });
+    set.appendChild(ptRow);
+    set.appendChild(el('div',null,'<div style="font-size:12px;color:var(--txt2);margin-top:10px">Kies 3+ spelers. <b style="color:var(--chalk)">Knock-out</b>: verlies = uit. <b style="color:var(--chalk)">Poule</b>: iedereen speelt tegen iedereen, meeste winst pakt de titel.</div>'));
+    if(STATE.tourney && STATE.tourney.active){ set.appendChild(el('div',null,'<div style="font-size:12px;color:var(--brass);margin-top:8px">Er loopt een toernooi — Start opent het overzicht.</div>')); }
   } else if(m==='bermuda'){
     set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">12 doelen: 12 · 13 · 14 · dubbel · 15 · 16 · 17 · triple · 18 · 19 · 20 · bull. Mis je in een ronde alles, dan wordt je score gehalveerd.</div>`;
   } else if(m==='halveit'){
@@ -1058,6 +1128,7 @@ function startGame(){
   if(ids.length<1){ toast('Kies minstens 1 speler'); return; }
   const type = activeTab==='spel' ? STATE.setup.type : STATE.setup.mode;
   if(activeTab==='modus' && modeLocked(type)){ openPremiumSheet(); return; }
+  if(type==='tourney'){ startTourney(ids); return; }
   GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, darts:[], mult:1,
     history:[], setsTarget:STATE.setup.sets, legsTarget:STATE.setup.legs, auto:STATE.settings.autoContinue,
     round:1, finished:false, cuRounds:STATE.setup.cuRounds, coAttempts:STATE.setup.coAttempts };
@@ -1143,7 +1214,8 @@ function numpadHTML(){
 function renderX01(){
   const s=STATE.setup;
   const co = s.checkout==='double'?'Double Out':(s.checkout==='master'?'Master Out':'Straight Out');
-  const sub = `${s.format==='firstTo'?'FIRST TO':'BEST OF'} ${s.legs} · LEG ${curLegNo()}`;
+  const sub = GAME.tourney ? `TOERNOOI · FIRST TO ${GAME.legsTarget} · LEG ${curLegNo()}`
+    : `${s.format==='firstTo'?'FIRST TO':'BEST OF'} ${s.legs} · LEG ${curLegNo()}`;
   let cards='<div class="pcards">';
   GAME.players.forEach((p,i)=>{
     const pl=getPlayer(p.id); const active=i===GAME.cur;
@@ -1253,9 +1325,8 @@ function curLegNo(){ return GAME.players.reduce((a,p)=>a+p.legsWon,0)+1; }
 
 function legWon(idx){
   const p=GAME.players[idx]; p.legsWon++;
-  // darts per leg
-  const need=Math.ceil(GAME.legsTarget/ (STATE.setup.format==='firstTo'?1:2));
-  const target = STATE.setup.format==='firstTo'?GAME.legsTarget:Math.ceil((GAME.legsTarget+1)/2);
+  const fmt=GAME.format||STATE.setup.format;
+  const target = fmt==='firstTo'?GAME.legsTarget:Math.ceil((GAME.legsTarget+1)/2);
   if(p.legsWon>=target){ setWon(idx); return; }
   showWinner(idx,'leg');
 }
@@ -1740,15 +1811,19 @@ function hideBust(){ $('#bust').classList.remove('show'); }
 
 function showWinner(idx,kind){
   lastWinKind=kind;
+  GAME._winIdx=idx;
   const p=GAME.players[idx]; const pl=getPlayer(p.id);
   Sound.finish(); Sound.say(kind==='match'?'Game shot and the match. '+pl.name+' wins':'Game shot. '+pl.name);
   const inner=$('#winner-inner');
-  const sub = kind==='match'?`Wedstrijd gewonnen · ${p.setsWon}–${otherSets(idx)} in sets`
+  const sub = (GAME.tourney&&kind==='match')?`Wedstrijd gewonnen · ${GAME.players[0].legsWon}–${GAME.players[1].legsWon} in legs`
+    : kind==='match'?`Wedstrijd gewonnen · ${p.setsWon}–${otherSets(idx)} in sets`
     : kind==='set'?`Set gewonnen · ${p.setsWon}–${otherSets(idx)}`
     : `Leg gewonnen · ${p.legsWon}–${otherLegs(idx)}`;
   const chips = chipsForGame(p,pl);
   let btns;
-  if(kind==='match'){
+  if(GAME.tourney && kind==='match'){
+    btns=`<button class="btn btn-primary" data-win="tnext">Toernooi-overzicht</button>`;
+  } else if(kind==='match'){
     btns=`<button class="btn btn-primary" data-win="newgame">Nieuw spel</button>
       <div class="wrow"><button class="btn btn-secondary" data-win="share">Delen</button><button class="btn btn-secondary" data-win="ranglijst">Ranglijst</button></div>`;
   } else {
@@ -1849,9 +1924,10 @@ $('#winner').addEventListener('click',e=>{
   const btn=e.target.closest('[data-win]'); if(!btn) return;
   const act=btn.dataset.win;
   if(act==='share'){ shareResult(); return; }
+  if(act==='tnext'){ $('#winner').classList.remove('show'); tourneyRecordResult(GAME._winIdx); return; }
   // Free tier: a full-screen ad runs after a completed MATCH (not a leg/set),
   // gating the move to a new game. Pro removes it.
-  if(lastWinKind==='match' && !STATE.settings.premium){
+  if(lastWinKind==='match' && !STATE.settings.premium && (act==='newgame'||act==='ranglijst')){
     showInterstitial(()=>doWinAct(act)); return;
   }
   doWinAct(act);
@@ -1896,6 +1972,170 @@ function freshLegReset(p){
   if(t==='bob') return {balance:27,target:1,hitMap:{}};
   return {};
 }
+
+/* ============ TOURNAMENT ============ */
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function startTourney(ids){
+  if(STATE.tourney && STATE.tourney.active){ showTourneyBoard(); return; }
+  if(ids.length<3){ toast('Kies minstens 3 spelers'); return; }
+  const s=STATE.setup;
+  const t={ active:true, format:s.tourFormat, legs:s.tourLegs, points:s.tourPoints,
+    ids:ids.slice(), champion:null, cur:null };
+  if(t.format==='ko'){ t.bracket=buildKO(shuffle(ids)); koResolveByes(t); }
+  else { t.fixtures=buildRR(shuffle(ids)); }
+  STATE.tourney=t; save();
+  showTourneyBoard();
+}
+function buildKO(ids){
+  let n=1; while(n<ids.length) n*=2;
+  const slots=ids.slice(); while(slots.length<n) slots.push(null);
+  const rounds=[]; let round=[];
+  for(let i=0;i<slots.length;i+=2) round.push({a:slots[i],b:slots[i+1],wa:0,wb:0,winner:undefined});
+  rounds.push(round);
+  let cnt=round.length;
+  while(cnt>1){ cnt=Math.floor(cnt/2); const r=[]; for(let i=0;i<cnt;i++) r.push({a:undefined,b:undefined,wa:0,wb:0,winner:undefined}); rounds.push(r); }
+  return rounds;
+}
+function koPropagate(t,r,i,winnerId){
+  if(r+1>=t.bracket.length){ t.champion=winnerId; return; }
+  const next=t.bracket[r+1][Math.floor(i/2)];
+  if(i%2===0) next.a=winnerId; else next.b=winnerId;
+}
+function koResolveByes(t){
+  let changed=true;
+  while(changed){ changed=false;
+    for(let r=0;r<t.bracket.length;r++) for(let i=0;i<t.bracket[r].length;i++){
+      const m=t.bracket[r][i];
+      if(m.winner===undefined){
+        if(m.a!=null && m.b===null){ m.winner=m.a; m.bye=true; koPropagate(t,r,i,m.a); changed=true; }
+        else if(m.b!=null && m.a===null){ m.winner=m.b; m.bye=true; koPropagate(t,r,i,m.b); changed=true; }
+      }
+    }
+  }
+}
+function koNextMatch(t){
+  for(let r=0;r<t.bracket.length;r++) for(let i=0;i<t.bracket[r].length;i++){
+    const m=t.bracket[r][i];
+    if(m.winner===undefined && m.a!=null && m.b!=null) return {r,i,m};
+  }
+  return null;
+}
+function buildRR(ids){ const f=[]; for(let i=0;i<ids.length;i++) for(let j=i+1;j<ids.length;j++) f.push({a:ids[i],b:ids[j],wa:0,wb:0,winner:undefined,played:false}); return f; }
+function rrNextMatch(t){ const idx=t.fixtures.findIndex(f=>!f.played); return idx<0?null:{idx,m:t.fixtures[idx]}; }
+function rrStandings(t){
+  const tbl={}; t.ids.forEach(id=>tbl[id]={id,p:0,w:0,l:0,lf:0,la:0});
+  t.fixtures.forEach(f=>{ if(!f.played) return;
+    tbl[f.a].p++; tbl[f.b].p++; tbl[f.a].lf+=f.wa; tbl[f.a].la+=f.wb; tbl[f.b].lf+=f.wb; tbl[f.b].la+=f.wa;
+    if(f.winner===f.a){tbl[f.a].w++;tbl[f.b].l++;} else {tbl[f.b].w++;tbl[f.a].l++;} });
+  return Object.values(tbl).sort((x,y)=> y.w-x.w || (y.lf-y.la)-(x.lf-x.la) || y.lf-x.lf );
+}
+function tourneyNext(t){ return t.format==='ko'?koNextMatch(t):rrNextMatch(t); }
+function startTourneyMatch(){
+  const t=STATE.tourney; const nm=tourneyNext(t);
+  if(!nm){ showTourneyBoard(); return; }
+  t.cur=nm; save();
+  const a=nm.m.a, b=nm.m.b;
+  GAME={ type:'x01', tourney:true, players:[a,b].map(id=>({id,...freshPlayerGame('x01')})), cur:0, darts:[], mult:1,
+    history:[], setsTarget:1, legsTarget:t.legs, auto:STATE.settings.autoContinue, round:1, finished:false };
+  GAME.players.forEach(gp=>{ gp.startScore=t.points; gp.score=t.points; });
+  GAME.format='firstTo';
+  renderGameScreen();
+}
+function tourneyRecordResult(winnerIdx){
+  const t=STATE.tourney; if(!t||!t.cur){ showTourneyBoard(); return; }
+  const la=GAME.players[0].legsWon, lb=GAME.players[1].legsWon;
+  const wId=GAME.players[winnerIdx].id;
+  const m=t.cur.m; m.wa=la; m.wb=lb; m.winner=wId;
+  if(t.format==='ko'){ m.played=true; koPropagate(t,t.cur.r,t.cur.i,wId); koResolveByes(t);
+    if(koNextMatch(t)===null && t.champion==null){ // final done
+      const fr=t.bracket[t.bracket.length-1][0]; t.champion=fr.winner; }
+  } else { m.played=true; if(rrNextMatch(t)===null){ t.champion=rrStandings(t)[0].id; } }
+  t.cur=null; GAME=null; save();
+  showTourneyBoard();
+}
+function nm2(id){ const p=getPlayer(id); return p?p.name:'—'; }
+function showTourneyBoard(){
+  $('#tabbar').style.display='none';
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  $('#screen-tourney').classList.add('active');
+  renderTourneyBoard();
+}
+function renderTourneyBoard(){
+  const t=STATE.tourney; const b=$('#tourney-body'); b.innerHTML='';
+  const head=el('div'); head.style.cssText='text-align:center;padding:8px 0 4px';
+  head.innerHTML=`<div class="brand" style="font-size:20px">OCHE</div>
+    <div style="color:var(--brass);font-weight:800;letter-spacing:2px;font-size:12px;text-transform:uppercase;margin-top:2px">Toernooi · ${t.format==='ko'?'Knock-out':'Poule'}</div>`;
+  b.appendChild(head);
+
+  if(t.champion){
+    const ch=el('div','tchamp');
+    ch.innerHTML=`<div class="trophy">${icon('trophy',46,1.7)}</div>
+      <div class="wl">Kampioen</div><div class="cn">${nm2(t.champion)}</div>`;
+    b.appendChild(ch);
+  } else {
+    const nm=tourneyNext(t);
+    const nx=el('div','tnextcard');
+    if(nm){ nx.innerHTML=`<div class="tnl">Volgende wedstrijd</div>
+      <div class="tvs"><span>${nm2(nm.m.a)}</span><span class="vs">vs</span><span>${nm2(nm.m.b)}</span></div>
+      <div class="tnl" style="margin-top:2px">First to ${t.legs} · ${t.points}</div>`;
+      const go=el('button','btn btn-primary','Start wedstrijd'); go.style.marginTop='12px'; go.onclick=startTourneyMatch; nx.appendChild(go);
+    }
+    b.appendChild(nx);
+  }
+
+  // board body
+  if(t.format==='ko'){
+    b.appendChild(el('div','caps','Schema'));
+    const wrap=el('div','kowrap');
+    t.bracket.forEach((round,ri)=>{
+      const col=el('div','kocol');
+      const rn=t.bracket.length-ri; const title= rn===1?'Finale':rn===2?'Halve finale':rn===3?'Kwartfinale':'Ronde '+(ri+1);
+      col.appendChild(el('div','korh',title));
+      round.forEach(m=>{
+        const cur = t.cur && t.cur.m===m;
+        const mc=el('div','komatch'+(cur?' cur':''));
+        mc.appendChild(tline(m.a,m.winner,m.wa,m.b,m.winner!==undefined));
+        mc.appendChild(tline(m.b,m.winner,m.wb,m.a,m.winner!==undefined));
+        col.appendChild(mc);
+      });
+      wrap.appendChild(col);
+    });
+    b.appendChild(wrap);
+  } else {
+    b.appendChild(el('div','caps','Stand'));
+    const tbl=el('div','rrtable');
+    tbl.appendChild(rrHeadRow());
+    rrStandings(t).forEach((r,i)=>tbl.appendChild(rrRow(r,i)));
+    b.appendChild(tbl);
+    b.appendChild(el('div','caps','Wedstrijden'));
+    const fl=el('div','tfix');
+    t.fixtures.forEach(f=>{ const row=el('div','tfixrow'+(f.played?' done':'')+(t.cur&&t.cur.m===f?' cur':''));
+      row.innerHTML=`<span class="${f.played&&f.winner===f.a?'win':''}">${nm2(f.a)}</span>
+        <span class="sc">${f.played?f.wa+'–'+f.wb:'vs'}</span>
+        <span class="${f.played&&f.winner===f.b?'win':''}" style="text-align:right">${nm2(f.b)}</span>`;
+      fl.appendChild(row); });
+    b.appendChild(fl);
+  }
+
+  // footer buttons
+  const foot=el('div'); foot.style.cssText='margin:18px 0 30px;display:flex;flex-direction:column;gap:10px';
+  if(t.champion){
+    const again=el('button','btn btn-primary','Nieuw toernooi'); again.onclick=()=>{ STATE.tourney=null; save(); showTab('modus'); };
+    foot.appendChild(again);
+  }
+  const exit=el('button','btn btn-secondary',t.champion?'Sluiten':'Toernooi verlaten');
+  exit.onclick=()=>{ if(t.champion || confirm('Toernooi verlaten? De voortgang blijft bewaard.')){ if(t.champion){STATE.tourney=null;save();} showTab('modus'); } };
+  foot.appendChild(exit);
+  b.appendChild(foot);
+}
+function tline(id,winnerId,score,oppId,played){
+  const r=el('div','toline'+(played&&winnerId===id?' win':'')+(id==null?' bye':''));
+  r.innerHTML=`<span class="tn">${id==null?'—':nm2(id)}</span><span class="ts">${played&&id!=null?score:''}</span>`;
+  return r;
+}
+function rrHeadRow(){ const r=el('div','rrh'); r.innerHTML=`<span>#</span><span style="flex:1">Speler</span><span>G</span><span>W</span><span>+/–</span>`; return r; }
+function rrRow(d,i){ const r=el('div','rrr'+(i===0?' lead':'')); const diff=d.lf-d.la;
+  r.innerHTML=`<span>${i+1}</span><span style="flex:1">${nm2(d.id)}</span><span>${d.p}</span><span>${d.w}</span><span>${diff>0?'+':''}${diff}</span>`; return r; }
 
 /* ============ BOT ============ */
 const BOT_PROFILES={ makkelijk:{avg:30,acc:.45,doubleAcc:.18}, gemiddeld:{avg:50,acc:.62,doubleAcc:.32}, gevorderd:{avg:75,acc:.80,doubleAcc:.45} };
@@ -2051,7 +2291,10 @@ function handleAct(act){
   if(act==='undo') undo();
   else if(act==='next'){ if(GAME.type==='cotrain') checkoutSkip(); else if(GAME.type==='doubles'){ if(!GAME.turnAdvancing) doublesResolve(false); } else nextPlayer(); }
   else if(act==='toggleAuto'){ GAME.auto=!GAME.auto; renderGameScreen(); }
-  else if(act==='stop'){ if(confirm('Spel stoppen?')){ GAME=null; showTab('spel'); } }
+  else if(act==='stop'){
+    if(GAME.tourney){ if(confirm('Wedstrijd stoppen? Je kunt deze opnieuw starten vanuit het overzicht.')){ GAME=null; showTourneyBoard(); } }
+    else if(confirm('Spel stoppen?')){ GAME=null; showTab('spel'); }
+  }
   else if(act==='gameSettings'){ openGameSettings(); }
 }
 
