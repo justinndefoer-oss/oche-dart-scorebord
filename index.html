@@ -1134,7 +1134,7 @@ function renderCricket(){
   const variant=STATE.setup.variant;
   const vlabel=variant==='cutthroat'?'Cut-Throat':variant==='noscore'?'No Score':'Standaard';
   let heads='<div class="cheaders">';
-  GAME.players.slice(0,2).forEach((p,i)=>{ const pl=getPlayer(p.id);
+  GAME.players.forEach((p,i)=>{ const pl=getPlayer(p.id);
     heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${pl.name}</div><div class="sc">${p.points}</div></div>`; });
   heads+='</div>';
   let grid='<div class="crickwrap">';
@@ -1290,7 +1290,7 @@ function openKillerPick(){
 function renderShanghai(){
   const rnd=GAME.round;
   let heads='<div class="cheaders">';
-  GAME.players.slice(0,2).forEach((p,i)=>{ const pl=getPlayer(p.id);
+  GAME.players.forEach((p,i)=>{ const pl=getPlayer(p.id);
     heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${pl.name}</div><div class="sc">${p.points}</div></div>`; });
   heads+='</div>';
   const big=`<div class="bigcard"><div class="lbl">Deze ronde · gooi op</div><div class="big">${rnd}</div>
@@ -1372,7 +1372,7 @@ function highestWins(){ let best=-Infinity,wi=0; GAME.players.forEach((p,i)=>{ i
 /* ---- COUNT UP ---- */
 function renderCountUp(){
   let heads='<div class="cheaders">';
-  GAME.players.slice(0,2).forEach((p,i)=>{ const pl=getPlayer(p.id);
+  GAME.players.forEach((p,i)=>{ const pl=getPlayer(p.id);
     heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${pl.name}</div><div class="sc">${p.score}</div></div>`; });
   heads+='</div>';
   const big=`<div class="bigcard"><div class="lbl">Ronde ${GAME.round} van ${GAME.cuRounds}</div><div class="big">${turnSum()}</div><div class="hint">Scoor zo veel mogelijk</div></div>`;
@@ -1398,7 +1398,7 @@ function halveValue(tg,v,m){
 function renderHalveIt(){
   const tg=HALVE_TARGETS[GAME.round-1];
   let heads='<div class="cheaders">';
-  GAME.players.slice(0,2).forEach((p,i)=>{ const pl=getPlayer(p.id);
+  GAME.players.forEach((p,i)=>{ const pl=getPlayer(p.id);
     heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${pl.name}</div><div class="sc">${p.score}</div></div>`; });
   heads+='</div>';
   const turn=GAME.darts.reduce((a,d)=>a+(d.val||0),0);
