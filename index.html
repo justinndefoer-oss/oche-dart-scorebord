@@ -923,6 +923,24 @@ function checkoutRoute(score){
   if(STATE.setup.checkout==='double'){ if(score===1) return null; }
   return CHECKOUTS[score]||null;
 }
+/* finishing sets for double-out */
+const FIN_DBL=(()=>{ const s=new Set(); for(let n=1;n<=20;n++) s.add(2*n); s.add(50); return s; })(); // valid last-dart doubles + bull
+function dblLabel(v){ return v===50?'Bull':'D'+(v/2); }
+/* best checkout route that fits within `darts` darts left this turn; null if not finishable */
+function bestRoute(r,darts){
+  if(r<2||r>170) return null;
+  if(FIN_DBL.has(r)) return dblLabel(r);            // 1 dart
+  if(darts>=2){
+    const firsts=[];
+    for(let n=20;n>=1;n--) firsts.push(['S'+n,n]);
+    firsts.push(['25',25]);
+    for(let n=20;n>=1;n--) firsts.push(['T'+n,3*n]);
+    firsts.push(['Bull',50]);
+    for(const [lab,val] of firsts){ const rem=r-val; if(rem>=2 && FIN_DBL.has(rem)) return lab+' '+dblLabel(rem); }
+  }
+  if(darts>=3) return checkoutRoute(r);             // standard 3-dart route from the table
+  return null;
+}
 
 /* ============ GAME ENGINE ============ */
 function startGame(){
@@ -1005,10 +1023,12 @@ function renderX01(){
       <div class="last">LAATSTE ${p.lastTurn}</div></div>`;
   });
   cards+='</div>';
-  const cur=curP(); const route=checkoutRoute(cur.score - turnSum());
+  const cur=curP();
   const remaining = cur.score - turnSum();
+  const dartsLeft = 3 - GAME.darts.length;
+  const route = bestRoute(remaining, dartsLeft);  // route that actually fits the darts left
   let cobar='';
-  if(remaining<=170 && remaining>=2 && checkoutRoute(remaining)) cobar=`<div class="cobar"><span class="l">CHECKOUT ${remaining}</span><span class="r">${checkoutRoute(remaining)}</span></div>`;
+  if(route) cobar=`<div class="cobar"><span class="l">CHECKOUT ${remaining}</span><span class="r">${route}</span></div>`;
   else cobar=`<div class="cobar" style="opacity:.5"><span class="l">REST ${remaining}</span><span class="r">—</span></div>`;
   const slots=dartSlotsX01();
   return `<div>${ctrlBar(s.points+' · '+co,sub)}${cards}${cobar}${slots}${multSeg()}${numpadHTML()}
