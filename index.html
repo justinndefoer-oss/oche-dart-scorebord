@@ -520,7 +520,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* ============ STATE ============ */
 const DEFAULT_STATE = {
   setup:{ type:'x01', points:501, checkout:'double', checkIn:'straight', format:'firstTo', sets:1, legs:3,
-    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, handicap:false, selectedPlayers:[1,2] },
+    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, handicap:false, gotchaTarget:301, selectedPlayers:[1,2] },
   players:[
     {id:1,name:'Justin',initials:'JT',isBot:false,stats:{avg:61.4,games:128,wins:82,checkoutPct:38,dartsPerLeg:14.2,avgHistory:[45,52,58,60,46,65,68,72,65,68],scoreDist:{'26+':30,'41+':58,'60+':80,'100+':52,'140+':34,'180':18},doubles:{D20:44,D16:51,Bull:29}}},
     {id:2,name:'Sanne',initials:'SD',isBot:false,stats:{avg:54.8,games:96,wins:49,checkoutPct:32,dartsPerLeg:15.8,avgHistory:[40,48,52,55,50,58,54,60,56,58],scoreDist:{'26+':38,'41+':62,'60+':70,'100+':40,'140+':22,'180':9},doubles:{D20:36,D16:42,Bull:24}}},
@@ -761,10 +761,13 @@ const MODES={ atc:{ic:'clock',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde'
   countup:{ic:'chart',t:'Count Up',d:'Scoor zo hoog mogelijk in X rondes',grp:'training'},
   cotrain:{ic:'target',t:'Checkout-training',d:'Oefen finishes (41–170)',grp:'training'},
   doubles:{ic:'crosshair',t:'Dubbels-training',d:'D1 → Bull · trefkans op dubbels',grp:'training',premium:true},
+  trebles:{ic:'target',t:'Trebles-training',d:'T1 → T20 · trefkans op triples',grp:'training',premium:true},
   killer:{ic:'skull',t:'Killer',d:'Word killer, sloop levens',grp:'party'},
   shanghai:{ic:'zap',t:'Shanghai',d:'Single, double, triple winst',grp:'party'},
   halveit:{ic:'flame',t:'Halve It',d:'Mis de ronde = score gehalveerd',grp:'party'},
-  bermuda:{ic:'zap',t:'Bermuda',d:'12 doelen · mis = score gehalveerd',grp:'party',premium:true} };
+  bermuda:{ic:'zap',t:'Bermuda',d:'12 doelen · mis = score gehalveerd',grp:'party',premium:true},
+  golf:{ic:'crosshair',t:'Golf',d:'9 holes · laagste score wint',grp:'party',premium:true},
+  gotcha:{ic:'target',t:'Gotcha',d:'Race naar het doel · sla terug',grp:'party',premium:true} };
 function modeLocked(k){ return MODES[k] && MODES[k].premium && !STATE.settings.premium; }
 function renderModus(){
   const b=$('#modus-body'); b.innerHTML='';
@@ -790,6 +793,13 @@ function renderModus(){
     set.appendChild(el('div',null,'<div style="font-size:12px;color:var(--txt2);margin-top:8px">Elke poging krijg je een willekeurige finish (41–170). 3 pijlen om uit te gooien op een dubbel. Hoogste trefkans wint.</div>'));
   } else if(m==='doubles'){
     set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">Ga D1 → D20 → Bull. Per dubbel 3 pijlen; raak je 'm, dan tel je een treffer. Hoogste trefkans wint.</div>`;
+  } else if(m==='trebles'){
+    set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">Ga T1 → T20. Per triple 3 pijlen; raak je 'm, dan tel je een treffer. Hoogste trefkans wint.</div>`;
+  } else if(m==='golf'){
+    set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">9 holes (1 t/m 9). Per hole 3 pijlen op dat nummer: triple = 1, dubbel = 2, single = 3, mis = 5. Laagste totaal wint.</div>`;
+  } else if(m==='gotcha'){
+    const pr=el('div','pillrow'); [201,301,501].forEach(v=>{ const pl=el('div',STATE.setup.gotchaTarget===v?'pill on':'pill',v); pl.onclick=()=>{STATE.setup.gotchaTarget=v;save();renderModus();}; pr.appendChild(pl); }); set.appendChild(pr);
+    set.appendChild(el('div',null,'<div style="font-size:12px;color:var(--txt2);margin-top:8px">Tel op naar exact het doel. Erover = bust. Land precies op de score van een ander en die valt terug naar 0. Eerst exact op het doel wint.</div>'));
   } else if(m==='bermuda'){
     set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">12 doelen: 12 · 13 · 14 · dubbel · 15 · 16 · 17 · triple · 18 · 19 · 20 · bull. Mis je in een ronde alles, dan wordt je score gehalveerd.</div>`;
   } else if(m==='halveit'){
@@ -835,8 +845,8 @@ function renderSpelers(){
   b.appendChild(el('div',null,'<div style="text-align:center;color:var(--dim);font-size:11px;margin-top:6px">Veeg een speler naar links om te verwijderen</div>'));
   renderHistory(b);
 }
-const MODE_LABEL={x01:'x01',cricket:'Cricket',atc:'Around the Clock',killer:'Killer',shanghai:'Shanghai',bob:"Bob's 27",countup:'Count Up',halveit:'Halve It',cotrain:'Checkout-training',doubles:'Dubbels-training',bermuda:'Bermuda'};
-const MODE_ABBR={x01:'01',cricket:'CR',atc:'AC',killer:'KL',shanghai:'SH',bob:'27',countup:'CU',halveit:'HI',cotrain:'CO',doubles:'DB',bermuda:'BM'};
+const MODE_LABEL={x01:'x01',cricket:'Cricket',atc:'Around the Clock',killer:'Killer',shanghai:'Shanghai',bob:"Bob's 27",countup:'Count Up',halveit:'Halve It',cotrain:'Checkout-training',doubles:'Dubbels-training',bermuda:'Bermuda',trebles:'Trebles-training',golf:'Golf',gotcha:'Gotcha'};
+const MODE_ABBR={x01:'01',cricket:'CR',atc:'AC',killer:'KL',shanghai:'SH',bob:'27',countup:'CU',halveit:'HI',cotrain:'CO',doubles:'DB',bermuda:'BM',trebles:'TB',golf:'GF',gotcha:'GO'};
 function renderHistory(b){
   const hist=STATE.history||[];
   const head=el('div'); head.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px';
@@ -1023,7 +1033,10 @@ function startGame(){
     GAME.players.forEach(gp=>{ gp.startScore = hs?hs[gp.id]:STATE.setup.points; gp.score=gp.startScore; }); }
   if(type==='halveit') GAME.targets=HALVE_TARGETS;
   if(type==='bermuda') GAME.targets=BERMUDA_TARGETS;
-  if(type==='doubles') GAME.coAttempts=DOUBLE_SEQ.length;
+  if(type==='doubles'){ GAME.trainSeq=DOUBLE_SEQ; GAME.trainMult=2; }
+  if(type==='trebles'){ GAME.trainSeq=TREBLE_SEQ; GAME.trainMult=3; }
+  if(type==='golf'){ GAME.holes=9; }
+  if(type==='gotcha'){ GAME.target=STATE.setup.gotchaTarget; }
   if(type==='killer'){ GAME.pickIndex=0; renderGameScreen(); openKillerPick(); return; }
   if(type==='cotrain') setCheckoutTarget(GAME.players[0]);
   renderGameScreen();
@@ -1039,7 +1052,9 @@ function freshPlayerGame(type){
   if(type==='countup') return {...base,score:0};
   if(type==='halveit'||type==='bermuda') return {...base,score:0};
   if(type==='cotrain') return {...base,attempts:0,hits:0,coTarget:0};
-  if(type==='doubles') return {...base,attempts:0,hits:0,seq:0};
+  if(type==='doubles'||type==='trebles') return {...base,attempts:0,hits:0,seq:0};
+  if(type==='golf') return {...base,total:0,hole:0};
+  if(type==='gotcha') return {...base,score:0};
   return base;
 }
 function randCheckout(){ let s; do{ s=41+Math.floor(Math.random()*130); }while(!checkoutRoute(s)); return s; }
@@ -1047,6 +1062,7 @@ function setCheckoutTarget(p){ p.coTarget=randCheckout(); }
 const HALVE_TARGETS=[{label:'20',t:'n',n:20},{label:'16',t:'n',n:16},{label:'Dubbel',t:'D'},{label:'14',t:'n',n:14},{label:'Triple',t:'T'},{label:'Bull',t:'B'}];
 const BERMUDA_TARGETS=[{label:'12',t:'n',n:12},{label:'13',t:'n',n:13},{label:'14',t:'n',n:14},{label:'Dubbel',t:'D'},{label:'15',t:'n',n:15},{label:'16',t:'n',n:16},{label:'17',t:'n',n:17},{label:'Triple',t:'T'},{label:'18',t:'n',n:18},{label:'19',t:'n',n:19},{label:'20',t:'n',n:20},{label:'Bull',t:'B'}];
 const DOUBLE_SEQ=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,25]; // D1..D20 then Bull
+const TREBLE_SEQ=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20];    // T1..T20
 function curP(){ return GAME.players[GAME.cur]; }
 function pushHistory(){ GAME.history.push(JSON.stringify({players:GAME.players,cur:GAME.cur,darts:GAME.darts,round:GAME.round,pickIndex:GAME.pickIndex,mult:GAME.mult})); if(GAME.history.length>60)GAME.history.shift(); }
 function undo(){
@@ -1069,7 +1085,9 @@ function renderGameScreen(){
   else if(GAME.type==='bob') b.innerHTML=renderBob();
   else if(GAME.type==='countup') b.innerHTML=renderCountUp();
   else if(GAME.type==='halveit'||GAME.type==='bermuda') b.innerHTML=renderHalveIt();
-  else if(GAME.type==='doubles') b.innerHTML=renderDoubles();
+  else if(GAME.type==='doubles'||GAME.type==='trebles') b.innerHTML=renderDoubles();
+  else if(GAME.type==='golf') b.innerHTML=renderGolf();
+  else if(GAME.type==='gotcha') b.innerHTML=renderGotcha();
   else if(GAME.type==='cotrain') b.innerHTML=renderCheckout();
   bindGame();
   maybeBotTurn();
@@ -1183,6 +1201,7 @@ function nextPlayer(){
   const cur=curP();
   // commit turn for scoring modes that accumulate per turn
   if(GAME.type==='x01' && GAME.darts.length>0 && cur.score-turnSum()>1){ commitX01Turn(); }
+  if(GAME.type==='gotcha' && GAME.darts.length>0){ gotchaCommit(); }
   if((GAME.type==='halveit'||GAME.type==='bermuda') && GAME.darts.length>0){ const sum=GAME.darts.reduce((a,d)=>a+(d.val||0),0); if(sum===0) cur.score=Math.floor(cur.score/2); else cur.score+=sum; cur.lastTurn=sum; }
   GAME.darts=[]; GAME.mult=1;
   GAME.cur=(GAME.cur+1)%GAME.players.length;
@@ -1509,28 +1528,28 @@ function checkoutNext(){
 }
 function checkoutSkip(){ if(GAME.turnAdvancing) return; endAttempt(false); }
 
-/* ---- DOUBLES TRAINING ---- */
-function dblTargetLabel(n){ return n===25?'Bull':'D'+n; }
+/* ---- DOUBLES / TREBLES TRAINING (shared engine) ---- */
+function segLabel(n){ return GAME.trainMult===3 ? 'T'+n : (n===25?'Bull':'D'+n); }
+function segIsHit(n,v,m){ return (GAME.trainMult===2 && n===25) ? v===25 : (m===GAME.trainMult && v===n); }
 function renderDoubles(){
-  const cur=curP(); const pl=getPlayer(cur.id);
-  const n=DOUBLE_SEQ[cur.seq];
+  const cur=curP(); const pl=getPlayer(cur.id); const seq=GAME.trainSeq;
+  const n=seq[cur.seq]; const isT=GAME.trainMult===3;
   const pct=cur.attempts?Math.round(cur.hits/cur.attempts*100):0;
   const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${avInit(pl,18)}</div>
-    <div><div class="nm">${pl.name}</div><div class="meta">DUBBEL ${cur.seq+1} VAN ${DOUBLE_SEQ.length} · DART ${GAME.darts.length+1}/3</div></div>
+    <div><div class="nm">${pl.name}</div><div class="meta">${isT?'TRIPLE':'DUBBEL'} ${cur.seq+1} VAN ${seq.length} · DART ${GAME.darts.length+1}/3</div></div>
     <div class="rt">TREFKANS<br><b>${cur.hits}/${cur.attempts} · ${pct}%</b></div></div>`;
-  let hint = GAME.dtResult==='hit'?'<span style="color:var(--green)">Raak!</span>':GAME.dtResult==='miss'?'<span style="color:var(--red)">Mis — volgende</span>':'Raak de '+dblTargetLabel(n);
-  const big=`<div class="bigcard"><div class="lbl">Doel · dubbel</div><div class="big green">${dblTargetLabel(n)}</div><div class="hint">${hint}</div></div>`;
+  let hint = GAME.dtResult==='hit'?'<span style="color:var(--green)">Raak!</span>':GAME.dtResult==='miss'?'<span style="color:var(--red)">Mis — volgende</span>':'Raak de '+segLabel(n);
+  const big=`<div class="bigcard"><div class="lbl">Doel · ${isT?'triple':'dubbel'}</div><div class="big green">${segLabel(n)}</div><div class="hint">${hint}</div></div>`;
   const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].hit?'green':'red'):''}"></div>`).join('');
-  let prog='<div class="pgrid">'; DOUBLE_SEQ.slice(0,20).forEach((d,i)=>{ const cls=i<cur.seq?'green':(i===cur.seq?'cur':''); prog+=`<div class="pcell ${cls}">${d}</div>`; }); prog+='</div>';
-  return `<div>${ctrlBar(icon('crosshair',16)+' Dubbels-training','DUBBEL '+dblTargetLabel(n))}${strip}${big}${prog}
+  let prog='<div class="pgrid">'; seq.slice(0,20).forEach((d,i)=>{ const cls=i<cur.seq?'green':(i===cur.seq?'cur':''); prog+=`<div class="pcell ${cls}">${d}</div>`; }); prog+='</div>';
+  return `<div>${ctrlBar(icon(isT?'target':'crosshair',16)+(isT?' Trebles-training':' Dubbels-training'),(isT?'TRIPLE ':'DUBBEL ')+segLabel(n))}${strip}${big}${prog}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
-    <div class="bigactions inpzone"><button class="bigact-miss" data-dbl="0">Mis</button><button class="bigact-hit" data-dbl="1">Raak ${dblTargetLabel(n)}</button></div>
+    <div class="bigactions inpzone"><button class="bigact-miss" data-dbl="0">Mis</button><button class="bigact-hit" data-dbl="1">Raak ${segLabel(n)}</button></div>
     <div class="subactions"><button data-act="undo">${icon('undo',16)} Undo</button><button data-act="next">Volgende</button></div></div>`;
 }
 function doublesThrow(v,m){
   const cur=curP(); if(GAME.darts.length>=3||GAME.turnAdvancing) return;
-  const n=DOUBLE_SEQ[cur.seq];
-  const hit = n===25 ? (v===25) : (m===2 && v===n);
+  const n=GAME.trainSeq[cur.seq]; const hit=segIsHit(n,v,m);
   pushHistory(); GAME.darts.push({v,m,hit});
   if(hit){ Sound.hit(); doublesResolve(true); return; }
   if(GAME.darts.length>=3){ doublesResolve(false); return; }
@@ -1538,7 +1557,7 @@ function doublesThrow(v,m){
 }
 function doublesHit(ok){ // big Mis/Raak buttons
   const cur=curP(); if(GAME.darts.length>=3||GAME.turnAdvancing) return;
-  pushHistory(); GAME.darts.push({hit:!!ok,v:ok?DOUBLE_SEQ[cur.seq]:0,m:2});
+  pushHistory(); GAME.darts.push({hit:!!ok,v:ok?GAME.trainSeq[cur.seq]:0,m:GAME.trainMult});
   if(ok){ Sound.hit(); doublesResolve(true); return; }
   if(GAME.darts.length>=3){ doublesResolve(false); return; }
   renderGameScreen();
@@ -1549,15 +1568,83 @@ function doublesResolve(hit){
   setTimeout(()=>{ if(GAME){ GAME.turnAdvancing=false; doublesNext(); } }, hit?700:600);
 }
 function doublesNext(){
-  if(!GAME) return;
+  if(!GAME) return; const seq=GAME.trainSeq;
   GAME.dtResult=null; GAME.darts=[]; GAME.mult=1;
   curP().seq++;
-  if(GAME.players.every(p=>p.seq>=DOUBLE_SEQ.length)){
+  if(GAME.players.every(p=>p.seq>=seq.length)){
     let best=-1,wi=0; GAME.players.forEach((p,i)=>{ if(p.hits>best){best=p.hits;wi=i;} });
     GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); return;
   }
-  let g=0; do{ GAME.cur=(GAME.cur+1)%GAME.players.length; g++; }while(curP().seq>=DOUBLE_SEQ.length && g<20);
+  let g=0; do{ GAME.cur=(GAME.cur+1)%GAME.players.length; g++; }while(curP().seq>=seq.length && g<20);
   renderGameScreen();
+}
+
+/* ---- GOLF ---- */
+function golfStroke(){ // best of the darts this turn at the hole number
+  let best=5; GAME.darts.forEach(d=>{ if(d.q!=null && d.q<best) best=d.q; }); return best;
+}
+function renderGolf(){
+  const cur=curP(); const pl=getPlayer(cur.id); const hole=cur.hole+1;
+  let heads='<div class="cheaders">';
+  GAME.players.forEach((p,i)=>{ heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${getPlayer(p.id).name}</div><div class="sc">${p.total}</div></div>`; });
+  heads+='</div>';
+  const cur_stroke=GAME.darts.length?golfStroke():null;
+  const big=`<div class="bigcard"><div class="lbl">Hole ${hole} van ${GAME.holes} · gooi op</div><div class="big">${hole}</div><div class="hint">${cur_stroke!=null?('Beste deze hole: '+cur_stroke+' slag'+(cur_stroke===1?'':'en')):'Triple 1 · Dubbel 2 · Single 3 · Mis 5'}</div></div>`;
+  const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].q<=3?'green':'red'):''}"></div>`).join('');
+  return `<div>${ctrlBar(icon('crosshair',16)+' Golf','HOLE '+hole+'/'+GAME.holes)}${heads}${big}
+    <div class="pips" style="margin:0 0 10px">${pips}</div>
+    <div class="numpad inpzone" style="grid-template-columns:repeat(2,1fr)">
+      <button data-golf="1">Triple (1)</button><button data-golf="2">Dubbel (2)</button>
+      <button data-golf="3">Single (3)</button><button data-golf="5">Mis (5)</button></div>
+    <div class="actions" style="grid-template-columns:1fr 1.4fr"><button class="act-undo" data-act="undo">${icon('undo',16)} Undo</button>
+    <button class="act-next" data-act="next">Volgende</button></div></div>`;
+}
+function golfThrow(q){
+  const cur=curP(); if(GAME.darts.length>=3) return;
+  pushHistory(); GAME.darts.push({q}); Sound.hit();
+  if(GAME.darts.length>=3){ golfEndHole(); return; }
+  renderGameScreen();
+}
+function golfEndHole(){
+  const cur=curP(); cur.total+=golfStroke(); cur.hole++;
+  GAME.darts=[];
+  if(GAME.players.every(p=>p.hole>=GAME.holes)){
+    let best=Infinity,wi=0; GAME.players.forEach((p,i)=>{ if(p.total<best){best=p.total;wi=i;} });
+    GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); return;
+  }
+  let g=0; do{ GAME.cur=(GAME.cur+1)%GAME.players.length; g++; }while(curP().hole>=GAME.holes && g<20);
+  renderGameScreen();
+  if(GAME.auto && !curIsBot()) {}
+}
+
+/* ---- GOTCHA ---- */
+function renderGotcha(){
+  const cur=curP();
+  let heads='<div class="cheaders">';
+  GAME.players.forEach((p,i)=>{ heads+=`<div class="chead ${i===GAME.cur?'active':''}"><div class="nm">${getPlayer(p.id).name}</div><div class="sc">${p.score}</div></div>`; });
+  heads+='</div>';
+  const turn=turnSum(); const proj=cur.score+turn; const over=proj>GAME.target;
+  const big=`<div class="bigcard"><div class="lbl">Doel</div><div class="big">${GAME.target}</div><div class="hint">${cur.score} + ${turn} = ${proj}${over?' · te hoog!':''}</div></div>`;
+  return `<div>${ctrlBar(icon('target',16)+' Gotcha','DOEL '+GAME.target)}${heads}${big}${dartSlotsX01()}${multSeg()}${numpadHTML()}
+    <div class="actions"><button class="act-bull" data-bull="1">Bull</button><button class="act-miss" data-miss="1">Miss</button>
+    <button class="act-undo" data-act="undo">${icon('undo',16)}</button><button class="act-next" data-act="next" ${GAME.darts.length===0?'disabled':''}>Volgende</button></div></div>`;
+}
+function gotchaDart(v,m){
+  const cur=curP(); if(GAME.darts.length>=3) return;
+  pushHistory(); GAME.darts.push({v,m});
+  const proj=cur.score+turnSum();
+  if(proj>GAME.target){ vibrate(120); showBust('Te hoog — beurt vervalt'); GAME.darts=[]; GAME.turnAdvancing=true; setTimeout(()=>{ if(GAME){GAME.turnAdvancing=false; nextPlayer();} },900); return; }
+  if(proj===GAME.target){ cur.score=GAME.target; cur.dartsThrown+=GAME.darts.length; GAME.finished=true; recordGameStats(GAME.cur); showWinner(GAME.cur,'match'); return; }
+  Sound.hit();
+  if(GAME.darts.length>=3) Sound.scoreCall(turnSum());
+  renderGameScreen();
+  if(GAME.darts.length>=3 && GAME.auto && !curIsBot()) setTimeout(nextPlayer,450);
+}
+function gotchaCommit(){ // called from nextPlayer for gotcha
+  const cur=curP(); const sum=turnSum(); if(sum===0) return;
+  cur.score+=sum; cur.lastTurn=sum; cur.dartsThrown+=GAME.darts.length;
+  // knock back any opponent you land exactly on
+  GAME.players.forEach((p,i)=>{ if(i!==GAME.cur && p.score>0 && p.score===cur.score){ p.score=0; toast(getPlayer(p.id).name+' teruggeslagen!'); } });
 }
 
 /* ---- COUNT UP ---- */
@@ -1684,7 +1771,9 @@ function chipsForGame(p,pl){
   if(GAME.type==='killer') return `<div class="wchip green"><div class="v">${p.lives}</div><div class="k">Levens over</div></div>`;
   if(GAME.type==='countup'||GAME.type==='halveit'||GAME.type==='bermuda') return `<div class="wchip brass"><div class="v">${p.score}</div><div class="k">Punten</div></div>`;
   if(GAME.type==='cotrain'){ const pct=p.attempts?Math.round(p.hits/p.attempts*100):0; return `<div class="wchip brass"><div class="v">${p.hits}/${p.attempts}</div><div class="k">Checkouts</div></div><div class="wchip green"><div class="v">${pct}%</div><div class="k">Trefkans</div></div>`; }
-  if(GAME.type==='doubles'){ const pct=p.attempts?Math.round(p.hits/p.attempts*100):0; return `<div class="wchip brass"><div class="v">${p.hits}/${p.attempts}</div><div class="k">Dubbels</div></div><div class="wchip green"><div class="v">${pct}%</div><div class="k">Trefkans</div></div>`; }
+  if(GAME.type==='doubles'||GAME.type==='trebles'){ const pct=p.attempts?Math.round(p.hits/p.attempts*100):0; return `<div class="wchip brass"><div class="v">${p.hits}/${p.attempts}</div><div class="k">${GAME.trainMult===3?'Triples':'Dubbels'}</div></div><div class="wchip green"><div class="v">${pct}%</div><div class="k">Trefkans</div></div>`; }
+  if(GAME.type==='golf') return `<div class="wchip brass"><div class="v">${p.total}</div><div class="k">Slagen</div></div>`;
+  if(GAME.type==='gotcha') return `<div class="wchip brass"><div class="v">${p.score}</div><div class="k">Score</div></div>`;
   return '';
 }
 function recordGameStats(winIdx){
@@ -1711,7 +1800,9 @@ function recordGameStats(winIdx){
   else if(GAME.type==='killer') detail='Killer';
   else if(GAME.type==='countup') detail=GAME.players[winIdx].score+' punten';
   else if(GAME.type==='halveit'||GAME.type==='bermuda') detail=GAME.players[winIdx].score+' punten';
-  else if(GAME.type==='doubles') detail=GAME.players[winIdx].hits+'/'+DOUBLE_SEQ.length+' dubbels';
+  else if(GAME.type==='doubles'||GAME.type==='trebles') detail=GAME.players[winIdx].hits+'/'+GAME.trainSeq.length+(GAME.trainMult===3?' triples':' dubbels');
+  else if(GAME.type==='golf') detail=GAME.players[winIdx].total+' slagen';
+  else if(GAME.type==='gotcha') detail='doel '+GAME.target;
   else if(GAME.type==='cotrain') detail=GAME.players[winIdx].hits+'/'+GAME.players[winIdx].attempts+' checkouts';
   STATE.history=(STATE.history||[]);
   STATE.history.unshift({ date:Date.now(), type:GAME.type, winner:winName,
@@ -1792,9 +1883,17 @@ function botThrowOne(prof){
     else { v=[1,5,7,9,12][Math.floor(Math.random()*5)]; m=1; }
     halveItThrow(v,m);
   }
-  else if(t==='doubles'){
-    const n=DOUBLE_SEQ[curP().seq];
-    if(Math.random()<prof.doubleAcc) doublesThrow(n,2); else doublesThrow([1,5,7,12][Math.floor(Math.random()*4)],1);
+  else if(t==='doubles'||t==='trebles'){
+    const n=GAME.trainSeq[curP().seq];
+    if(Math.random()<prof.doubleAcc) doublesThrow(n,GAME.trainMult); else doublesThrow([1,5,7,12][Math.floor(Math.random()*4)],1);
+  }
+  else if(t==='golf'){
+    const r=Math.random(); golfThrow(r<prof.doubleAcc?1:r<prof.acc?2:r<0.85?3:5);
+  }
+  else if(t==='gotcha'){
+    const cur=curP(); const need=GAME.target-cur.score-turnSum();
+    if(need>0 && need<=60 && Math.random()<prof.acc){ const v=Math.min(20,need); gotchaDart(v<=20?v:20, 1); }
+    else { const hit=botScoreDart(prof); gotchaDart(hit.v,hit.m); }
   }
   // continue bot turn (skip if a turn transition is already pending, e.g. after a bust)
   if(GAME && !GAME.finished && !GAME.turnAdvancing && curIsBot() && GAME.darts.length>0 && GAME.darts.length<3 && !$('#winner').classList.contains('show')){
@@ -1825,6 +1924,7 @@ function bindGame(){
   b.querySelectorAll('[data-atc]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; atcThrow(+el.dataset.atc); });
   b.querySelectorAll('[data-bob]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; bobThrow(+el.dataset.bob); });
   b.querySelectorAll('[data-dbl]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; doublesHit(+el.dataset.dbl); });
+  b.querySelectorAll('[data-golf]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; golfThrow(+el.dataset.golf); });
   b.querySelectorAll('[data-smult]').forEach(el=>el.onclick=()=>{ if(curIsBot())return; const sm=+el.dataset.smult; flashKey(el,()=>shanghaiThrow(sm)); });
   b.querySelectorAll('[data-act]').forEach(el=>el.onclick=()=>handleAct(el.dataset.act));
   // killer number keys (keep mult for double)
@@ -1836,6 +1936,7 @@ function scoreDart(v,m){
   if(GAME.type==='countup') countUpDart(v,m);
   else if(GAME.type==='halveit'||GAME.type==='bermuda') halveItThrow(v,m);
   else if(GAME.type==='cotrain') checkoutThrow(v,m);
+  else if(GAME.type==='gotcha') gotchaDart(v,m);
   else x01Dart(v,m);
 }
 function missDart(){
@@ -1843,6 +1944,7 @@ function missDart(){
   if(GAME.type==='countup'){ countUpDart(0,1); return; }
   if(GAME.type==='halveit'||GAME.type==='bermuda'){ halveItThrow(0,1); return; }
   if(GAME.type==='cotrain'){ checkoutThrow(0,1); return; }
+  if(GAME.type==='gotcha'){ gotchaDart(0,1); return; }
   if(GAME.type==='cricket'||GAME.type==='killer'||GAME.type==='shanghai'){ pushHistory(); GAME.darts.push({v:0,m:0,miss:true}); if(GAME.darts.length>=3){renderGameScreen(); if(GAME.auto&&!curIsBot())setTimeout(nextPlayer,400);return;} renderGameScreen(); return; }
   x01Dart(0,1);
 }
