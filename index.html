@@ -517,7 +517,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* ============ STATE ============ */
 const DEFAULT_STATE = {
   setup:{ type:'x01', points:501, checkout:'double', checkIn:'straight', format:'firstTo', sets:1, legs:3,
-    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, selectedPlayers:[1,2] },
+    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, selectedPlayers:[1,2] },
   players:[
     {id:1,name:'Justin',initials:'JT',isBot:false,stats:{avg:61.4,games:128,wins:82,checkoutPct:38,dartsPerLeg:14.2,avgHistory:[45,52,58,60,46,65,68,72,65,68],scoreDist:{'26+':30,'41+':58,'60+':80,'100+':52,'140+':34,'180':18},doubles:{D20:44,D16:51,Bull:29}}},
     {id:2,name:'Sanne',initials:'SD',isBot:false,stats:{avg:54.8,games:96,wins:49,checkoutPct:32,dartsPerLeg:15.8,avgHistory:[40,48,52,55,50,58,54,60,56,58],scoreDist:{'26+':38,'41+':62,'60+':70,'100+':40,'140+':22,'180':9},doubles:{D20:36,D16:42,Bull:24}}},
@@ -727,6 +727,7 @@ function updateStartBtn(){ $('#startBtn').textContent = STATE.setup.type==='x01'
 const MODES={ atc:{ic:'clock',t:'Around the Clock',d:'Raak 1 t/m 20 op volgorde',grp:'training'},
   bob:{ic:'crosshair',t:"Bob's 27",d:'Dubbels jagen, blijf boven 0',grp:'training'},
   countup:{ic:'chart',t:'Count Up',d:'Scoor zo hoog mogelijk in X rondes',grp:'training'},
+  cotrain:{ic:'target',t:'Checkout-training',d:'Oefen finishes (41–170)',grp:'training'},
   killer:{ic:'skull',t:'Killer',d:'Word killer, sloop levens',grp:'party'},
   shanghai:{ic:'zap',t:'Shanghai',d:'Single, double, triple winst',grp:'party'},
   halveit:{ic:'flame',t:'Halve It',d:'Mis de ronde = score gehalveerd',grp:'party'} };
@@ -749,6 +750,9 @@ function renderModus(){
     tg.onclick=()=>{STATE.setup.atcBull=!STATE.setup.atcBull;save();tg.classList.toggle('on');}; tr.appendChild(tg); set.appendChild(tr);
   } else if(m==='countup'){
     set.appendChild(stepper('Rondes','cuRounds',3,20));
+  } else if(m==='cotrain'){
+    set.appendChild(stepper('Pogingen','coAttempts',3,20));
+    set.appendChild(el('div',null,'<div style="font-size:12px;color:var(--txt2);margin-top:8px">Elke poging krijg je een willekeurige finish (41–170). 3 pijlen om uit te gooien op een dubbel. Hoogste trefkans wint.</div>'));
   } else if(m==='halveit'){
     set.innerHTML=`<div style="font-size:13px;color:var(--txt2);">6 rondes: 20 · 16 · dubbel · 14 · triple · bull. Raak je in een ronde niks van het doel, dan wordt je score gehalveerd.</div>`;
   } else if(m==='killer'){
@@ -791,8 +795,8 @@ function renderSpelers(){
   b.appendChild(el('div',null,'<div style="text-align:center;color:var(--dim);font-size:11px;margin-top:6px">Veeg een speler naar links om te verwijderen</div>'));
   renderHistory(b);
 }
-const MODE_LABEL={x01:'x01',cricket:'Cricket',atc:'Around the Clock',killer:'Killer',shanghai:'Shanghai',bob:"Bob's 27"};
-const MODE_ABBR={x01:'01',cricket:'CR',atc:'AC',killer:'KL',shanghai:'SH',bob:'27'};
+const MODE_LABEL={x01:'x01',cricket:'Cricket',atc:'Around the Clock',killer:'Killer',shanghai:'Shanghai',bob:"Bob's 27",countup:'Count Up',halveit:'Halve It',cotrain:'Checkout-training'};
+const MODE_ABBR={x01:'01',cricket:'CR',atc:'AC',killer:'KL',shanghai:'SH',bob:'27',countup:'CU',halveit:'HI',cotrain:'CO'};
 function renderHistory(b){
   const hist=STATE.history||[];
   const head=el('div'); head.style.cssText='display:flex;align-items:center;justify-content:space-between;margin:22px 0 10px';
@@ -949,8 +953,9 @@ function startGame(){
   const type = activeTab==='spel' ? STATE.setup.type : STATE.setup.mode;
   GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, darts:[], mult:1,
     history:[], setsTarget:STATE.setup.sets, legsTarget:STATE.setup.legs, auto:STATE.settings.autoContinue,
-    round:1, finished:false, cuRounds:STATE.setup.cuRounds };
+    round:1, finished:false, cuRounds:STATE.setup.cuRounds, coAttempts:STATE.setup.coAttempts };
   if(type==='killer'){ GAME.pickIndex=0; renderGameScreen(); openKillerPick(); return; }
+  if(type==='cotrain') setCheckoutTarget(GAME.players[0]);
   renderGameScreen();
 }
 function freshPlayerGame(type){
@@ -963,8 +968,11 @@ function freshPlayerGame(type){
   if(type==='killer') return {...base,number:null,lives:3,isKiller:false,eliminated:false};
   if(type==='countup') return {...base,score:0};
   if(type==='halveit') return {...base,score:0};
+  if(type==='cotrain') return {...base,attempts:0,hits:0,coTarget:0};
   return base;
 }
+function randCheckout(){ let s; do{ s=41+Math.floor(Math.random()*130); }while(!checkoutRoute(s)); return s; }
+function setCheckoutTarget(p){ p.coTarget=randCheckout(); }
 const HALVE_TARGETS=[{label:'20',t:'n',n:20},{label:'16',t:'n',n:16},{label:'Dubbel',t:'D'},{label:'14',t:'n',n:14},{label:'Triple',t:'T'},{label:'Bull',t:'B'}];
 function curP(){ return GAME.players[GAME.cur]; }
 function pushHistory(){ GAME.history.push(JSON.stringify({players:GAME.players,cur:GAME.cur,darts:GAME.darts,round:GAME.round,pickIndex:GAME.pickIndex,mult:GAME.mult})); if(GAME.history.length>60)GAME.history.shift(); }
@@ -988,6 +996,7 @@ function renderGameScreen(){
   else if(GAME.type==='bob') b.innerHTML=renderBob();
   else if(GAME.type==='countup') b.innerHTML=renderCountUp();
   else if(GAME.type==='halveit') b.innerHTML=renderHalveIt();
+  else if(GAME.type==='cotrain') b.innerHTML=renderCheckout();
   bindGame();
   maybeBotTurn();
 }
@@ -1373,6 +1382,59 @@ function allBobDone(){ return GAME.players.every(p=>p.target===null||p.balance<0
 function bobEnd(){ let best=-9999,wi=0; GAME.players.forEach((p,i)=>{ if(p.balance>best){best=p.balance;wi=i;} }); GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); }
 function highestWins(){ let best=-Infinity,wi=0; GAME.players.forEach((p,i)=>{ if(p.score>best){best=p.score;wi=i;} }); GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); }
 
+/* ---- CHECKOUT TRAINING ---- */
+function renderCheckout(){
+  const cur=curP(); const pl=getPlayer(cur.id);
+  const used=GAME.darts.reduce((a,d)=>a+d.v*d.m,0);
+  const rem=cur.coTarget-used;
+  const route=bestRoute(rem,3-GAME.darts.length);
+  const pct=cur.attempts?Math.round(cur.hits/cur.attempts*100):0;
+  const att=Math.min(cur.attempts+1,GAME.coAttempts);
+  const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${avInit(pl,18)}</div>
+    <div><div class="nm">${pl.name}</div><div class="meta">POGING ${att} VAN ${GAME.coAttempts}</div></div>
+    <div class="rt">CHECKOUTS<br><b>${cur.hits}/${cur.attempts} · ${pct}%</b></div></div>`;
+  let hint;
+  if(GAME.coResult==='hit') hint='<span style="color:var(--green)">Checkout!</span>';
+  else if(GAME.coResult==='miss') hint='<span style="color:var(--red)">Mis — volgende</span>';
+  else hint = route?('Finish: '+route):('Rest '+rem);
+  const big=`<div class="bigcard"><div class="lbl">Checkout</div><div class="big">${cur.coTarget}</div><div class="hint">${hint}</div></div>`;
+  let slots='<div class="slots">';
+  for(let i=0;i<3;i++){ const d=GAME.darts[i]; if(d!==undefined)slots+=`<div class="slot filled">${dartLabel(d)}</div>`; else if(i===GAME.darts.length)slots+=`<div class="slot active">–</div>`; else slots+=`<div class="slot">–</div>`; }
+  slots+=`<div class="slot total"><span class="tl">REST</span><span class="tv" style="color:var(--brass)">${rem}</span></div></div>`;
+  return `<div>${ctrlBar(icon('target',16)+' Checkout-training','POGING '+att+'/'+GAME.coAttempts)}${strip}${big}${slots}${multSeg()}${numpadHTML()}
+    <div class="actions"><button class="act-bull" data-bull="1">Bull</button><button class="act-miss" data-miss="1">Miss</button>
+    <button class="act-undo" data-act="undo">${icon('undo',16)}</button><button class="act-next" data-act="next">Skip</button></div></div>`;
+}
+function checkoutThrow(v,m){
+  const cur=curP(); if(GAME.darts.length>=3||GAME.turnAdvancing) return;
+  pushHistory(); GAME.darts.push({v,m});
+  const used=GAME.darts.reduce((a,d)=>a+d.v*d.m,0);
+  const rem=cur.coTarget-used; const isDouble=(m===2)||(v===25&&m===2);
+  let done=false,hit=false;
+  if(rem===0 && isDouble){ done=true; hit=true; }
+  else if(rem<0 || rem===1 || (rem===0 && !isDouble)){ done=true; }   // bust = miss
+  else if(GAME.darts.length>=3){ done=true; }                          // 3 darts, no finish = miss
+  if(done){ endAttempt(hit); return; }
+  Sound.hit(); renderGameScreen();
+}
+function endAttempt(hit){
+  const cur=curP(); cur.attempts++; if(hit){ cur.hits++; Sound.finish(); Sound.say('Checkout'); } else { vibrate(80); }
+  GAME.coResult=hit?'hit':'miss'; GAME.turnAdvancing=true; renderGameScreen();
+  setTimeout(()=>{ if(GAME){ GAME.turnAdvancing=false; checkoutNext(); } }, hit?1000:750);
+}
+function checkoutNext(){
+  if(!GAME) return;
+  GAME.coResult=null; GAME.darts=[]; GAME.mult=1;
+  if(GAME.players.every(p=>p.attempts>=GAME.coAttempts)){
+    let best=-1,wi=0; GAME.players.forEach((p,i)=>{ if(p.hits>best){best=p.hits;wi=i;} });
+    GAME.finished=true; recordGameStats(wi); showWinner(wi,'match'); return;
+  }
+  let g=0; do{ GAME.cur=(GAME.cur+1)%GAME.players.length; g++; }while(GAME.players[GAME.cur].attempts>=GAME.coAttempts && g<20);
+  setCheckoutTarget(curP());
+  renderGameScreen();
+}
+function checkoutSkip(){ if(GAME.turnAdvancing) return; endAttempt(false); }
+
 /* ---- COUNT UP ---- */
 function renderCountUp(){
   let heads='<div class="cheaders">';
@@ -1466,6 +1528,7 @@ function chipsForGame(p,pl){
   if(GAME.type==='atc') return `<div class="wchip brass"><div class="v">${p.hits}</div><div class="k">Geraakt</div></div>`;
   if(GAME.type==='killer') return `<div class="wchip green"><div class="v">${p.lives}</div><div class="k">Levens over</div></div>`;
   if(GAME.type==='countup'||GAME.type==='halveit') return `<div class="wchip brass"><div class="v">${p.score}</div><div class="k">Punten</div></div>`;
+  if(GAME.type==='cotrain'){ const pct=p.attempts?Math.round(p.hits/p.attempts*100):0; return `<div class="wchip brass"><div class="v">${p.hits}/${p.attempts}</div><div class="k">Checkouts</div></div><div class="wchip green"><div class="v">${pct}%</div><div class="k">Trefkans</div></div>`; }
   return '';
 }
 function recordGameStats(winIdx){
@@ -1492,6 +1555,7 @@ function recordGameStats(winIdx){
   else if(GAME.type==='killer') detail='Killer';
   else if(GAME.type==='countup') detail=GAME.players[winIdx].score+' punten';
   else if(GAME.type==='halveit') detail=GAME.players[winIdx].score+' punten';
+  else if(GAME.type==='cotrain') detail=GAME.players[winIdx].hits+'/'+GAME.players[winIdx].attempts+' checkouts';
   STATE.history=(STATE.history||[]);
   STATE.history.unshift({ date:Date.now(), type:GAME.type, winner:winName,
     players:GAME.players.map(p=>getPlayer(p.id).name), detail });
@@ -1558,6 +1622,12 @@ function botThrowOne(prof){
     else { const victim=GAME.players.find(p=>!p.eliminated&&p!==cur); GAME.mult=1; killerHit(victim?victim.number:cur.number); }
   }
   else if(t==='countup'){ const hit=botScoreDart(prof); countUpDart(hit.v,hit.m); }
+  else if(t==='cotrain'){
+    const cur=curP(); const used=GAME.darts.reduce((a,d)=>a+d.v*d.m,0); const rem=cur.coTarget-used;
+    const r=bestRoute(rem,3-GAME.darts.length);
+    if(r && Math.random()<prof.doubleAcc){ const {v,m}=parseDart(r.split(' ')[0]); checkoutThrow(v,m); }
+    else checkoutThrow([1,5,20,19][Math.floor(Math.random()*4)],1);
+  }
   else if(t==='halveit'){
     const tg=HALVE_TARGETS[GAME.round-1]; let v=20,m=1;
     if(Math.random()<prof.acc){ if(tg.t==='n'){v=tg.n;m=1;} else if(tg.t==='D'){v=16;m=2;} else if(tg.t==='T'){v=20;m=3;} else {v=25;m=2;} }
@@ -1602,12 +1672,14 @@ function bindGame(){
 function scoreDart(v,m){
   if(GAME.type==='countup') countUpDart(v,m);
   else if(GAME.type==='halveit') halveItThrow(v,m);
+  else if(GAME.type==='cotrain') checkoutThrow(v,m);
   else x01Dart(v,m);
 }
 function missDart(){
   GAME.mult=1;
   if(GAME.type==='countup'){ countUpDart(0,1); return; }
   if(GAME.type==='halveit'){ halveItThrow(0,1); return; }
+  if(GAME.type==='cotrain'){ checkoutThrow(0,1); return; }
   if(GAME.type==='cricket'||GAME.type==='killer'||GAME.type==='shanghai'){ pushHistory(); GAME.darts.push({v:0,m:0,miss:true}); if(GAME.darts.length>=3){renderGameScreen(); if(GAME.auto&&!curIsBot())setTimeout(nextPlayer,400);return;} renderGameScreen(); return; }
   x01Dart(0,1);
 }
@@ -1629,7 +1701,7 @@ function openGameSettings(){
 }
 function handleAct(act){
   if(act==='undo') undo();
-  else if(act==='next') nextPlayer();
+  else if(act==='next'){ if(GAME.type==='cotrain') checkoutSkip(); else nextPlayer(); }
   else if(act==='toggleAuto'){ GAME.auto=!GAME.auto; renderGameScreen(); }
   else if(act==='stop'){ if(confirm('Spel stoppen?')){ GAME=null; showTab('spel'); } }
   else if(act==='gameSettings'){ openGameSettings(); }
