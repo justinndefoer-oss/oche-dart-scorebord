@@ -235,9 +235,8 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 
 /* numpad */
 .numpad{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-bottom:8px;}
-.numpad button{background:var(--numkey);border-radius:11px;padding:13px 0;font-weight:800;font-size:17px;color:var(--chalk);border:1px solid transparent;}
-.numpad button.hl{border-color:var(--brass);color:var(--brass);}
-.numpad button:active{background:var(--bg3);}
+.numpad button{background:var(--numkey);border-radius:11px;padding:13px 0;font-weight:800;font-size:17px;color:var(--chalk);border:1px solid transparent;transition:transform .06s,background .06s;}
+.numpad button:active{background:linear-gradient(180deg,var(--brass-hi),var(--brass));color:var(--ink-gold);transform:scale(.94);}
 
 /* action row */
 .actions{display:grid;grid-template-columns:1fr 1fr 1fr 1.4fr;gap:7px;}
