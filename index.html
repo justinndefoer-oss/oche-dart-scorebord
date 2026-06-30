@@ -2160,7 +2160,21 @@ function rrRow(d,i){ const r=el('div','rrr'+(i===0?' lead':'')); const diff=d.lf
   r.innerHTML=`<span>${i+1}</span><span style="flex:1">${nm2(d.id)}</span><span>${d.p}</span><span>${d.w}</span><span>${diff>0?'+':''}${diff}</span>`; return r; }
 
 /* ============ BOT ============ */
-const BOT_PROFILES={ makkelijk:{avg:30,acc:.45,doubleAcc:.18}, gemiddeld:{avg:50,acc:.62,doubleAcc:.32}, gevorderd:{avg:75,acc:.80,doubleAcc:.45} };
+const BOT_PROFILES={
+  makkelijk:{avg:30,acc:.45,doubleAcc:.18, tRate:.04,dRate:.09,sRate:.40},
+  gemiddeld:{avg:50,acc:.62,doubleAcc:.32, tRate:.08,dRate:.14,sRate:.48},
+  gevorderd:{avg:75,acc:.80,doubleAcc:.45, tRate:.14,dRate:.20,sRate:.50},
+};
+// Realistic outcome when the bot aims at ONE specific number: triple/double/single/miss.
+// Hitting the treble of a chosen number is rare even for good players — this replaces the
+// old "uniform 1/2/3 when it hits" model that made Shanghai/Golf bots absurdly strong.
+function botAimMult(prof){
+  const r=Math.random();
+  if(r < prof.tRate) return 3;
+  if(r < prof.tRate+prof.dRate) return 2;
+  if(r < prof.tRate+prof.dRate+prof.sRate) return 1;
+  return 0;
+}
 function maybeBotTurn(){
   if(!GAME||GAME.finished) return;
   if($('#winner').classList.contains('show')) return;
@@ -2189,10 +2203,10 @@ function botThrowOne(prof){
     }
   } else if(t==='cricket'){
     const cur=curP(); const open=CRICK_NUMS.find(n=>cur.marks[n]<3)||20;
-    const m=Math.random()<prof.acc?(Math.random()<prof.doubleAcc?3:1):1;
-    cricketHit(open, Math.random()<prof.acc?m:1);
+    let marks=botAimMult(prof); if(open===25 && marks>2) marks=2;   // can't treble the bull
+    cricketHit(open, marks);
   } else if(t==='atc'){ atcThrow(Math.random()<prof.acc?1:0); }
-  else if(t==='shanghai'){ const m=Math.random()<prof.acc?(1+Math.floor(Math.random()*3)):0; shanghaiThrow(m); }
+  else if(t==='shanghai'){ shanghaiThrow(botAimMult(prof)); }
   else if(t==='bob'){ bobThrow(Math.random()<prof.doubleAcc?1:0); }
   else if(t==='killer'){
     const cur=curP();
@@ -2207,17 +2221,21 @@ function botThrowOne(prof){
     else checkoutThrow([1,5,20,19][Math.floor(Math.random()*4)],1);
   }
   else if(t==='halveit'||t==='bermuda'){
-    const tg=GAME.targets[GAME.round-1]; let v=20,m=1;
-    if(Math.random()<prof.acc){ if(tg.t==='n'){v=tg.n;m=1;} else if(tg.t==='D'){v=16;m=2;} else if(tg.t==='T'){v=20;m=3;} else {v=25;m=2;} }
-    else { v=[1,5,7,9,12][Math.floor(Math.random()*5)]; m=1; }
+    const tg=GAME.targets[GAME.round-1]; const mt=botAimMult(prof);
+    const lowMiss=[1,5,7,9,12][Math.floor(Math.random()*5)]; let v,m;
+    if(tg.t==='n'){ if(mt>0){ v=tg.n; m=mt; } else { v=lowMiss; m=1; } }
+    else if(tg.t==='D'){ if(mt>=2){ v=20; m=2; } else { v=lowMiss; m=1; } }
+    else if(tg.t==='T'){ if(mt===3){ v=20; m=3; } else { v=lowMiss; m=1; } }
+    else { if(mt>=2){ v=25; m=2; } else if(mt===1){ v=25; m=1; } else { v=lowMiss; m=1; } }
     halveItThrow(v,m);
   }
   else if(t==='doubles'||t==='trebles'){
     const n=GAME.trainSeq[curP().seq];
-    if(Math.random()<prof.doubleAcc) doublesThrow(n,GAME.trainMult); else doublesThrow([1,5,7,12][Math.floor(Math.random()*4)],1);
+    const hitP = GAME.trainMult===3 ? prof.tRate*2 : prof.doubleAcc;   // trebles are harder than doubles
+    if(Math.random()<hitP) doublesThrow(n,GAME.trainMult); else doublesThrow([1,5,7,12][Math.floor(Math.random()*4)],1);
   }
   else if(t==='golf'){
-    const r=Math.random(); golfThrow(r<prof.doubleAcc?1:r<prof.acc?2:r<0.85?3:5);
+    const mt=botAimMult(prof); golfThrow(mt===3?1:mt===2?2:mt===1?3:5);   // triple=1 stroke … miss=5
   }
   else if(t==='gotcha'){
     const cur=curP(); const need=GAME.target-cur.score-turnSum();
