@@ -26,6 +26,7 @@
   --ink-gold:#1a1206; --ink-green:#04140b;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bottom:env(safe-area-inset-bottom,0px);
+  --app-w:520px;   /* width of the centered app column; widened on tablets/iPad below */
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
 html{height:100%;background:var(--bg0);}
@@ -49,7 +50,7 @@ input{font-family:inherit;}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 
 /* ===== App shell ===== */
-#app{position:relative;height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto;}
+#app{position:relative;height:100%;display:flex;flex-direction:column;max-width:var(--app-w);margin:0 auto;}
 .screens{position:relative;flex:1 1 auto;min-height:0;overflow:hidden;}
 .screen{position:absolute;inset:0;display:none;flex-direction:column;overflow:hidden;}
 .screen.active{display:flex;animation:fadeIn .25s ease;}
@@ -57,6 +58,28 @@ input{font-family:inherit;}
 .scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 20px 120px;
   padding-top:calc(var(--safe-top) + 12px);}
 #screen-spel .scroll,#screen-modus .scroll{padding-bottom:calc(150px + var(--safe-bottom));}
+
+/* ===== Tablet / iPad ===== centered, framed app panel on an ambient backdrop */
+@media (min-width:740px) and (min-height:700px){
+  :root{ --app-w:720px; }
+  html{ background:#070d0a; }
+  body{
+    background:radial-gradient(120% 90% at 50% -8%, #16281f 0%, #0b1510 55%, #070d0a 100%);
+    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  #app{
+    width:var(--app-w); max-width:100%;
+    height:min(100%, 900px);
+    border-radius:24px; overflow:hidden;
+    border:1px solid rgba(var(--brass-rgb),.16);
+    box-shadow:0 0 0 1px rgba(0,0,0,.35), 0 40px 100px rgba(0,0,0,.6);
+  }
+  .scroll{ padding-left:28px; padding-right:28px; }
+}
+/* iPad Pro 12.9" and larger: allow a touch more width */
+@media (min-width:1000px) and (min-height:900px){
+  :root{ --app-w:760px; }
+}
 
 /* header / logo */
 .logo{padding:14px 0 12px;text-align:center;}
@@ -338,7 +361,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .tabbar button.on .tl{color:var(--brass);}
 
 /* ===== overlays / sheets ===== */
-.scrim{position:absolute;inset:0;background:rgba(4,10,7,.6);z-index:100;display:none;align-items:flex-end;max-width:520px;margin:0 auto;}
+.scrim{position:absolute;inset:0;background:rgba(4,10,7,.6);z-index:100;display:none;align-items:flex-end;max-width:var(--app-w);margin:0 auto;}
 .scrim.show{display:flex;animation:fadeIn .2s ease;}
 .sheet{background:var(--bg1);border-radius:26px 26px 0 0;width:100%;padding:8px 20px calc(24px + var(--safe-bottom));
   animation:sheetUp .5s cubic-bezier(.2,.8,.25,1);max-height:92%;overflow-y:auto;}
@@ -360,7 +383,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 
 /* winner overlay */
 #winner{position:absolute;inset:0;z-index:200;display:none;flex-direction:column;align-items:center;justify-content:center;
-  background:radial-gradient(60% 50% at 50% 38%,#1a2c23,#0b1510);overflow:hidden;max-width:520px;margin:0 auto;}
+  background:radial-gradient(60% 50% at 50% 38%,#1a2c23,#0b1510);overflow:hidden;max-width:var(--app-w);margin:0 auto;}
 #winner.show{display:flex;animation:fadeIn .3s ease;}
 #winner .rays{position:absolute;top:30%;left:50%;width:700px;height:700px;transform:translate(-50%,-50%);
   background:conic-gradient(from 0deg,transparent 0deg,rgba(var(--brass-rgb),.10) 12deg,transparent 24deg,rgba(var(--brass-rgb),.10) 36deg,transparent 48deg);
