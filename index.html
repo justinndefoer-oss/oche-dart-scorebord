@@ -136,6 +136,23 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;flex-shrink:0;
   border:1px solid var(--gold-border);}
 .avatar.bot{font-size:20px;}
+.avatar{overflow:hidden;}
+.avphoto{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+/* tappable avatar with camera badge (Spelers list) */
+.avwrap{position:relative;flex-shrink:0;}
+.avwrap .avbadge{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;
+  background:var(--brass);color:var(--ink-gold);display:flex;align-items:center;justify-content:center;
+  border:2px solid var(--bg1);}
+.avwrap .avbadge svg{width:9px;height:9px;}
+/* avatar capture sheet */
+.avcam{position:relative;width:200px;height:200px;margin:8px auto 14px;border-radius:50%;overflow:hidden;
+  background:var(--bg0);border:1px solid var(--gold-border);}
+.avcam video,.avcam img{width:100%;height:100%;object-fit:cover;display:block;}
+.avcam video{transform:scaleX(-1);}          /* mirror the selfie preview */
+.avicon{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--dim);}
+.avactions{display:flex;flex-direction:column;}
+.avactions .wrow{display:flex;gap:10px;margin-top:10px;}
+.avactions .wrow .btn{flex:1;}
 .prow .info{flex:1;min-width:0;}
 .prow .nm{font-weight:700;font-size:15px;}
 .prow .meta{font-size:11px;color:var(--txt2);margin-top:1px;}
@@ -716,7 +733,7 @@ const ICONS={
   camera:'<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>',
 };
 function icon(name,size,sw){ size=size||20; return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
-function avInit(p,size){ return p.isBot ? icon('bot',size||20) : p.initials; }
+function avInit(p,size){ if(p && p.photo && !p.isBot) return `<img class="avphoto" src="${p.photo}" alt="">`; return p.isBot ? icon('bot',size||20) : p.initials; }
 
 /* ============ themes ============ */
 const THEMES={
@@ -875,7 +892,7 @@ function addNameRow(){
   const row=el('div','inputrow'); row.style.marginTop='8px';
   row.innerHTML=`<input type="text" placeholder="Of typ een naam…" maxlength="14"><button class="addbtn">+</button>`;
   const inp=row.querySelector('input');
-  const add=()=>{ const n=inp.value.trim(); if(!n) return; const np={id:STATE.nextId++,name:n,initials:initialsFor(n),isBot:false,stats:{avg:0,games:0,wins:0,checkoutPct:0,dartsPerLeg:0,avgHistory:[],scoreDist:{},doubles:{}}}; STATE.players.push(np); STATE.setup.selectedPlayers.push(np.id); inp.value=''; save(); if(activeTab==='spel')renderSetup();else renderModus(); };
+  const add=()=>{ const n=inp.value.trim(); if(!n) return; const np={id:STATE.nextId++,name:n,initials:initialsFor(n),isBot:false,stats:{avg:0,games:0,wins:0,checkoutPct:0,dartsPerLeg:0,avgHistory:[],scoreDist:{},doubles:{}}}; STATE.players.push(np); STATE.setup.selectedPlayers.push(np.id); inp.value=''; save(); if(activeTab==='spel')renderSetup();else renderModus(); openAvatarSheet(np.id); };
   row.querySelector('.addbtn').onclick=add;
   inp.addEventListener('keydown',e=>{if(e.key==='Enter')add();});
   return row;
@@ -981,8 +998,10 @@ function renderSpelers(){
     } else {
       const w=p.stats.games?Math.round(p.stats.wins/p.stats.games*100):0;
       const wc=w>=50?'var(--green)':'var(--red)';
-      row.innerHTML=`<div class="avatar">${p.initials}</div><div class="info"><div class="nm">${p.name}</div>
+      row.innerHTML=`<div class="avwrap" data-avatar><div class="avatar">${avInit(p,22)}</div><span class="avbadge">${icon('camera',11)}</span></div><div class="info"><div class="nm">${p.name}</div>
         <div class="statstrip"><span><b>${p.stats.avg}</b> GEM</span><span><b>${p.stats.games}</b> GAMES</span><span style="color:${wc}"><b style="color:${wc}">${w}%</b> WINST</span></div></div><span class="chev">›</span>`;
+      const aw=row.querySelector('[data-avatar]');
+      if(aw) aw.onclick=(e)=>{ e.stopPropagation(); openAvatarSheet(p.id); };
     }
     row.onclick=()=>{ if(p.isBot) openRobotSheet(); else openStatsSheet(p.id); };
     b.appendChild(makeSwipeRow(row,()=>deletePlayer(p.id)));
@@ -1103,7 +1122,67 @@ function openRobotSheet(){
   showSheet();
 }
 function showSheet(){ $('#scrim').classList.add('show'); }
-function closeSheet(){ $('#scrim').classList.remove('show'); }
+function closeSheet(){ $('#scrim').classList.remove('show'); stopAvatarCam(); }
+
+/* ---- player avatar photo (selfie) ---- */
+let _avatarStream=null;
+function stopAvatarCam(){ if(_avatarStream){ _avatarStream.getTracks().forEach(t=>t.stop()); _avatarStream=null; } }
+function refreshPlayers(){ if(activeTab==='spel')renderSetup(); else if(activeTab==='modus')renderModus(); else if(activeTab==='spelers')renderSpelers(); }
+function openAvatarSheet(id){
+  const p=getPlayer(id); if(!p||p.isBot) return;
+  const sh=$('#sheet');
+  sh.innerHTML=`<div class="handle"></div>
+    <h2><span style="color:var(--brass)">${icon('camera',22)}</span> Foto — ${p.name}</h2>
+    <div class="sh-sub" id="avSub">Maak een selfie of kies een foto uit je galerij.</div>
+    <div class="avcam">
+      <video id="avVideo" playsinline muted></video>
+      <img id="avImg" alt="">
+      <div id="avIcon" class="avicon">${icon('camera',44,1.6)}</div>
+    </div>
+    <canvas id="avCanvas" width="256" height="256" style="display:none"></canvas>
+    <div class="avactions" id="avActions"></div>
+    <input type="file" id="avFile" accept="image/*" style="display:none">`;
+  showSheet();
+  const video=$('#avVideo'), img=$('#avImg'), iconEl=$('#avIcon'), actions=$('#avActions'), file=$('#avFile'), sub=$('#avSub'), cv=$('#avCanvas');
+  const show=which=>{ video.style.display=which==='v'?'block':'none'; img.style.display=which==='i'?'block':'none'; iconEl.style.display=which==='p'?'flex':'none'; };
+  function toSquare(src,sw,sh2,mirror){ const s=Math.min(sw,sh2); const ctx=cv.getContext('2d'); ctx.save();
+    if(mirror){ ctx.translate(256,0); ctx.scale(-1,1); } ctx.drawImage(src,(sw-s)/2,(sh2-s)/2,s,s,0,0,256,256); ctx.restore();
+    return cv.toDataURL('image/jpeg',0.82); }
+  function savePhoto(url){ p.photo=url; save(); closeSheet(); refreshPlayers(); toast('Foto opgeslagen'); }
+  function setIdle(){
+    stopAvatarCam();
+    if(p.photo){ img.src=p.photo; show('i'); } else show('p');
+    sub.textContent='Maak een selfie of kies een foto uit je galerij.';
+    actions.innerHTML=`<button class="btn btn-primary" id="avStart">${icon('camera',16)} Selfie maken</button>
+      <div class="wrow"><button class="btn btn-secondary" id="avGal">Galerij</button>${p.photo?`<button class="btn btn-secondary" id="avDel">Verwijderen</button>`:''}</div>`;
+    $('#avStart').onclick=startCam;
+    $('#avGal').onclick=()=>file.click();
+    if($('#avDel')) $('#avDel').onclick=()=>{ delete p.photo; p.initials=initialsFor(p.name); save(); closeSheet(); refreshPlayers(); toast('Foto verwijderd'); };
+  }
+  async function startCam(){
+    sub.textContent='Camera starten…';
+    try{
+      _avatarStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:640}},audio:false});
+      video.srcObject=_avatarStream; await video.play(); show('v');
+      sub.textContent='Lach! Tik op “Foto maken”.';
+      actions.innerHTML=`<button class="btn btn-primary" id="avSnap">Foto maken</button>
+        <button class="btn btn-ghost" id="avCancel" style="margin-top:10px">Annuleren</button>`;
+      $('#avSnap').onclick=snap; $('#avCancel').onclick=setIdle;
+    }catch(e){ sub.textContent='Geen cameratoegang. Vereist https en toestemming — of kies een foto uit je galerij.'; setIdle(); }
+  }
+  function snap(){
+    const url=toSquare(video, video.videoWidth||480, video.videoHeight||480, true);
+    stopAvatarCam(); img.src=url; show('i');
+    sub.textContent='Ziet het er goed uit?';
+    actions.innerHTML=`<button class="btn btn-primary" id="avUse">Gebruik foto</button>
+      <button class="btn btn-ghost" id="avRetry" style="margin-top:10px">Opnieuw</button>`;
+    $('#avUse').onclick=()=>savePhoto(url); $('#avRetry').onclick=startCam;
+  }
+  file.onchange=()=>{ const f=file.files[0]; if(!f) return; const rd=new FileReader();
+    rd.onload=()=>{ const im=new Image(); im.onload=()=>savePhoto(toSquare(im,im.width,im.height,false)); im.src=rd.result; };
+    rd.readAsDataURL(f); };
+  setIdle();
+}
 $('#scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeSheet(); });
 
 /* ============ STATS SHEET ============ */
