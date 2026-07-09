@@ -1422,6 +1422,7 @@ function renderX01(){
   let cards='<div class="pcards'+(multi?' multi':'')+'">';
   GAME.players.forEach((p,i)=>{
     const pl=getPlayer(p.id); const active=i===GAME.cur;
+    const shown = active ? p.score - turnSum() : p.score;   // live: subtract this turn's darts as they land
     const pips=[0,1,2].map(d=>`<div class="pip ${active&&GAME.darts[d]!==undefined?'on':''}"></div>`).join('');
     if(multi){
       cards+=`<div class="pcard ${active?'active':'dim'}">
@@ -1429,11 +1430,11 @@ function renderX01(){
         <div class="pmid"><div class="nm">${pl.name}</div>
           <div class="ft">S ${p.setsWon} · L ${p.legsWon} · GEM ${pl.stats.avg} · LAATSTE ${p.lastTurn}</div></div>
         <div class="pips">${pips}</div>
-        <div class="scorem">${p.score}</div></div>`;
+        <div class="scorem">${shown}</div></div>`;
     } else {
       cards+=`<div class="pcard ${active?'active':'dim'}">${active?'<div class="tag">Aan beurt</div>':''}
         <div class="ph"><div class="av">${avInit(pl,16)}</div><div class="nm">${pl.name}</div></div>
-        <div class="score">${p.score}</div>
+        <div class="score">${shown}</div>
         <div class="pips">${pips}</div>
         <div class="ft">S ${p.setsWon} · L ${p.legsWon} · GEM ${pl.stats.avg}</div>
         <div class="last">LAATSTE ${p.lastTurn}</div></div>`;
