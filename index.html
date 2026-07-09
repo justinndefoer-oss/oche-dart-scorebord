@@ -143,6 +143,15 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--gold-border);
   font-weight:800;font-size:10px;line-height:1;flex-shrink:0;vertical-align:middle;color:var(--chalk);}
 .miniav .avphoto{width:100%;height:100%;}
+/* random-order reveal */
+.ordlist{display:flex;flex-direction:column;gap:8px;margin-bottom:2px;}
+.ordrow{display:flex;align-items:center;gap:12px;background:var(--bg0);border:1px solid rgba(255,255,255,.05);
+  border-radius:12px;padding:11px 14px;opacity:0;animation:ordIn .45s cubic-bezier(.2,.8,.25,1) forwards;}
+.ordrow .ordn{width:22px;text-align:center;font-weight:900;font-size:16px;color:var(--brass);}
+.ordrow .ordnm{flex:1;font-weight:700;font-size:16px;}
+.ordrow .ordbadge{font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--ink-gold);
+  background:var(--brass);padding:3px 8px;border-radius:8px;}
+@keyframes ordIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:none}}
 /* tappable avatar with camera badge (Spelers list) */
 .avwrap{position:relative;flex-shrink:0;}
 .avwrap .avbadge{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;
@@ -665,7 +674,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 const DEFAULT_STATE = {
   setup:{ type:'x01', points:501, checkout:'double', checkIn:'straight', format:'firstTo', sets:1, legs:3,
     variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, handicap:false, gotchaTarget:301,
-    tourFormat:'ko', tourLegs:2, tourPoints:501, selectedPlayers:[1,2] },
+    tourFormat:'ko', tourLegs:2, tourPoints:501, randomOrder:false, selectedPlayers:[1,2] },
   players:[
     {id:1,name:'Justin',initials:'JT',isBot:false,stats:{avg:61.4,games:128,wins:82,checkoutPct:38,dartsPerLeg:14.2,avgHistory:[45,52,58,60,46,65,68,72,65,68],scoreDist:{'26+':30,'41+':58,'60+':80,'100+':52,'140+':34,'180':18},doubles:{D20:44,D16:51,Bull:29}}},
     {id:2,name:'Sanne',initials:'SD',isBot:false,stats:{avg:54.8,games:96,wins:49,checkoutPct:32,dartsPerLeg:15.8,avgHistory:[40,48,52,55,50,58,54,60,56,58],scoreDist:{'26+':38,'41+':62,'60+':70,'100+':40,'140+':22,'180':9},doubles:{D20:36,D16:42,Bull:24}}},
@@ -856,25 +865,29 @@ function playerSelectList(){
   const useHc = activeTab==='spel' && STATE.setup.type==='x01' && STATE.setup.handicap && STATE.settings.premium;
   const hc = useHc ? handicapStarts() : {};
   const sel=STATE.setup.selectedPlayers;
+  const showOrder = sel.length>=2 && !STATE.setup.randomOrder;
   STATE.players.forEach(p=>{
     const on=sel.includes(p.id);
     const ord=on?sel.indexOf(p.id)+1:null;
     const row=el('div',on?'prow sel':'prow');
     let meta = p.isBot ? `${(p.botLevel||'gevorderd').toUpperCase()} · ADAPTIEF` : `GEM. ${p.stats.avg}`;
-    if(on && sel.length>=2) meta += ord===1 ? ' · begint' : ` · ${ord}e`;
+    if(on && showOrder) meta += ord===1 ? ' · begint' : ` · ${ord}e`;
     if(useHc && on) meta += ` · START ${hc[p.id]}`;
     row.innerHTML=`<div class="avatar ${p.isBot?'bot':''}">${avInit(p,20)}</div>
       <div class="info"><div class="nm">${p.name}</div><div class="meta ${p.isBot?'brass':''}">${meta}</div></div>
-      <button class="rm">${on?(sel.length>=2?ord:'✓'):'+'}</button>`;
+      <button class="rm">${on?(showOrder?ord:'✓'):'+'}</button>`;
     row.querySelector('.rm').style.color=on?'var(--brass)':'var(--dim)';
     row.onclick=()=>{ toggleSelect(p.id); };
     wrap.appendChild(makeSwipeRow(row,()=>deletePlayer(p.id)));
   });
   if(sel.length>=2){
-    const sh=el('button','btn btn-secondary',icon('dice',17)+' Willekeurige volgorde');
-    sh.style.marginTop='8px'; sh.onclick=shuffleOrder;
-    wrap.appendChild(sh);
-    wrap.appendChild(el('div',null,'<div style="font-size:11px;color:var(--dim);text-align:center;margin-top:7px">Speler 1 begint · daarna wisselt de beginner elke leg</div>'));
+    const rr=el('div','setrow'); rr.style.marginTop='10px';
+    rr.innerHTML=`<div class="l">${icon('dice',18)} Willekeurige volgorde</div>`;
+    const tg=el('div',STATE.setup.randomOrder?'toggle on':'toggle');
+    tg.onclick=()=>{ STATE.setup.randomOrder=!STATE.setup.randomOrder; save(); if(activeTab==='spel')renderSetup(); else renderModus(); };
+    rr.appendChild(tg); wrap.appendChild(rr);
+    const hint = STATE.setup.randomOrder ? 'De volgorde wordt geloot en getoond bij de start.' : 'Speler 1 begint · daarna wisselt de beginner elke leg';
+    wrap.appendChild(el('div',null,`<div style="font-size:11px;color:var(--dim);text-align:center;margin-top:7px">${hint}</div>`));
   }
   return wrap;
 }
@@ -883,11 +896,19 @@ function toggleSelect(id){
   if(i>=0){ if(sp.length>1) sp.splice(i,1); } else sp.push(id);
   save(); if(activeTab==='spel') renderSetup(); else renderModus();
 }
-function shuffleOrder(){
-  STATE.setup.selectedPlayers = shuffle(STATE.setup.selectedPlayers);
-  save(); if(activeTab==='spel') renderSetup(); else renderModus();
-  const first=getPlayer(STATE.setup.selectedPlayers[0]);
-  if(first) toast(first.name+' begint');
+function openOrderReveal(cb){
+  const sh=$('#sheet'); const ids=STATE.setup.selectedPlayers;
+  const rows=ids.map((id,i)=>{ const p=getPlayer(id);
+    return `<div class="ordrow" style="animation-delay:${(i*0.12).toFixed(2)}s">
+      <span class="ordn">${i+1}</span>${miniAv(p,34)}<span class="ordnm">${p?p.name:'?'}</span>
+      ${i===0?'<span class="ordbadge">Begint</span>':''}</div>`; }).join('');
+  sh.innerHTML=`<div class="handle"></div>
+    <h2><span style="color:var(--brass)">${icon('dice',22)}</span> Volgorde geloot</h2>
+    <div class="sh-sub">Zo is de speelvolgorde bepaald.</div>
+    <div class="ordlist">${rows}</div>
+    <button class="btn btn-primary" id="ordStart" style="margin-top:14px">Start</button>`;
+  sh.querySelector('#ordStart').onclick=()=>{ closeSheet(); cb(); };
+  showSheet();
 }
 /* ---- swipe-to-delete (left swipe reveals a red Verwijder button) ---- */
 let swipeRows=[];
@@ -1278,12 +1299,18 @@ function bestRoute(r,darts){
 }
 
 /* ============ GAME ENGINE ============ */
-function startGame(){
-  const ids=STATE.setup.selectedPlayers.slice();
-  if(ids.length<1){ toast('Kies minstens 1 speler'); return; }
+function startGame(revealed){
   const type = activeTab==='spel' ? STATE.setup.type : STATE.setup.mode;
+  if(STATE.setup.selectedPlayers.length<1){ toast('Kies minstens 1 speler'); return; }
   if(activeTab==='modus' && modeLocked(type)){ openPremiumSheet(); return; }
-  if(type==='tourney'){ startTourney(ids); return; }
+  if(type==='tourney'){ startTourney(STATE.setup.selectedPlayers.slice()); return; }
+  // random order: draw the turn order and reveal it before the game starts
+  if(!revealed && STATE.setup.randomOrder && STATE.setup.selectedPlayers.length>=2){
+    STATE.setup.selectedPlayers = shuffle(STATE.setup.selectedPlayers); save();
+    openOrderReveal(()=>startGame(true));
+    return;
+  }
+  const ids=STATE.setup.selectedPlayers.slice();
   GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, legStarter:0, darts:[], mult:1,
     history:[], setsTarget:STATE.setup.sets, legsTarget:STATE.setup.legs, auto:STATE.settings.autoContinue,
     round:1, finished:false, cuRounds:STATE.setup.cuRounds, coAttempts:STATE.setup.coAttempts };
