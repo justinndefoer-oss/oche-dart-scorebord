@@ -2435,7 +2435,13 @@ function botThrowOne(prof){
     const cur=curP(); const open=CRICK_NUMS.find(n=>cur.marks[n]<3)||20;
     let marks=botAimMult(prof); if(open===25 && marks>2) marks=2;   // can't treble the bull
     cricketHit(open, marks);
-  } else if(t==='atc'){ atcThrow(botAimMult(prof)); }
+  } else if(t==='atc'){
+    // in ATC a double advances 2 and a triple 3, so trim how often the bot lands them
+    let m=botAimMult(prof);
+    if(m===3 && Math.random()<0.5) m=1;        // ~half of triples become singles
+    else if(m===2 && Math.random()<0.35) m=1;  // ~a third of doubles become singles
+    atcThrow(m);
+  }
   else if(t==='shanghai'){ shanghaiThrow(botAimMult(prof)); }
   else if(t==='bob'){ bobThrow(Math.random()<prof.doubleAcc?1:0); }
   else if(t==='killer'){
