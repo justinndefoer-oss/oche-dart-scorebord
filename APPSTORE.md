@@ -56,6 +56,37 @@ Whenever you change the app: re-run `npm run ios` / `npm run android` (it re-syn
 - `appName`: `OCHE`
 - `backgroundColor`: `#0b1510` (matches the dark theme)
 
+## 5b. Orientation — iPhone portrait, iPad all (do this in Xcode)
+The web app is responsive and supports iPad (a centered, framed panel on tablets). We keep the
+**PWA manifest** at `orientation: portrait` so iPhone-landscape (cramped) stays out — and set the
+**native app** to allow iPad landscape per device. Two ways:
+
+**A) Xcode UI (easiest):** open the iOS project (`npm run ios`), select the app target →
+**General → Deployment Info**:
+- **iPhone** → tick **Portrait** only.
+- **iPad** → tick **Portrait, Upside Down, Landscape Left, Landscape Right** (all).
+
+**B) Or edit `ios/App/App/Info.plist` directly** — add/replace these keys:
+```xml
+<key>UISupportedInterfaceOrientations</key>
+<array>
+  <string>UIInterfaceOrientationPortrait</string>
+</array>
+<key>UISupportedInterfaceOrientations~ipad</key>
+<array>
+  <string>UIInterfaceOrientationPortrait</string>
+  <string>UIInterfaceOrientationPortraitUpsideDown</string>
+  <string>UIInterfaceOrientationLandscapeLeft</string>
+  <string>UIInterfaceOrientationLandscapeRight</string>
+</array>
+```
+Re-run `npm run ios` after changing `Info.plist`. (The `~ipad` suffix makes that array apply on
+iPad only; the plain key applies on iPhone.) Note: `ios/` is git-ignored and generated on your
+Mac, so this step lives here as instructions rather than committed files.
+
+Apple also requires **iPad screenshots (12.9")** once the app supports iPad — we can generate
+those from the responsive web build when you're ready to submit.
+
 ## 6. Submitting — what reviewers check (most common rejection causes)
 - **Fully working, no crashes/placeholders.** Test on a real device. (We ran an automated
   pass across all modes with 0 errors — still test by hand.)
