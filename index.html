@@ -138,6 +138,11 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .avatar.bot{font-size:20px;}
 .avatar{overflow:hidden;}
 .avphoto{width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;}
+/* small inline circular avatar (history, tournament) */
+.miniav{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;overflow:hidden;
+  background:linear-gradient(135deg,var(--bg3),var(--bg2));border:1px solid var(--gold-border);
+  font-weight:800;font-size:10px;line-height:1;flex-shrink:0;vertical-align:middle;color:var(--chalk);}
+.miniav .avphoto{width:100%;height:100%;}
 /* tappable avatar with camera badge (Spelers list) */
 .avwrap{position:relative;flex-shrink:0;}
 .avwrap .avbadge{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;
@@ -465,6 +470,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .toline.win .ts{color:var(--brass);}
 .toline.bye .tn{opacity:.4;}
 .toline .ts{font-variant-numeric:tabular-nums;color:var(--dim);}
+.toline .tn{display:flex;align-items:center;gap:7px;min-width:0;}
 .rrtable{background:var(--bg1);border:1px solid rgba(255,255,255,.06);border-radius:12px;overflow:hidden;}
 .rrh,.rrr{display:flex;align-items:center;gap:10px;padding:10px 12px;font-size:14px;}
 .rrh{font-size:10px;font-weight:800;letter-spacing:1px;color:var(--dim);text-transform:uppercase;}
@@ -734,6 +740,8 @@ const ICONS={
 };
 function icon(name,size,sw){ size=size||20; return `<svg class="ic-svg" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${sw||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name]||''}</svg>`; }
 function avInit(p,size){ if(p && p.photo && !p.isBot) return `<img class="avphoto" src="${p.photo}" alt="">`; return p.isBot ? icon('bot',size||20) : p.initials; }
+function miniAv(p,px){ px=px||22; if(!p) return `<span class="miniav" style="width:${px}px;height:${px}px;opacity:.4">–</span>`; return `<span class="miniav" style="width:${px}px;height:${px}px">${avInit(p,Math.round(px*.52))}</span>`; }
+function playerByName(name){ return STATE.players.find(x=>x.name===name) || {name, initials:initialsFor(name)}; }
 
 /* ============ themes ============ */
 const THEMES={
@@ -1023,7 +1031,8 @@ function renderHistory(b){
     const row=el('div','prow'); row.style.marginBottom='8px';
     const others=h.players.filter(n=>n!==h.winner);
     const vs=others.length?' vs '+others.join(', '):'';
-    row.innerHTML=`<div class="avatar" style="font-size:13px">${MODE_ABBR[h.type]||'·'}</div>
+    const wp=playerByName(h.winner);
+    row.innerHTML=`<div class="avatar">${avInit(wp,18)}</div>
       <div class="info"><div class="nm">${h.winner} wint <span style="color:var(--dim);font-weight:600">· ${MODE_LABEL[h.type]||h.type}</span></div>
       <div class="meta">${h.detail||''}${vs}</div></div>
       <div style="font-size:11px;color:var(--dim);text-align:right;white-space:nowrap">${timeAgo(h.date)}</div>`;
@@ -2194,13 +2203,15 @@ function renderTourneyBoard(){
   if(t.champion){
     const ch=el('div','tchamp');
     ch.innerHTML=`<div class="trophy">${icon('trophy',46,1.7)}</div>
-      <div class="wl">Kampioen</div><div class="cn">${nm2(t.champion)}</div>`;
+      <div class="wl">Kampioen</div>
+      <div style="margin:8px 0 2px">${miniAv(getPlayer(t.champion),56)}</div>
+      <div class="cn">${nm2(t.champion)}</div>`;
     b.appendChild(ch);
   } else {
     const nm=tourneyNext(t);
     const nx=el('div','tnextcard');
     if(nm){ nx.innerHTML=`<div class="tnl">Volgende wedstrijd</div>
-      <div class="tvs"><span>${nm2(nm.m.a)}</span><span class="vs">vs</span><span>${nm2(nm.m.b)}</span></div>
+      <div class="tvs"><span style="display:inline-flex;align-items:center;gap:7px">${miniAv(getPlayer(nm.m.a),26)} ${nm2(nm.m.a)}</span><span class="vs">vs</span><span style="display:inline-flex;align-items:center;gap:7px">${nm2(nm.m.b)} ${miniAv(getPlayer(nm.m.b),26)}</span></div>
       <div class="tnl" style="margin-top:2px">First to ${t.legs} · ${t.points}</div>`;
       const go=el('button','btn btn-primary','Start wedstrijd'); go.style.marginTop='12px'; go.onclick=startTourneyMatch; nx.appendChild(go);
     }
@@ -2254,12 +2265,12 @@ function renderTourneyBoard(){
 }
 function tline(id,winnerId,score,oppId,played){
   const r=el('div','toline'+(played&&winnerId===id?' win':'')+(id==null?' bye':''));
-  r.innerHTML=`<span class="tn">${id==null?'—':nm2(id)}</span><span class="ts">${played&&id!=null?score:''}</span>`;
+  r.innerHTML=`<span class="tn">${id==null?'—':miniAv(getPlayer(id),18)+' '+nm2(id)}</span><span class="ts">${played&&id!=null?score:''}</span>`;
   return r;
 }
 function rrHeadRow(){ const r=el('div','rrh'); r.innerHTML=`<span>#</span><span style="flex:1">Speler</span><span>G</span><span>W</span><span>+/–</span>`; return r; }
 function rrRow(d,i){ const r=el('div','rrr'+(i===0?' lead':'')); const diff=d.lf-d.la;
-  r.innerHTML=`<span>${i+1}</span><span style="flex:1">${nm2(d.id)}</span><span>${d.p}</span><span>${d.w}</span><span>${diff>0?'+':''}${diff}</span>`; return r; }
+  r.innerHTML=`<span>${i+1}</span><span style="flex:1;display:flex;align-items:center;gap:8px">${miniAv(getPlayer(d.id),20)} ${nm2(d.id)}</span><span>${d.p}</span><span>${d.w}</span><span>${diff>0?'+':''}${diff}</span>`; return r; }
 
 /* ============ BOT ============ */
 const BOT_PROFILES={
