@@ -270,6 +270,18 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 .pip.red{background:var(--red);}
 .pcard .ft{font-size:10px;color:var(--dim);font-weight:700;letter-spacing:.5px;}
 .pcard .last{font-size:10px;color:var(--txt2);margin-top:3px;}
+/* compact scoreboard for 3+ players (keeps every score in view) */
+.pcards.multi{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.pcards.multi .pcard{display:flex;align-items:center;gap:11px;padding:9px 13px;text-align:left;}
+.pcards.multi .pcard.active{animation:none;}
+.pcards.multi .avm{width:30px;height:30px;border-radius:50%;overflow:hidden;background:var(--bg3);border:1px solid var(--gold-border);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;flex-shrink:0;}
+.pcards.multi .pmid{flex:1;min-width:0;}
+.pcards.multi .pmid .nm{font-weight:800;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pcards.multi .pmid .ft{font-size:10px;color:var(--dim);font-weight:700;margin-top:1px;}
+.pcards.multi .pips{flex-shrink:0;display:flex;gap:4px;}
+.pcards.multi .scorem{font-weight:900;font-size:34px;letter-spacing:-1px;line-height:1;color:var(--chalk);min-width:56px;text-align:right;}
+.pcards.multi .pcard.dim .scorem{color:var(--txt2);}
 
 /* checkout bar */
 .cobar{background:rgba(var(--brass-rgb),.10);border:1px solid var(--gold-border);border-radius:12px;
@@ -1055,7 +1067,7 @@ function renderSpelers(){
       const aw=row.querySelector('[data-avatar]');
       if(aw) aw.onclick=(e)=>{ e.stopPropagation(); openAvatarSheet(p.id); };
     }
-    row.onclick=()=>{ if(p.isBot) openRobotSheet(); else openStatsSheet(p.id); };
+    row.onclick=()=>{ if(p.isBot) openRobotSheet(p.id); else openStatsSheet(p.id); };
     b.appendChild(makeSwipeRow(row,()=>deletePlayer(p.id)));
   });
   b.appendChild(el('div',null,'<div style="text-align:center;color:var(--dim);font-size:11px;margin-top:6px">Veeg een speler naar links om te verwijderen</div>'));
@@ -1148,14 +1160,16 @@ function toggleRow(label,key){
 }
 
 /* ============ ROBOT SHEET ============ */
-function openRobotSheet(){
-  const sh=$('#sheet'); const bot=STATE.players.find(p=>p.isBot);
-  let level=bot?bot.botLevel:STATE.settings.botStrength; let adaptive=bot?bot.adaptive:STATE.settings.adaptive;
-  sh.innerHTML=`<div class="handle"></div><h2><span style="display:inline-flex;animation:thinkPulse 2s infinite;color:var(--brass)">${icon('bot',24)}</span> Dart Robot</h2>
-    <div class="sh-sub">Kies een niveau om tegen te spelen</div><div id="levels"></div>
+function openRobotSheet(editId){
+  const sh=$('#sheet');
+  const editing = editId!=null ? STATE.players.find(p=>p.id===editId && p.isBot) : null;
+  let level = editing ? (editing.botLevel||'gevorderd') : STATE.settings.botStrength;
+  let adaptive = editing ? editing.adaptive : STATE.settings.adaptive;
+  sh.innerHTML=`<div class="handle"></div><h2><span style="display:inline-flex;animation:thinkPulse 2s infinite;color:var(--brass)">${icon('bot',24)}</span> ${editing?editing.name:'Dart Robot'}</h2>
+    <div class="sh-sub">${editing?'Pas het niveau aan':'Kies een niveau om tegen te spelen · je kunt er meerdere toevoegen'}</div><div id="levels"></div>
     <div class="setrow" style="margin:6px 0 16px"><div class="l">${icon('sparkles',18)} Adaptief</div><div class="toggle ${adaptive?'on':''}" id="adtg"></div></div>
     <div style="font-size:12px;color:var(--dim);margin:-10px 0 16px">Past niveau aan op jouw vorm</div>
-    <button class="btn btn-primary" id="robotAdd">Robot toevoegen</button>`;
+    <button class="btn btn-primary" id="robotAdd">${editing?'Opslaan':'Robot toevoegen'}</button>`;
   const levels=[['makkelijk','Makkelijk','~30 gemiddelde · mist vaak'],['gemiddeld','Gemiddeld','~50 gemiddelde · solide checkout'],['gevorderd','Gevorderd','~75 gemiddelde · scherpe finishes']];
   const lc=sh.querySelector('#levels');
   function drawLevels(){ lc.innerHTML=''; levels.forEach(([k,t,d])=>{ const r=el('div',level===k?'levelrow on':'levelrow');
@@ -1165,12 +1179,17 @@ function openRobotSheet(){
   drawLevels();
   sh.querySelector('#adtg').onclick=function(){adaptive=!adaptive;this.classList.toggle('on');};
   sh.querySelector('#robotAdd').onclick=()=>{
-    let b=STATE.players.find(p=>p.isBot);
-    if(!b){ b={id:STATE.nextId++,name:'Dart Robot',initials:'🤖',isBot:true,stats:{avg:75,games:0,wins:0,checkoutPct:42,dartsPerLeg:13.5,avgHistory:[],scoreDist:{},doubles:{}}}; STATE.players.push(b); }
+    if(editing){ editing.botLevel=level; editing.adaptive=adaptive; save(); closeSheet(); refreshPlayers(); toast('Robot bijgewerkt'); return; }
+    // reuse an existing bot that isn't in the game yet, otherwise create a new one
+    let b=STATE.players.find(p=>p.isBot && !STATE.setup.selectedPlayers.includes(p.id));
+    if(!b){ const n=STATE.players.filter(p=>p.isBot).length;
+      b={id:STATE.nextId++,name:n?('Dart Robot '+(n+1)):'Dart Robot',initials:'BOT',isBot:true,
+        stats:{avg:BOT_PROFILES[level].avg,games:0,wins:0,checkoutPct:42,dartsPerLeg:13.5,avgHistory:[],scoreDist:{},doubles:{}}};
+      STATE.players.push(b); }
     b.botLevel=level; b.adaptive=adaptive;
     if(!STATE.setup.selectedPlayers.includes(b.id)) STATE.setup.selectedPlayers.push(b.id);
-    save(); closeSheet(); if(activeTab==='spel')renderSetup(); else if(activeTab==='modus')renderModus(); else renderSpelers();
-    toast('Dart Robot toegevoegd');
+    save(); closeSheet(); refreshPlayers();
+    toast(b.name+' toegevoegd');
   };
   showSheet();
 }
@@ -1399,16 +1418,26 @@ function renderX01(){
   const co = s.checkout==='double'?'Double Out':(s.checkout==='master'?'Master Out':'Straight Out');
   const sub = GAME.tourney ? `TOERNOOI · FIRST TO ${GAME.legsTarget} · LEG ${curLegNo()}`
     : `${s.format==='firstTo'?'FIRST TO':'BEST OF'} ${s.legs} · LEG ${curLegNo()}`;
-  let cards='<div class="pcards">';
+  const multi = GAME.players.length>2;
+  let cards='<div class="pcards'+(multi?' multi':'')+'">';
   GAME.players.forEach((p,i)=>{
     const pl=getPlayer(p.id); const active=i===GAME.cur;
     const pips=[0,1,2].map(d=>`<div class="pip ${active&&GAME.darts[d]!==undefined?'on':''}"></div>`).join('');
-    cards+=`<div class="pcard ${active?'active':'dim'}">${active?'<div class="tag">Aan beurt</div>':''}
-      <div class="ph"><div class="av">${avInit(pl,16)}</div><div class="nm">${pl.name}</div></div>
-      <div class="score">${p.score}</div>
-      <div class="pips">${pips}</div>
-      <div class="ft">S ${p.setsWon} · L ${p.legsWon} · GEM ${pl.stats.avg}</div>
-      <div class="last">LAATSTE ${p.lastTurn}</div></div>`;
+    if(multi){
+      cards+=`<div class="pcard ${active?'active':'dim'}">
+        <div class="avm">${avInit(pl,15)}</div>
+        <div class="pmid"><div class="nm">${pl.name}</div>
+          <div class="ft">S ${p.setsWon} · L ${p.legsWon} · GEM ${pl.stats.avg} · LAATSTE ${p.lastTurn}</div></div>
+        <div class="pips">${pips}</div>
+        <div class="scorem">${p.score}</div></div>`;
+    } else {
+      cards+=`<div class="pcard ${active?'active':'dim'}">${active?'<div class="tag">Aan beurt</div>':''}
+        <div class="ph"><div class="av">${avInit(pl,16)}</div><div class="nm">${pl.name}</div></div>
+        <div class="score">${p.score}</div>
+        <div class="pips">${pips}</div>
+        <div class="ft">S ${p.setsWon} · L ${p.legsWon} · GEM ${pl.stats.avg}</div>
+        <div class="last">LAATSTE ${p.lastTurn}</div></div>`;
+    }
   });
   cards+='</div>';
   const cur=curP();
