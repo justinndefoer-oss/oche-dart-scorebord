@@ -1515,6 +1515,7 @@ function nextPlayer(){
   hideBust();
   if(GAME.finished) return;
   GAME.turnAdvancing=false;
+  if(GAME.type==='atc' && GAME.atcBonus){ GAME.atcBonus=false; GAME.darts=[]; GAME.mult=1; renderGameScreen(); return; } // extra turn: same player
   const cur=curP();
   // commit turn for scoring modes that accumulate per turn
   if(GAME.type==='x01' && GAME.darts.length>0 && cur.score-turnSum()>1){ commitX01Turn(); }
@@ -1623,26 +1624,41 @@ function renderATC(){
     <div><div class="nm">${pl.name}</div><div class="meta">AAN BEURT · DART ${GAME.darts.length+1} VAN 3</div></div>
     <div class="rt">GERAAKT<br><b>${cur.hits}/${end}</b></div></div>`;
   const tlabel=cur.target>20?'BULL':cur.target;
-  const big=`<div class="bigcard"><div class="lbl">Doelnummer</div><div class="big">${tlabel}</div><div class="hint">Raak een ${tlabel} om door te gaan</div></div>`;
+  const big=`<div class="bigcard"><div class="lbl">Doelnummer</div><div class="big">${tlabel}</div><div class="hint">Dubbel = 2 verder · triple = 3 verder · 3× raak = extra beurt</div></div>`;
   let grid='<div class="pgrid">';
   for(let n=1;n<=20;n++){ const cls=n<cur.target?'hit':(n===cur.target?'cur':''); grid+=`<div class="pcell ${cls}">${n}</div>`; }
   grid+='</div>';
   const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].hit?'green':'red'):''}"></div>`).join('');
   return `<div>${ctrlBar('Around the Clock',STATE.setup.atcStart+' → '+end+' · BULL '+(useBull?'AAN':'UIT'))}${strip}${big}${grid}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
-    <div class="bigactions inpzone"><button class="bigact-miss" data-atc="0">Mis</button><button class="bigact-hit" data-atc="1">Raak ${tlabel}</button></div>
+    <div class="bigactions inpzone" style="grid-template-columns:1fr 1fr 1fr">
+      <button class="bigact-hit" data-atc="1">Enkel</button>
+      <button class="bigact-hit" data-atc="2">Dubbel<br><span style="font-size:11px;opacity:.8">+2</span></button>
+      <button class="bigact-hit" data-atc="3">Triple<br><span style="font-size:11px;opacity:.8">+3</span></button></div>
+    <button class="bigact-miss inpzone" data-atc="0" style="width:100%;border-radius:14px;padding:15px;font-weight:800;font-size:16px;margin-bottom:8px">Mis</button>
     <div class="subactions"><button data-act="undo">${icon('undo',15)} Undo</button><button data-act="next">Volgende speler</button></div></div>`;
 }
-function atcThrow(hit){
-  const cur=curP(); pushHistory();
-  GAME.darts.push({hit:!!hit});
-  if(hit){ cur.hits++; cur.target++;
-    const end=STATE.setup.atcEnd; const useBull=STATE.setup.atcBull;
-    if(cur.target>end){ if(useBull && cur.target===21){ /* now bull = 21 sentinel */ }
-      else if(!useBull || cur.target>21){ legWon(GAME.cur); return; } }
-    if(useBull && cur.target>end && cur.target<=20) {} // continue
+function atcThrow(mult){
+  mult=+mult||0; const cur=curP(); pushHistory();
+  const hit=mult>0;
+  GAME.darts.push({hit, mult});
+  if(hit){
+    const end=STATE.setup.atcEnd, useBull=STATE.setup.atcBull;
+    for(let k=0;k<mult;k++){            // double advances 2, triple advances 3
+      cur.hits++; cur.target++;
+      if(cur.target>end){
+        if(useBull && cur.target===21){ /* next target is the bull */ }
+        else if(!useBull || cur.target>21){ legWon(GAME.cur); return; }
+      }
+    }
   }
-  if(GAME.darts.length>=3){ renderGameScreen(); if(GAME.auto&&!curIsBot()) setTimeout(nextPlayer,500); return; }
+  // three hits in one turn earns another turn
+  if(GAME.darts.length>=3){
+    if(GAME.darts.every(d=>d.hit)){ GAME.atcBonus=true; toast('3× raak — nog een beurt!'); }
+    renderGameScreen();
+    if(GAME.auto && !curIsBot()) setTimeout(nextPlayer,600);
+    return;
+  }
   renderGameScreen();
 }
 
@@ -2410,7 +2426,7 @@ function botThrowOne(prof){
     const cur=curP(); const open=CRICK_NUMS.find(n=>cur.marks[n]<3)||20;
     let marks=botAimMult(prof); if(open===25 && marks>2) marks=2;   // can't treble the bull
     cricketHit(open, marks);
-  } else if(t==='atc'){ atcThrow(Math.random()<prof.acc?1:0); }
+  } else if(t==='atc'){ atcThrow(botAimMult(prof)); }
   else if(t==='shanghai'){ shanghaiThrow(botAimMult(prof)); }
   else if(t==='bob'){ bobThrow(Math.random()<prof.doubleAcc?1:0); }
   else if(t==='killer'){
