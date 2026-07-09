@@ -412,10 +412,17 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   animation:rays 30s linear infinite;border-radius:50%;}
 #winner .inner{position:relative;text-align:center;animation:winIn .6s cubic-bezier(.2,.8,.25,1);padding:0 24px;}
 #winner .wl{font-size:11px;font-weight:800;letter-spacing:4px;color:var(--brass);text-transform:uppercase;}
-#winner .trophy{color:var(--brass);margin:10px 0;line-height:0;}
-#winner .wav{width:78px;height:78px;border-radius:50%;background:var(--bg3);margin:0 auto 14px;
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;border:2.5px solid var(--brass);box-shadow:0 0 30px rgba(var(--brass-rgb),.4);}
-#winner .wn{font-weight:900;font-size:42px;letter-spacing:-1.5px;}
+#winner .trophy{color:var(--brass);margin:6px 0 2px;line-height:0;}
+#winner .wav{width:132px;height:132px;border-radius:50%;background:var(--bg3);margin:10px auto 18px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:48px;border:3px solid var(--brass);
+  animation:winGlow 2.4s ease-in-out infinite;}
+@keyframes winGlow{0%,100%{box-shadow:0 0 0 4px rgba(var(--brass-rgb),.22),0 0 42px rgba(var(--brass-rgb),.45)}
+  50%{box-shadow:0 0 0 5px rgba(var(--brass-rgb),.38),0 0 72px rgba(var(--brass-rgb),.75)}}
+#winner .wn{font-weight:900;font-size:48px;letter-spacing:-1.5px;}
+/* confetti (match wins) */
+#winner .confetti{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1;}
+#winner .confetti i{position:absolute;top:-12%;border-radius:2px;opacity:.9;animation:confFall linear infinite;}
+@keyframes confFall{0%{transform:translateY(-12vh) rotate(0)}100%{transform:translateY(115vh) rotate(760deg)}}
 #winner .ws{font-size:14px;color:var(--txt2);margin-top:6px;}
 #winner .wchips{display:flex;gap:10px;justify-content:center;margin:22px 0;}
 #winner .wchip{background:var(--bg1);border-radius:12px;padding:12px 14px;min-width:74px;}
@@ -631,6 +638,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
   <!-- winner overlay -->
   <div id="winner">
     <div class="rays"></div>
+    <div class="confetti" id="winner-confetti"></div>
     <div class="inner" id="winner-inner"></div>
   </div>
 
@@ -847,24 +855,39 @@ function playerSelectList(){
   const wrap=el('div');
   const useHc = activeTab==='spel' && STATE.setup.type==='x01' && STATE.setup.handicap && STATE.settings.premium;
   const hc = useHc ? handicapStarts() : {};
+  const sel=STATE.setup.selectedPlayers;
   STATE.players.forEach(p=>{
-    const on=STATE.setup.selectedPlayers.includes(p.id);
+    const on=sel.includes(p.id);
+    const ord=on?sel.indexOf(p.id)+1:null;
     const row=el('div',on?'prow sel':'prow');
     let meta = p.isBot ? `${(p.botLevel||'gevorderd').toUpperCase()} · ADAPTIEF` : `GEM. ${p.stats.avg}`;
+    if(on && sel.length>=2) meta += ord===1 ? ' · begint' : ` · ${ord}e`;
     if(useHc && on) meta += ` · START ${hc[p.id]}`;
     row.innerHTML=`<div class="avatar ${p.isBot?'bot':''}">${avInit(p,20)}</div>
       <div class="info"><div class="nm">${p.name}</div><div class="meta ${p.isBot?'brass':''}">${meta}</div></div>
-      <button class="rm">${on?'✓':'+'}</button>`;
+      <button class="rm">${on?(sel.length>=2?ord:'✓'):'+'}</button>`;
     row.querySelector('.rm').style.color=on?'var(--brass)':'var(--dim)';
     row.onclick=()=>{ toggleSelect(p.id); };
     wrap.appendChild(makeSwipeRow(row,()=>deletePlayer(p.id)));
   });
+  if(sel.length>=2){
+    const sh=el('button','btn btn-secondary',icon('dice',17)+' Willekeurige volgorde');
+    sh.style.marginTop='8px'; sh.onclick=shuffleOrder;
+    wrap.appendChild(sh);
+    wrap.appendChild(el('div',null,'<div style="font-size:11px;color:var(--dim);text-align:center;margin-top:7px">Speler 1 begint · daarna wisselt de beginner elke leg</div>'));
+  }
   return wrap;
 }
 function toggleSelect(id){
   const sp=STATE.setup.selectedPlayers; const i=sp.indexOf(id);
   if(i>=0){ if(sp.length>1) sp.splice(i,1); } else sp.push(id);
   save(); if(activeTab==='spel') renderSetup(); else renderModus();
+}
+function shuffleOrder(){
+  STATE.setup.selectedPlayers = shuffle(STATE.setup.selectedPlayers);
+  save(); if(activeTab==='spel') renderSetup(); else renderModus();
+  const first=getPlayer(STATE.setup.selectedPlayers[0]);
+  if(first) toast(first.name+' begint');
 }
 /* ---- swipe-to-delete (left swipe reveals a red Verwijder button) ---- */
 let swipeRows=[];
@@ -1261,7 +1284,7 @@ function startGame(){
   const type = activeTab==='spel' ? STATE.setup.type : STATE.setup.mode;
   if(activeTab==='modus' && modeLocked(type)){ openPremiumSheet(); return; }
   if(type==='tourney'){ startTourney(ids); return; }
-  GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, darts:[], mult:1,
+  GAME={ type, players:ids.map(id=>({id,...freshPlayerGame(type)})), cur:0, legStarter:0, darts:[], mult:1,
     history:[], setsTarget:STATE.setup.sets, legsTarget:STATE.setup.legs, auto:STATE.settings.autoContinue,
     round:1, finished:false, cuRounds:STATE.setup.cuRounds, coAttempts:STATE.setup.coAttempts };
   if(type==='x01'){ const hs=(STATE.setup.handicap&&STATE.settings.premium)?handicapStarts():null;
@@ -1965,12 +1988,22 @@ function showWinner(idx,kind){
   }
   const det = MODE_LABEL[GAME.type]||GAME.type;
   lastShareText = `${pl.name} wint — ${det}${ /(\d)/.test(sub)?' · '+sub.replace(/^[^·]*· /,''):'' } · via OCHE Dart Scorebord`;
-  inner.innerHTML=`<div class="wl">Winnaar</div><div class="trophy">${icon('trophy',44,1.75)}</div>
-    <div class="wav">${avInit(pl,34)}</div><div class="wn">${pl.name} wint</div><div class="ws">${sub}</div>
+  inner.innerHTML=`<div class="wl">Winnaar</div><div class="trophy">${icon('trophy',40,1.75)}</div>
+    <div class="wav">${avInit(pl,58)}</div><div class="wn">${pl.name} wint</div><div class="ws">${sub}</div>
     <div class="wchips">${chips}</div><div class="wbtns">${btns}</div>`;
+  launchConfetti(kind==='match');
   $('#winner').classList.add('show');
 }
 let lastShareText='';
+function launchConfetti(on){
+  const c=$('#winner-confetti'); if(!c) return;
+  if(!on){ c.innerHTML=''; return; }
+  const cols=['var(--brass)','var(--brass-hi)','var(--green)','var(--chalk)','#e07a5f'];
+  let html='';
+  for(let i=0;i<30;i++){ const left=Math.random()*100, dur=2.6+Math.random()*2.4, delay=Math.random()*2, w=6+Math.random()*6, col=cols[i%cols.length];
+    html+=`<i style="left:${left}%;background:${col};width:${w.toFixed(1)}px;height:${(w*1.6).toFixed(1)}px;animation-duration:${dur.toFixed(2)}s;animation-delay:${delay.toFixed(2)}s"></i>`; }
+  c.innerHTML=html;
+}
 async function shareResult(){
   const text=lastShareText||'OCHE — Dart Scorebord';
   if(navigator.share){ try{ await navigator.share({title:'OCHE',text}); return; }catch(e){ if(e.name==='AbortError') return; } }
@@ -2066,8 +2099,9 @@ $('#winner').addEventListener('click',e=>{
   doWinAct(act);
 });
 function doWinAct(act){
-  if(act==='continue'){ // reset for next leg
-    GAME.players.forEach(p=>Object.assign(p,freshLegReset(p))); GAME.darts=[]; GAME.cur=0; GAME.round=1; GAME.history=[];
+  if(act==='continue'){ // reset for next leg — the starting player alternates each leg (darts rules)
+    GAME.players.forEach(p=>Object.assign(p,freshLegReset(p))); GAME.darts=[];
+    GAME.legStarter=((GAME.legStarter||0)+1)%GAME.players.length; GAME.cur=GAME.legStarter; GAME.round=1; GAME.history=[];
     $('#winner').classList.remove('show'); renderGameScreen();
   } else if(act==='newgame'){ $('#winner').classList.remove('show'); GAME=null; showTab('spel'); }
   else if(act==='players'){ $('#winner').classList.remove('show'); GAME=null; showTab('spelers'); }
@@ -2168,7 +2202,7 @@ function startTourneyMatch(){
   if(!nm){ showTourneyBoard(); return; }
   t.cur=nm; save();
   const a=nm.m.a, b=nm.m.b;
-  GAME={ type:'x01', tourney:true, players:[a,b].map(id=>({id,...freshPlayerGame('x01')})), cur:0, darts:[], mult:1,
+  GAME={ type:'x01', tourney:true, players:[a,b].map(id=>({id,...freshPlayerGame('x01')})), cur:0, legStarter:0, darts:[], mult:1,
     history:[], setsTarget:1, legsTarget:t.legs, auto:STATE.settings.autoContinue, round:1, finished:false };
   GAME.players.forEach(gp=>{ gp.startScore=t.points; gp.score=t.points; });
   GAME.format='firstTo';
