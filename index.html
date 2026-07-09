@@ -685,7 +685,7 @@ h1.title{font-size:22px;font-weight:800;margin:6px 0 16px;}
 /* ============ STATE ============ */
 const DEFAULT_STATE = {
   setup:{ type:'x01', points:501, checkout:'double', checkIn:'straight', format:'firstTo', sets:1, legs:3,
-    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, cuRounds:8, coAttempts:9, handicap:false, gotchaTarget:301,
+    variant:'standard', mode:'atc', atcStart:1, atcEnd:20, atcBull:true, atcDir:'up', cuRounds:8, coAttempts:9, handicap:false, gotchaTarget:301,
     tourFormat:'ko', tourLegs:2, tourPoints:501, randomOrder:false, selectedPlayers:[1,2] },
   players:[
     {id:1,name:'Justin',initials:'JT',isBot:false,stats:{avg:61.4,games:128,wins:82,checkoutPct:38,dartsPerLeg:14.2,avgHistory:[45,52,58,60,46,65,68,72,65,68],scoreDist:{'26+':30,'41+':58,'60+':80,'100+':52,'140+':34,'180':18},doubles:{D20:44,D16:51,Bull:29}}},
@@ -992,7 +992,13 @@ function renderModus(){
     const g=el('div','grid2');
     g.appendChild(stepper('Start','atcStart',1,20)); g.appendChild(stepper('Doel','atcEnd',1,20));
     set.appendChild(g);
-    const tr=el('div','setrow'); tr.style.margin='8px 0 0';
+    const lo=Math.min(STATE.setup.atcStart,STATE.setup.atcEnd), hi=Math.max(STATE.setup.atcStart,STATE.setup.atcEnd);
+    set.appendChild(el('div',null,'<div style="font-size:11px;font-weight:700;letter-spacing:1px;color:var(--dim);text-transform:uppercase;margin:12px 0 6px">Richting</div>'));
+    const seg=el('div','seg');
+    [['up',lo+' → '+hi],['down',hi+' → '+lo]].forEach(([k,l])=>{ const bt=el('button',(STATE.setup.atcDir||'up')===k?'on':'',l);
+      bt.onclick=()=>{STATE.setup.atcDir=k;save();renderModus();}; seg.appendChild(bt); });
+    set.appendChild(seg);
+    const tr=el('div','setrow'); tr.style.margin='10px 0 0';
     tr.innerHTML=`<div class="l">${icon('target',18)} Bull aan het eind</div>`; const tg=el('div',STATE.setup.atcBull?'toggle on':'toggle');
     tg.onclick=()=>{STATE.setup.atcBull=!STATE.setup.atcBull;save();tg.classList.toggle('on');}; tr.appendChild(tg); set.appendChild(tr);
   } else if(m==='countup'){
@@ -1335,6 +1341,7 @@ function startGame(revealed){
     round:1, finished:false, cuRounds:STATE.setup.cuRounds, coAttempts:STATE.setup.coAttempts };
   if(type==='x01'){ const hs=(STATE.setup.handicap&&STATE.settings.premium)?handicapStarts():null;
     GAME.players.forEach(gp=>{ gp.startScore = hs?hs[gp.id]:STATE.setup.points; gp.score=gp.startScore; }); }
+  if(type==='atc') GAME.atcSeq=atcSequence();
   if(type==='halveit') GAME.targets=HALVE_TARGETS;
   if(type==='bermuda') GAME.targets=BERMUDA_TARGETS;
   if(type==='doubles'){ GAME.trainSeq=DOUBLE_SEQ; GAME.trainMult=2; }
@@ -1349,7 +1356,7 @@ function freshPlayerGame(type){
   const base={legsWon:0,setsWon:0,lastTurn:0,legStartDarts:0,dartsThrown:0,turnScores:[]};
   if(type==='x01') return {...base,score:STATE.setup.points,checkedIn:STATE.setup.checkIn==='straight'};
   if(type==='cricket') return {...base,marks:{20:0,19:0,18:0,17:0,16:0,15:0,25:0},points:0};
-  if(type==='atc') return {...base,target:STATE.setup.atcStart,hits:0};
+  if(type==='atc') return {...base,idx:0};
   if(type==='shanghai') return {...base,points:0};
   if(type==='bob') return {...base,balance:27,target:1};
   if(type==='killer') return {...base,number:null,lives:3,isKiller:false,eliminated:false};
@@ -1617,19 +1624,27 @@ function cricketWinCheck(){
 }
 
 /* ---- AROUND THE CLOCK ---- */
+function atcSequence(){
+  const s=STATE.setup.atcStart, e=STATE.setup.atcEnd, lo=Math.min(s,e), hi=Math.max(s,e); const seq=[];
+  if((STATE.setup.atcDir||'up')==='down'){ for(let n=hi;n>=lo;n--) seq.push(n); }
+  else { for(let n=lo;n<=hi;n++) seq.push(n); }
+  if(STATE.setup.atcBull) seq.push(25);
+  return seq;
+}
 function renderATC(){
   const cur=curP(); const pl=getPlayer(cur.id);
-  const end=STATE.setup.atcEnd; const useBull=STATE.setup.atcBull;
+  const seq=GAME.atcSeq||[]; const total=seq.length; const curNum=seq[cur.idx]; const done=new Set(seq.slice(0,cur.idx));
   const strip=`<div class="astrip"><div class="av avatar" style="width:34px;height:34px;font-size:13px">${avInit(pl,18)}</div>
     <div><div class="nm">${pl.name}</div><div class="meta">AAN BEURT · DART ${GAME.darts.length+1} VAN 3</div></div>
-    <div class="rt">GERAAKT<br><b>${cur.hits}/${end}</b></div></div>`;
-  const tlabel=cur.target>20?'BULL':cur.target;
+    <div class="rt">GERAAKT<br><b>${cur.idx}/${total}</b></div></div>`;
+  const tlabel=curNum===25?'BULL':curNum;
   const big=`<div class="bigcard"><div class="lbl">Doelnummer</div><div class="big">${tlabel}</div><div class="hint">Dubbel = 2 verder · triple = 3 verder · 3× raak = extra beurt</div></div>`;
   let grid='<div class="pgrid">';
-  for(let n=1;n<=20;n++){ const cls=n<cur.target?'hit':(n===cur.target?'cur':''); grid+=`<div class="pcell ${cls}">${n}</div>`; }
+  for(let n=1;n<=20;n++){ const cls=done.has(n)?'hit':(n===curNum?'cur':''); grid+=`<div class="pcell ${cls}">${n}</div>`; }
   grid+='</div>';
   const pips=[0,1,2].map(i=>`<div class="pip ${GAME.darts[i]?(GAME.darts[i].hit?'green':'red'):''}"></div>`).join('');
-  return `<div>${ctrlBar('Around the Clock',STATE.setup.atcStart+' → '+end+' · BULL '+(useBull?'AAN':'UIT'))}${strip}${big}${grid}
+  const first=seq[0], last=seq[seq.length-1];
+  return `<div>${ctrlBar('Around the Clock',first+' → '+(last===25?'BULL':last))}${strip}${big}${grid}
     <div class="pips" style="margin:0 0 10px">${pips}</div>
     <div class="bigactions inpzone" style="grid-template-columns:1fr 1fr 1fr">
       <button class="bigact-hit" data-atc="1">Enkel</button>
@@ -1642,15 +1657,9 @@ function atcThrow(mult){
   mult=+mult||0; const cur=curP(); pushHistory();
   const hit=mult>0;
   GAME.darts.push({hit, mult});
-  if(hit){
-    const end=STATE.setup.atcEnd, useBull=STATE.setup.atcBull;
-    for(let k=0;k<mult;k++){            // double advances 2, triple advances 3
-      cur.hits++; cur.target++;
-      if(cur.target>end){
-        if(useBull && cur.target===21){ /* next target is the bull */ }
-        else if(!useBull || cur.target>21){ legWon(GAME.cur); return; }
-      }
-    }
+  if(hit){                             // double advances 2, triple advances 3
+    cur.idx += mult;
+    if(cur.idx >= (GAME.atcSeq||[]).length){ legWon(GAME.cur); return; }
   }
   // three hits in one turn earns another turn
   if(GAME.darts.length>=3){
@@ -2207,7 +2216,7 @@ function freshLegReset(p){
   const t=GAME.type;
   if(t==='x01') return {score:p.startScore||STATE.setup.points,lastTurn:0,turnScores:[],dartsThrown:0,checkedIn:STATE.setup.checkIn==='straight'};
   if(t==='cricket') return {marks:{20:0,19:0,18:0,17:0,16:0,15:0,25:0},points:0};
-  if(t==='atc') return {target:STATE.setup.atcStart,hits:0};
+  if(t==='atc') return {idx:0};
   if(t==='shanghai') return {points:0};
   if(t==='bob') return {balance:27,target:1,hitMap:{}};
   return {};
