@@ -44,6 +44,18 @@ fixable); a strip in the PWA `theme-color` = outside the web view. Add a tempora
 printing `screen.height`, `innerHeight`, `documentElement.clientHeight`, `visualViewport.height`,
 and the offsetHeights/bottoms of html/body/#app/tabbar. Remove all of it before shipping.
 
+## iPad / tablet layout
+- The app is a centered column: `#app{max-width:var(--app-w)}` (`--app-w:520px` on phones).
+- A media query `@media (min-width:740px) and (min-height:700px)` turns it into a centered,
+  rounded, framed **panel** on an ambient backdrop: `--app-w:720px` (760px on ≥1000×900),
+  `body{display:flex;align-items:center;justify-content:center}`, `#app{width:var(--app-w);
+  max-width:100%; height:min(100%,900px); border-radius:24px; overflow:hidden}`.
+  NOTE: as a flex child `#app` MUST have an explicit `width` or it collapses to content width.
+- Gated by BOTH min-width and min-height so iPhone portrait/landscape never trigger it
+  (iPhone layout stays exactly as tuned). Verify iPad at 834×1194 (portrait) and 1194×834.
+- Manifest is `orientation:portrait` (keeps cramped iPhone-landscape out). iPad landscape
+  still renders fine; for the native build, allow iPad landscape in Xcode per-idiom.
+
 ## Caching when testing (this wasted a LOT of time)
 iOS standalone caches the start URL aggressively. To test a new version reliably:
 1. Re-upload `index.html` to GitHub, wait ~1-2 min for Pages to rebuild.
