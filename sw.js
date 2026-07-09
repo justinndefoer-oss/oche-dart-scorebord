@@ -1,6 +1,6 @@
 /* OCHE service worker — network-first so updates always come through online,
    with a cache fallback so the app works fully offline. */
-const CACHE = 'oche-cache-v1';
+const CACHE = 'oche-cache-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 
@@ -18,7 +18,7 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return;
   e.respondWith((async () => {
     try {
-      const res = await fetch(req);          // always try network first → fresh updates
+      const res = await fetch(req, { cache: 'no-store' }); // bypass the HTTP cache → always freshest
       const cache = await caches.open(CACHE);
       cache.put(req, res.clone());           // keep a copy for offline
       return res;
