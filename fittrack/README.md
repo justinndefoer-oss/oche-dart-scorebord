@@ -18,6 +18,15 @@ calorie goal.
 and cardio (duration, distance, calories burned). Save any session as a routine and start
 from it later. History grouped by day, with a detail view.
 
+**Ready-made routines** — 15 presets in five groups (full body A/B/C, push/pull/legs,
+upper/lower, home & bodyweight, cardio). Picking one copies it into your own routines, so
+you can edit it freely afterwards. Starting weights are 0 on purpose: the app cannot know
+your loads, you fill them in the first time you run the session and they stick.
+
+**Weekly plan** — assign routines to weekdays (more than one per day is fine, e.g. a lift
+and a run). Today's plan appears on the Home screen with a Start button, and drops off that
+card once you have logged a workout with the same name.
+
 **Weight** — log weigh-ins with an optional note; line chart over 30d / 90d / 1y / all,
 with an optional goal line.
 
@@ -42,8 +51,12 @@ JSON export/import.
 Everything is one JSON object in `localStorage` under **`fittrack-state`**:
 
 ```
-{ v, settings, foods[], entries[], workouts[], routines[], weights[] }
+{ v, settings, schedule{}, foods[], entries[], workouts[], routines[], weights[] }
 ```
+
+`schedule` is keyed by JS `getDay()` (0 = Sunday … 6 = Saturday), each value an array of
+routine ids. Deleting a routine strips its id from every day, and `load()` fills in the
+seven keys for saves written before the planner existed.
 
 Four decisions that matter if you extend it:
 

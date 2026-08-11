@@ -220,6 +220,18 @@ textarea.inp{resize:none;min-height:64px;line-height:1.4;}
 .tile .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
 .tile .c{font-size:10.5px;color:var(--dim);margin-top:2px;}
 
+/* ===== weekly plan ===== */
+.dow{width:34px;font-size:12px;font-weight:700;color:var(--txt2);flex:none;}
+.row.today .dow{color:var(--accent);}
+.row.today .chip{background:rgba(var(--accent-rgb),.16);color:var(--accent);}
+.chip{display:inline-block;background:var(--bg2);border-radius:8px;padding:3px 8px;
+  font-size:12px;font-weight:600;margin:2px 5px 2px 0;}
+.rest{font-size:12.5px;color:var(--dim);}
+.cv{color:var(--bg4);display:flex;align-items:center;flex:none;}
+.row .chk{width:28px;height:28px;border-radius:8px;background:var(--bg2);color:var(--bg4);
+  display:flex;align-items:center;justify-content:center;flex:none;}
+.row .chk.on{background:rgba(var(--accent-rgb),.18);color:var(--accent);}
+
 /* ===== list picker ===== */
 .pick{max-height:52vh;overflow-y:auto;margin:0 -16px;padding:0 16px;}
 .srch{position:relative;margin-bottom:10px;}
@@ -342,6 +354,8 @@ function icon(n,size,sw){size=size||20;return '<svg class="ic-svg" viewBox="0 0 
 /* ---------- state ---------- */
 const DEFAULTS={
   v:1, foods:[], entries:[], workouts:[], routines:[], weights:[],
+  /* which routines you plan to do on each weekday, keyed by JS getDay() 0=Sun..6=Sat */
+  schedule:{},
   settings:{kcalGoal:2200,pGoal:150,cGoal:220,fGoal:70,macroGoals:true,
             wUnit:'kg',dUnit:'km',weightGoalKg:0}
 };
@@ -352,6 +366,9 @@ function load(){
       const out=Object.assign({},JSON.parse(JSON.stringify(DEFAULTS)),s);
       out.settings=Object.assign({},DEFAULTS.settings,s.settings||{});
       ['foods','entries','workouts','routines','weights'].forEach(k=>{ if(!Array.isArray(out[k])) out[k]=[]; });
+      /* schedule arrived after the first release — older saves won't have it */
+      if(!out.schedule||typeof out.schedule!=='object'||Array.isArray(out.schedule)) out.schedule={};
+      for(let i=0;i<7;i++){ if(!Array.isArray(out.schedule[i])) out.schedule[i]=[]; }
       return out;
     }
   }catch(e){}
@@ -418,6 +435,63 @@ const MEALS=[
 const TYPES=[{k:'strength',t:'Strength',ic:'dumbbell'},{k:'cardio',t:'Cardio',ic:'run'},{k:'other',t:'Other',ic:'timer'}];
 const mealOf=k=>MEALS.find(m=>m.k===k)||MEALS[3];
 const typeOf=k=>TYPES.find(t=>t.k===k)||TYPES[2];
+
+/* ---------- ready-made routines ----------
+   Starting weights are deliberately 0: the app cannot know your loads, so you
+   fill them in the first time you run the session and they stick from then on. */
+const PRESETS=[
+  {g:'Full body', name:'Full Body A', type:'strength', ex:[
+    ['Back squat',3,8],['Bench press',3,8],['Barbell row',3,8],['Overhead press',3,10],['Hanging leg raise',3,12]]},
+  {g:'Full body', name:'Full Body B', type:'strength', ex:[
+    ['Deadlift',3,5],['Incline dumbbell press',3,10],['Lat pulldown',3,10],['Dumbbell lunge',3,10],['Face pull',3,15]]},
+  {g:'Full body', name:'Full Body C', type:'strength', ex:[
+    ['Front squat',3,8],['Dip',3,8],['Pull-up',3,6],['Romanian deadlift',3,10],['Cable curl',3,12]]},
+
+  {g:'Push / Pull / Legs', name:'Push day', type:'strength', ex:[
+    ['Bench press',4,8],['Overhead press',3,10],['Incline dumbbell press',3,10],['Lateral raise',3,15],['Triceps pushdown',3,12]]},
+  {g:'Push / Pull / Legs', name:'Pull day', type:'strength', ex:[
+    ['Deadlift',3,5],['Pull-up',4,6],['Barbell row',3,10],['Face pull',3,15],['Barbell curl',3,12]]},
+  {g:'Push / Pull / Legs', name:'Leg day', type:'strength', ex:[
+    ['Back squat',4,8],['Romanian deadlift',3,10],['Leg press',3,12],['Leg curl',3,12],['Calf raise',4,15]]},
+
+  {g:'Upper / Lower', name:'Upper body', type:'strength', ex:[
+    ['Bench press',4,8],['Barbell row',4,8],['Overhead press',3,10],['Lat pulldown',3,10],['Barbell curl',3,12],['Triceps pushdown',3,12]]},
+  {g:'Upper / Lower', name:'Lower body', type:'strength', ex:[
+    ['Back squat',4,8],['Romanian deadlift',3,10],['Walking lunge',3,12],['Leg curl',3,12],['Calf raise',4,15]]},
+
+  {g:'Home & bodyweight', name:'Bodyweight full body', type:'strength', ex:[
+    ['Push-up',3,12],['Bodyweight squat',3,20],['Inverted row',3,10],['Glute bridge',3,15],['Mountain climber',3,20]]},
+  {g:'Home & bodyweight', name:'Dumbbell full body', type:'strength', ex:[
+    ['Goblet squat',3,12],['Dumbbell bench press',3,10],['One-arm dumbbell row',3,10],['Dumbbell RDL',3,12],['Dumbbell shoulder press',3,10]]},
+  {g:'Home & bodyweight', name:'Core', type:'strength', ex:[
+    ['Hanging leg raise',3,12],['Cable crunch',3,15],['Russian twist',3,20],['Back extension',3,15]]},
+
+  {g:'Cardio', name:'Easy run 5 km', type:'cardio', duration:30, distance:5, ex:[]},
+  {g:'Cardio', name:'Interval run', type:'cardio', duration:25, distance:4, ex:[],
+    notes:'Warm up 8 min, then 6 × 1 min hard / 2 min easy, cool down.'},
+  {g:'Cardio', name:'Long walk', type:'cardio', duration:60, distance:5, ex:[]},
+  {g:'Cardio', name:'Bike ride', type:'cardio', duration:45, distance:15, ex:[]},
+];
+const PRESET_GROUPS=PRESETS.reduce((acc,p)=>{ if(acc.indexOf(p.g)<0) acc.push(p.g); return acc; },[]);
+
+/* Turn a preset into a real routine record you own and can edit. */
+function presetToRoutine(p){
+  return {id:uid(),name:p.name,type:p.type,notes:p.notes||'',
+    duration:p.duration||0,distance:p.distance||0,created:Date.now(),lastUsed:null,
+    exercises:(p.ex||[]).map(e=>({name:e[0],sets:e[1],reps:e[2],weight:0}))};
+}
+
+/* ---------- weekly plan ---------- */
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DOW_FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const DOW_ORDER=[1,2,3,4,5,6,0];   // display Monday first
+const routineById=id=>STATE.routines.find(r=>r.id===id)||null;
+function plannedFor(dow){ return (STATE.schedule[dow]||[]).map(routineById).filter(Boolean); }
+function plannedToday(){ return plannedFor(new Date().getDay()); }
+/* a planned routine counts as done when a workout with that name is logged today */
+function plannedDone(routine){
+  return workoutsFor(todayKey()).some(w=>w.name===routine.name);
+}
 
 function entriesFor(day){ return STATE.entries.filter(e=>e.day===day).sort((a,b)=>a.ts-b.ts); }
 function workoutsFor(day){ return STATE.workouts.filter(w=>w.day===day).sort((a,b)=>b.ts-a.ts); }
@@ -595,16 +669,7 @@ function renderHome(){
       '<button class="qbtn" data-act="addweight">'+icon('weight',20)+'Weight</button>'+
     '</div>'+
 
-    '<div class="card">'+
-      '<h2>'+icon('run',14)+'Today’s workout<button class="lnk" data-act="tab" data-tab="train">All</button></h2>'+
-      (ws.length?ws.map(w=>
-        '<div class="row tapp" data-act="openworkout" data-id="'+w.id+'">'+
-          '<div class="ico">'+icon(typeOf(w.type).ic,17)+'</div>'+
-          '<div class="g"><div class="t">'+esc(w.name||typeOf(w.type).t)+'</div><div class="s">'+workoutSummary(w)+'</div></div>'+
-          '<div class="s">'+timeLabel(w.ts)+'</div></div>').join('')
-        :'<div class="empty">Nothing logged today.<br><button class="btn dim" data-act="addworkout" style="margin-top:10px">'+
-          icon('plus',15)+'Log a workout</button></div>')+
-    '</div>'+
+    todayWorkoutCard(ws)+
 
     '<div class="card">'+
       '<h2>'+icon('chart',14)+'This week</h2>'+
@@ -621,6 +686,33 @@ function renderHome(){
       (lw?'<div class="chartmeta"><span>Latest: '+showW(lw.kg)+'</span>'+
         (chg!=null?'<span>'+signed(dispW(chg))+' '+wUnit()+' over 30d</span>':'')+'</div>':'')+
     '</div>';
+}
+
+/* Today's card: what you logged, plus anything still planned for this weekday. */
+function todayWorkoutCard(ws){
+  const planned=plannedToday();
+  const todo=planned.filter(r=>!plannedDone(r));
+  const body=
+    ws.map(w=>'<div class="row tapp" data-act="openworkout" data-id="'+w.id+'">'+
+        '<div class="ico">'+icon(typeOf(w.type).ic,17)+'</div>'+
+        '<div class="g"><div class="t">'+esc(w.name||typeOf(w.type).t)+'</div>'+
+        '<div class="s">'+workoutSummary(w)+'</div></div>'+
+        '<div class="s">'+timeLabel(w.ts)+'</div></div>').join('')+
+    todo.map(r=>'<div class="row">'+
+        '<div class="ico" style="color:var(--dim)">'+icon(typeOf(r.type).ic,17)+'</div>'+
+        '<div class="g"><div class="t">'+esc(r.name)+'</div>'+
+        '<div class="s">planned for '+DOW_FULL[new Date().getDay()]+'</div></div>'+
+        '<button class="btn pri sm" data-act="startroutine" data-id="'+r.id+'">'+icon('play',13)+'Start</button></div>').join('');
+
+  return '<div class="card">'+
+    '<h2>'+icon('run',14)+'Today<button class="lnk" data-act="tab" data-tab="train">All</button></h2>'+
+    (body ||
+      '<div class="empty">'+(STATE.routines.length||planned.length
+        ? 'Rest day — nothing planned.'
+        : 'Nothing logged today.')+
+      '<br><button class="btn dim" data-act="addworkout" style="margin-top:10px">'+
+      icon('plus',15)+'Log a workout</button></div>')+
+  '</div>';
 }
 
 /* ---------- food ---------- */
@@ -669,18 +761,40 @@ function renderFood(){
 }
 
 /* ---------- workouts ---------- */
+/* The Mon–Sun planner. Tap a day to choose which routines belong on it. */
+function weekPlanHTML(){
+  const today=new Date().getDay();
+  return '<div class="card"><h2>'+icon('calendar',13)+'Weekly plan'+
+      '<button class="lnk" data-act="routines">Routines</button></h2>'+
+    DOW_ORDER.map(d=>{
+      const list=plannedFor(d);
+      return '<div class="row tapp'+(d===today?' today':'')+'" data-act="planday" data-dw="'+d+'">'+
+        '<div class="dow">'+DOW[d]+'</div>'+
+        '<div class="g">'+(list.length
+          ? list.map(r=>'<span class="chip">'+esc(r.name)+'</span>').join('')
+          : '<span class="rest">Rest day</span>')+'</div>'+
+        '<span class="cv">'+icon('chevR',15)+'</span></div>';
+    }).join('')+
+    '<div class="hint" style="margin:10px 0 0">Tap a day to set what you plan to do. '+
+      'Today’s plan shows up on the Home screen with a Start button.</div>'+
+  '</div>';
+}
+
 function renderTrain(){
   const all=STATE.workouts.slice().sort((a,b)=>b.ts-a.ts);
+  const plan=weekPlanHTML();
   if(!all.length){
-    $('#train-body').innerHTML='<div class="empty" style="padding-top:60px">'+icon('dumbbell',34)+
-      '<div style="margin-top:6px">No workouts yet.</div><div>Tap + to log one, or start from a routine.</div>'+
+    $('#train-body').innerHTML=plan+
+      '<div class="empty" style="padding-top:20px">'+icon('dumbbell',34)+
+      '<div style="margin-top:6px">No workouts logged yet.</div>'+
+      '<div>Plan your week above, or log a session now.</div>'+
       '<button class="btn pri sm" data-act="addworkout" style="margin:16px auto 0">'+icon('plus',15)+'Log workout</button></div>';
     return;
   }
   const byDay={};
   all.forEach(w=>{ (byDay[w.day]=byDay[w.day]||[]).push(w); });
   const days=Object.keys(byDay).sort().reverse();
-  $('#train-body').innerHTML=
+  $('#train-body').innerHTML=plan+
     '<div class="tiles" style="margin-bottom:12px">'+
       tile('This week','calendar',String(activeDays(7)),'active days')+
       tile('Total','list',String(all.length),'workouts logged')+
@@ -1085,6 +1199,7 @@ function openRoutines(){ pushSheet({render:renderRoutines}); }
 function renderRoutines(){
   const list=STATE.routines.slice().sort((a,b)=>a.name.localeCompare(b.name));
   return sheetHead('Routines')+
+    '<button class="btn pri" data-act="presets" style="margin-bottom:10px">'+icon('list',16)+'Ready-made routines</button>'+
     '<button class="btn" data-act="newroutine" style="margin-bottom:12px">'+icon('plus',16)+'New routine</button>'+
     (list.length?list.map(r=>{
       const sub=r.type==='strength'
@@ -1097,6 +1212,69 @@ function renderRoutines(){
     :'<div class="empty">'+icon('repeat',26)+'<div>No routines yet.</div>'+
       '<div>Create one here, or tick “Save as routine” when you log a workout.</div></div>');
 }
+/* ---------- ready-made routine browser ---------- */
+let presetIndex=null;
+function openPresets(){ pushSheet({render:renderPresets}); }
+function renderPresets(){
+  return sheetHead('Ready-made routines',true)+
+    '<div class="hint">Pick one to copy into your routines. Weights start at 0 — fill them in '+
+      'the first time you run it and they stay put.</div>'+
+    PRESET_GROUPS.map(g=>
+      '<div class="card" style="margin:0 0 10px"><h2>'+esc(g)+'</h2>'+
+      PRESETS.map((p,i)=>p.g!==g?'':
+        '<div class="row tapp" data-act="preset" data-i="'+i+'">'+
+          '<div class="ico">'+icon(typeOf(p.type).ic,17)+'</div>'+
+          '<div class="g"><div class="t">'+esc(p.name)+'</div><div class="s">'+presetSummary(p)+'</div></div>'+
+          '<span class="cv">'+icon('chevR',15)+'</span></div>').join('')+
+      '</div>').join('');
+}
+function presetSummary(p){
+  if(p.type==='strength') return p.ex.length+' exercise'+(p.ex.length===1?'':'s');
+  /* preset distances are in km, like everything stored */
+  return [p.duration?showDur(p.duration):'', p.distance?fmt(dispD(p.distance),2)+' '+dUnit():'']
+    .filter(Boolean).join(' · ');
+}
+function renderPresetDetail(){
+  const p=PRESETS[presetIndex];
+  return sheetHead(p.name,true)+
+    '<div class="card" style="margin:0 0 12px">'+
+      '<div class="row"><div class="g"><div class="t">Type</div></div><div class="s">'+typeOf(p.type).t+'</div></div>'+
+      (p.duration?'<div class="row"><div class="g"><div class="t">Duration</div></div><div class="s">'+showDur(p.duration)+'</div></div>':'')+
+      (p.distance?'<div class="row"><div class="g"><div class="t">Distance</div></div><div class="s">'+fmt(dispD(p.distance),2)+' '+dUnit()+'</div></div>':'')+
+    '</div>'+
+    (p.ex.length?'<div class="card" style="margin:0 0 12px"><h2>Exercises</h2>'+
+      p.ex.map(e=>'<div class="row"><div class="g"><div class="t">'+esc(e[0])+'</div></div>'+
+        '<div class="v">'+e[1]+' × '+e[2]+'</div></div>').join('')+'</div>':'')+
+    (p.notes?'<div class="hint">'+esc(p.notes)+'</div>':'')+
+    '<button class="btn pri" data-act="addpreset">'+icon('plus',16)+'Add to my routines</button>'+
+    '<button class="btn" data-act="startpreset" style="margin-top:10px">'+icon('play',15)+'Add and start now</button>';
+}
+
+/* ---------- weekly plan: pick routines for one weekday ---------- */
+let planDay=1;
+function openDayPlan(d){ planDay=d; pushSheet({render:renderDayPlan}); }
+function renderDayPlan(){
+  const chosen=STATE.schedule[planDay]||[];
+  return sheetHead(DOW_FULL[planDay])+
+    (STATE.routines.length
+      ? '<div class="hint">Tick everything you plan to do on '+DOW_FULL[planDay]+'s. '+
+          'You can pick more than one — a lift and a run, say.</div>'+
+        STATE.routines.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(r=>{
+          const on=chosen.indexOf(r.id)>=0;
+          return '<div class="row tapp" data-act="toggleplan" data-id="'+r.id+'">'+
+            '<div class="ico"'+(on?'':' style="color:var(--dim)"')+'>'+icon(typeOf(r.type).ic,17)+'</div>'+
+            '<div class="g"><div class="t">'+esc(r.name)+'</div>'+
+            '<div class="s">'+(r.type==='strength'
+              ? (r.exercises||[]).length+' exercise'+((r.exercises||[]).length===1?'':'s')
+              : typeOf(r.type).t)+'</div></div>'+
+            '<span class="chk'+(on?' on':'')+'">'+icon('check',15)+'</span></div>';
+        }).join('')
+      : '<div class="empty">'+icon('repeat',26)+'<div>You have no routines yet.</div>'+
+        '<div>Add a ready-made one to get going.</div></div>')+
+    '<button class="btn" data-act="presets" style="margin-top:12px">'+icon('list',16)+'Ready-made routines</button>'+
+    (chosen.length?'<button class="btn dim" data-act="clearday" style="margin-top:10px">Clear this day</button>':'');
+}
+
 let rouDraft=null;
 function openRoutineEdit(id){
   const r=id?STATE.routines.find(x=>x.id===id):null;
@@ -1285,9 +1463,12 @@ document.addEventListener('click',e=>{
       break;
     }
     case 'delrou':
-      if(confirm('Delete this routine?')){
-        STATE.routines=STATE.routines.filter(x=>x.id!==rouDraft.id);
-        save(); popSheet(); redrawSheet(); toast('Deleted');
+      if(confirm('Delete this routine? It will also come off your weekly plan.')){
+        const gone=rouDraft.id;
+        STATE.routines=STATE.routines.filter(x=>x.id!==gone);
+        /* leave no dangling ids behind in the plan */
+        for(let d=0;d<7;d++){ STATE.schedule[d]=(STATE.schedule[d]||[]).filter(x=>x!==gone); }
+        save(); popSheet(); redrawSheet(); render(); toast('Deleted');
       }
       break;
     case 'startroutine': {
@@ -1296,6 +1477,35 @@ document.addEventListener('click',e=>{
       if(r) openWorkoutSheet({routine:r});
       break;
     }
+
+    /* ready-made routines */
+    case 'presets': openPresets(); break;
+    case 'preset': presetIndex=i; pushSheet({render:renderPresetDetail}); break;
+    case 'addpreset': {
+      const r=presetToRoutine(PRESETS[presetIndex]);
+      STATE.routines.push(r); save();
+      popSheet(); redrawSheet(); render();
+      toast('“'+r.name+'” added');
+      break;
+    }
+    case 'startpreset': {
+      const r=presetToRoutine(PRESETS[presetIndex]);
+      STATE.routines.push(r); save();
+      closeSheet(); openWorkoutSheet({routine:r});
+      break;
+    }
+
+    /* weekly plan */
+    case 'planday': openDayPlan(+el.dataset.dw); break;
+    case 'toggleplan': {
+      const list=STATE.schedule[planDay]||(STATE.schedule[planDay]=[]);
+      const at=list.indexOf(id);
+      if(at>=0) list.splice(at,1); else list.push(id);
+      save(); redrawSheet(); render();
+      break;
+    }
+    case 'clearday':
+      STATE.schedule[planDay]=[]; save(); redrawSheet(); render(); break;
 
     /* weight */
     case 'addweight': openWeightSheet(null); break;
