@@ -1219,6 +1219,8 @@ function renderPresets(){
   return sheetHead('Ready-made routines',true)+
     '<div class="hint">Pick one to copy into your routines. Weights start at 0 — fill them in '+
       'the first time you run it and they stay put.</div>'+
+    '<button class="btn" data-act="newroutine" style="margin-bottom:14px">'+icon('plus',16)+
+      'Build your own routine</button>'+
     PRESET_GROUPS.map(g=>
       '<div class="card" style="margin:0 0 10px"><h2>'+esc(g)+'</h2>'+
       PRESETS.map((p,i)=>p.g!==g?'':
@@ -1272,6 +1274,7 @@ function renderDayPlan(){
       : '<div class="empty">'+icon('repeat',26)+'<div>You have no routines yet.</div>'+
         '<div>Add a ready-made one to get going.</div></div>')+
     '<button class="btn" data-act="presets" style="margin-top:12px">'+icon('list',16)+'Ready-made routines</button>'+
+    '<button class="btn" data-act="newroutine" style="margin-top:10px">'+icon('plus',16)+'Build your own routine</button>'+
     (chosen.length?'<button class="btn dim" data-act="clearday" style="margin-top:10px">Clear this day</button>':'');
 }
 
@@ -1459,7 +1462,8 @@ document.addEventListener('click',e=>{
         const k=STATE.routines.findIndex(x=>x.id===d.id);
         if(k>=0) STATE.routines[k]=rec; else STATE.routines.push(rec);
       }else STATE.routines.push(rec);
-      save(); popSheet(); redrawSheet(); toast('Saved');
+      /* render() too: a renamed routine changes the chips on the weekly plan */
+      save(); popSheet(); redrawSheet(); render(); toast('Saved');
       break;
     }
     case 'delrou':
