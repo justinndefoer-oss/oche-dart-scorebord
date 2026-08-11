@@ -4,3 +4,9 @@ ios/
 android/
 .DS_Store
 *.log
+
+# Xcode (FitTrack)
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
