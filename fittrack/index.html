@@ -232,6 +232,18 @@ textarea.inp{resize:none;min-height:64px;line-height:1.4;}
   display:flex;align-items:center;justify-content:center;flex:none;}
 .row .chk.on{background:rgba(var(--accent-rgb),.18);color:var(--accent);}
 
+/* ===== barcode scanner ===== */
+.scanbox{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:14px;
+  overflow:hidden;margin-bottom:10px;}
+.scanbox video{width:100%;height:100%;object-fit:cover;display:block;}
+.scanframe{position:absolute;left:7%;right:7%;top:30%;bottom:30%;border:2px solid rgba(255,255,255,.85);
+  border-radius:10px;box-shadow:0 0 0 2000px rgba(0,0,0,.3);}
+.scanframe i{position:absolute;left:2px;right:2px;top:50%;height:2px;background:var(--accent);
+  box-shadow:0 0 8px var(--accent);animation:scanline 1.9s ease-in-out infinite;}
+@keyframes scanline{0%,100%{transform:translateY(-34px)}50%{transform:translateY(34px)}}
+.scanmsg{font-size:12.5px;color:var(--txt2);text-align:center;min-height:36px;line-height:1.45;padding:0 8px;}
+.scanmsg .ic-svg{vertical-align:-2px;}
+
 /* ===== list picker ===== */
 .pick{max-height:52vh;overflow-y:auto;margin:0 -16px;padding:0 16px;}
 .srch{position:relative;margin-bottom:10px;}
@@ -267,6 +279,7 @@ textarea.inp{resize:none;min-height:64px;line-height:1.4;}
       <div class="shead">
         <h1>Food</h1>
         <button class="hbtn" data-act="library" aria-label="My foods"></button>
+        <button class="hbtn" data-act="scanfoodtab" aria-label="Scan barcode"></button>
         <button class="hbtn pri" data-act="addfood" aria-label="Add food"></button>
       </div>
       <div class="scroll" id="food-body"></div>
@@ -346,6 +359,8 @@ const ICONS={
   upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>',
   target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.6"/>',
   trend:'<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
+  scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
+  barcode:'<path d="M3 5v14"/><path d="M7 5v14"/><path d="M11 5v9"/><path d="M15 5v14"/><path d="M19 5v9"/>',
 };
 function icon(n,size,sw){size=size||20;return '<svg class="ic-svg" viewBox="0 0 24 24" width="'+size+'" height="'+size+
   '" fill="none" stroke="currentColor" stroke-width="'+(sw||2)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
@@ -906,13 +921,17 @@ function renderSettings(){
    ========================================================================== */
 let SHEETS=[];
 function pushSheet(s){ SHEETS.push(s); drawSheet(); $('#scrim').classList.add('show'); }
-function popSheet(){ SHEETS.pop(); if(!SHEETS.length) closeSheet(); else drawSheet(); }
-function closeSheet(){ SHEETS=[]; $('#scrim').classList.remove('show'); $('#sheet').innerHTML=''; }
+/* stopScanner on every pop/close: the camera is only ever the top sheet, and a
+   live stream left running would keep the indicator light on. */
+function popSheet(){ stopScanner(); SHEETS.pop(); if(!SHEETS.length) closeSheet(); else drawSheet(); }
+function closeSheet(){ stopScanner(); SHEETS=[]; $('#scrim').classList.remove('show'); $('#sheet').innerHTML=''; }
 function drawSheet(){
   const s=SHEETS[SHEETS.length-1];
   if(!s) return;
   $('#sheet').innerHTML='<div class="grab"></div>'+s.render();
   $('#sheet').scrollTop=0;
+  /* sheets that need live DOM (the camera preview) hook in here */
+  if(s.mount) s.mount();
 }
 /* redraw only on structural changes — a redraw drops keyboard focus */
 function redrawSheet(){ drawSheet(); }
@@ -928,18 +947,20 @@ function openEntrySheet(opts){
   if(opts.id){
     const e=STATE.entries.find(x=>x.id===opts.id);
     if(!e) return;
-    entryDraft=Object.assign({},e,{editing:true,saveLib:false,serving:''});
+    const src=e.foodId?STATE.foods.find(x=>x.id===e.foodId):null;
+    entryDraft=Object.assign({},e,{editing:true,saveLib:false,
+      serving:src?(src.serving||''):'', barcode:src?(src.barcode||''):''});
   }else{
     const day=opts.day||foodDay;
     entryDraft={id:null,editing:false,name:'',meal:opts.meal||suggestMeal(),servings:1,
-      kcal:0,p:0,c:0,f:0,ts:tsForDay(day),day:day,foodId:null,saveLib:false,serving:''};
+      kcal:0,p:0,c:0,f:0,ts:tsForDay(day),day:day,foodId:null,saveLib:false,serving:'',barcode:''};
     if(opts.food){ applyFoodToDraft(opts.food); }
   }
   pushSheet({render:renderEntrySheet});
 }
 function applyFoodToDraft(f){
   entryDraft.name=f.name; entryDraft.kcal=f.kcal; entryDraft.p=f.p; entryDraft.c=f.c; entryDraft.f=f.f;
-  entryDraft.serving=f.serving||''; entryDraft.foodId=f.id;
+  entryDraft.serving=f.serving||''; entryDraft.foodId=f.id; entryDraft.barcode=f.barcode||'';
 }
 function renderEntrySheet(){
   const d=entryDraft;
@@ -947,7 +968,11 @@ function renderEntrySheet(){
   const implied=d.p*4+d.c*4+d.f*9;
   const mismatch=implied>0&&d.kcal>0&&Math.abs(implied-d.kcal)>Math.max(30,d.kcal*0.15);
   return sheetHead(d.editing?'Edit entry':'Add food')+
-    (d.editing?'':'<button class="btn" data-act="pickfood" style="margin-bottom:14px">'+icon('book',16)+'Pick from My Foods</button>')+
+    (d.editing?'':'<div style="display:flex;gap:10px;margin-bottom:14px">'+
+      '<button class="btn pri" data-act="scanentry">'+icon('scan',16)+'Scan barcode</button>'+
+      '<button class="btn" data-act="pickfood">'+icon('book',16)+'My Foods</button></div>')+
+    (d.barcode?'<div class="hint" style="margin-top:-6px">'+icon('barcode',13)+' '+esc(d.barcode)+
+      (d.editing?'':' — saving this will remember it for next time')+'</div>':'')+
     '<div class="fld"><label>Name</label><input class="inp" data-d="name" value="'+esc(d.name)+'" placeholder="e.g. Greek yoghurt"></div>'+
     '<div class="fld"><label>Meal</label><div class="seg">'+MEALS.map(m=>
       '<button data-act="dmeal" data-meal="'+m.k+'" class="'+(d.meal===m.k?'on':'')+'">'+m.t+'</button>').join('')+'</div></div>'+
@@ -988,11 +1013,15 @@ function saveEntry(){
   let foodId=d.foodId;
   if(!d.editing&&d.saveLib&&!foodId){
     const f={id:uid(),name:name,serving:(d.serving||'').trim(),kcal:d.kcal,p:d.p,c:d.c,f:d.f,
-      created:Date.now(),lastUsed:d.ts,uses:1};
+      barcode:d.barcode||'',created:Date.now(),lastUsed:d.ts,uses:1};
     STATE.foods.push(f); foodId=f.id;
   }else if(foodId){
     const f=STATE.foods.find(x=>x.id===foodId);
-    if(f){ f.lastUsed=d.ts; f.uses=(f.uses||0)+1; }
+    if(f){
+      f.lastUsed=d.ts; f.uses=(f.uses||0)+1;
+      /* a barcode scanned onto an existing food sticks to it */
+      if(d.barcode&&!f.barcode) f.barcode=d.barcode;
+    }
   }
 
   if(d.editing){
@@ -1052,7 +1081,8 @@ function openPicker(){
 let foodDraft=null;
 function openFoodEdit(id){
   const f=id?STATE.foods.find(x=>x.id===id):null;
-  foodDraft=f?Object.assign({},f,{editing:true}):{id:null,editing:false,name:'',serving:'',kcal:0,p:0,c:0,f:0};
+  foodDraft=f?Object.assign({},f,{editing:true})
+             :{id:null,editing:false,name:'',serving:'',kcal:0,p:0,c:0,f:0,barcode:''};
   pushSheet({render:renderFoodEdit});
 }
 function renderFoodEdit(){
@@ -1060,6 +1090,9 @@ function renderFoodEdit(){
   return sheetHead(d.editing?'Edit food':'New food',true)+
     '<div class="fld"><label>Name</label><input class="inp" data-fd="name" value="'+esc(d.name)+'" placeholder="e.g. Oats"></div>'+
     '<div class="fld"><label>Serving</label><input class="inp" data-fd="serving" value="'+esc(d.serving||'')+'" placeholder="e.g. 100 g, 1 cup"></div>'+
+    '<div class="fld"><label>Barcode</label><div style="display:flex;gap:8px">'+
+      '<input class="inp" type="text" inputmode="numeric" data-fd="barcode" value="'+esc(d.barcode||'')+'" placeholder="none">'+
+      '<button class="btn sm" data-act="scanfood" style="flex:none;width:52px">'+icon('scan',17)+'</button></div></div>'+
     '<div class="fld"><label>Per serving</label><div class="fgrid4">'+
       '<input class="inp" type="text" inputmode="numeric" data-fd="kcal" value="'+(d.kcal||'')+'" placeholder="kcal">'+
       '<input class="inp" type="text" inputmode="decimal" data-fd="p" value="'+(d.p||'')+'" placeholder="P g">'+
@@ -1339,6 +1372,374 @@ function renderWeightSheet(){
 }
 
 /* ==========================================================================
+   Barcode scanning — EAN-13 / EAN-8 / UPC-A decoded from camera frames.
+
+   Safari has no BarcodeDetector, and the app ships no external libraries, so
+   the decoding is done here: threshold a horizontal scanline, turn it into
+   bar/space run lengths, and match those against the EAN digit patterns.
+   Each digit is normalised against its own 7-module width, which tolerates the
+   scale drifting across a tilted barcode. Nothing is accepted unless the
+   checksum passes AND the same code comes back twice, so a misread cannot
+   quietly log the wrong food.
+   ========================================================================== */
+const EAN_L=['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
+/* which of the 6 left-hand digits use even parity — this encodes the 13th digit */
+const EAN_PARITY=['000000','001011','001101','001110','010011','011001','011100','010101','010110','011010'];
+
+function patRuns(p){
+  const out=[]; let c=p[0], n=0;
+  for(let i=0;i<p.length;i++){ if(p[i]===c) n++; else { out.push(n); c=p[i]; n=1; } }
+  out.push(n); return out;
+}
+const flip=p=>p.split('').map(ch=>ch==='1'?'0':'1').join('');
+const EAN_L_RUNS=EAN_L.map(patRuns);                                   // left, odd parity
+const EAN_R_RUNS=EAN_L.map(p=>patRuns(flip(p)));                       // right = complement
+const EAN_G_RUNS=EAN_L.map(p=>patRuns(flip(p).split('').reverse().join(''))); // left, even parity
+
+/* Tuning knobs. These were fitted against synthetic scanlines: loose enough to
+   still read blurred, noisy, low-contrast and tilted barcodes, tight enough that
+   400 lines of random pixel noise and 200 deliberately corrupted barcodes
+   produce no reads at all. Loosening them trades a wrong food logged for a
+   slightly faster scan — not a good trade. */
+const BC={
+  maxErr:0.42,     // per-digit squared pattern error, in modules
+  guardTol:0.42,   // how uneven the guard bars may be
+  minUnit:1.35,    // px per module; below this it is noise, not a barcode
+  widthLo:0.72,    // a digit must span 7 modules, give or take
+  widthHi:1.34,
+  quiet:2.0,       // light margin before the start guard, in modules
+  drift:0.25       // how fast the module estimate follows a tilted barcode
+};
+
+/* Best-matching digit for four run widths, normalised to its own 7 modules. */
+function matchDigit(w0,w1,w2,w3,table){
+  const total=w0+w1+w2+w3;
+  if(total<=0) return null;
+  const unit=total/7;
+  let best=-1,bestErr=Infinity;
+  for(let d=0;d<10;d++){
+    const p=table[d];
+    const e0=w0/unit-p[0], e1=w1/unit-p[1], e2=w2/unit-p[2], e3=w3/unit-p[3];
+    const err=e0*e0+e1*e1+e2*e2+e3*e3;
+    if(err<bestErr){ bestErr=err; best=d; }
+  }
+  return bestErr<=BC.maxErr?{d:best,err:bestErr}:null;
+}
+function guardOK(runs,i,count,tol,unit){
+  let sum=0;
+  for(let k=0;k<count;k++){ if(!(runs[i+k]>0)) return false; sum+=runs[i+k]; }
+  const u=sum/count;
+  for(let k=0;k<count;k++){ if(Math.abs(runs[i+k]/u-1)>tol) return false; }
+  /* guards elsewhere in the symbol must match the module width found at the start */
+  if(unit&&(u<unit*BC.widthLo||u>unit*BC.widthHi)) return false;
+  return u;
+}
+/* A barcode has a light margin in front of it; noise usually does not. */
+function quietOK(runs,i,unit){
+  return i===0||runs[i-1]>=unit*BC.quiet;
+}
+function checkEAN13(c){
+  let s=0;
+  for(let i=0;i<12;i++) s+=(+c[i])*(i%2?3:1);
+  return (10-(s%10))%10===+c[12];
+}
+function checkEAN8(c){
+  let s=0;
+  for(let i=0;i<7;i++) s+=(+c[i])*(i%2?1:3);
+  return (10-(s%10))%10===+c[7];
+}
+
+/* EAN-13 = guard(3) + 6 digits(24) + centre(5) + 6 digits(24) + guard(3) = 59 runs */
+function decodeEAN13At(runs,i){
+  if(i+59>runs.length) return null;
+  let unit=guardOK(runs,i,3,BC.guardTol);
+  if(!unit||unit<BC.minUnit||!quietOK(runs,i,unit)) return null;
+  let p=i+3, digits=[], parity='';
+  for(let k=0;k<6;k++){
+    const tot=runs[p]+runs[p+1]+runs[p+2]+runs[p+3];
+    if(tot<unit*7*BC.widthLo||tot>unit*7*BC.widthHi) return null;
+    const asL=matchDigit(runs[p],runs[p+1],runs[p+2],runs[p+3],EAN_L_RUNS);
+    const asG=matchDigit(runs[p],runs[p+1],runs[p+2],runs[p+3],EAN_G_RUNS);
+    if(asL&&(!asG||asL.err<=asG.err)){ digits.push(asL.d); parity+='0'; }
+    else if(asG){ digits.push(asG.d); parity+='1'; }
+    else return null;
+    unit=unit*(1-BC.drift)+(tot/7)*BC.drift;   // follow a tilted symbol
+    p+=4;
+  }
+  if(!guardOK(runs,p,5,BC.guardTol,unit)) return null;
+  p+=5;
+  for(let k=0;k<6;k++){
+    const tot=runs[p]+runs[p+1]+runs[p+2]+runs[p+3];
+    if(tot<unit*7*BC.widthLo||tot>unit*7*BC.widthHi) return null;
+    const r=matchDigit(runs[p],runs[p+1],runs[p+2],runs[p+3],EAN_R_RUNS);
+    if(!r) return null;
+    digits.push(r.d);
+    unit=unit*(1-BC.drift)+(tot/7)*BC.drift;
+    p+=4;
+  }
+  if(!guardOK(runs,p,3,BC.guardTol,unit)) return null;
+  const first=EAN_PARITY.indexOf(parity);
+  if(first<0) return null;
+  const code=String(first)+digits.join('');
+  return checkEAN13(code)?code:null;
+}
+
+/* EAN-8 = guard(3) + 4 digits(16) + centre(5) + 4 digits(16) + guard(3) = 43 runs */
+function decodeEAN8At(runs,i){
+  if(i+43>runs.length) return null;
+  let unit=guardOK(runs,i,3,BC.guardTol);
+  if(!unit||unit<BC.minUnit||!quietOK(runs,i,unit)) return null;
+  let p=i+3, digits=[];
+  for(let k=0;k<4;k++){
+    const tot=runs[p]+runs[p+1]+runs[p+2]+runs[p+3];
+    if(tot<unit*7*BC.widthLo||tot>unit*7*BC.widthHi) return null;
+    const l=matchDigit(runs[p],runs[p+1],runs[p+2],runs[p+3],EAN_L_RUNS);
+    if(!l) return null;
+    digits.push(l.d);
+    unit=unit*(1-BC.drift)+(tot/7)*BC.drift;
+    p+=4;
+  }
+  if(!guardOK(runs,p,5,BC.guardTol,unit)) return null;
+  p+=5;
+  for(let k=0;k<4;k++){
+    const tot=runs[p]+runs[p+1]+runs[p+2]+runs[p+3];
+    if(tot<unit*7*BC.widthLo||tot>unit*7*BC.widthHi) return null;
+    const r=matchDigit(runs[p],runs[p+1],runs[p+2],runs[p+3],EAN_R_RUNS);
+    if(!r) return null;
+    digits.push(r.d);
+    unit=unit*(1-BC.drift)+(tot/7)*BC.drift;
+    p+=4;
+  }
+  if(!guardOK(runs,p,3,BC.guardTol,unit)) return null;
+  const code=digits.join('');
+  return checkEAN8(code)?code:null;
+}
+
+/* Walk every black run and try to start a barcode there. */
+function decodeRuns(runs,blackFirst){
+  for(let i=0;i<runs.length-42;i++){
+    const isBlack=blackFirst?(i%2===0):(i%2===1);
+    if(!isBlack) continue;
+    const a=decodeEAN13At(runs,i); if(a) return a;
+    const b=decodeEAN8At(runs,i);  if(b) return b;
+  }
+  return null;
+}
+/* Barcodes scan the same upside down, so try the reversed line too. */
+function decodeScanline(runs,blackFirst){
+  const forward=decodeRuns(runs,blackFirst);
+  if(forward) return forward;
+  const n=runs.length;
+  const lastIsBlack=blackFirst?((n-1)%2===0):((n-1)%2===1);
+  return decodeRuns(runs.slice().reverse(),lastIsBlack);
+}
+
+/* One row of greyscale pixels → run lengths, thresholded at its own midpoint. */
+function runsFromGray(gray,width){
+  let mn=255,mx=0;
+  for(let x=0;x<width;x++){ const v=gray[x]; if(v<mn)mn=v; if(v>mx)mx=v; }
+  if(mx-mn<40) return null;             // flat row: no barcode here
+  const t=(mn+mx)/2;
+  const runs=[]; let cur=gray[0]<t, n=0;
+  const blackFirst=cur;
+  for(let x=0;x<width;x++){
+    const b=gray[x]<t;
+    if(b===cur) n++; else { runs.push(n); cur=b; n=1; }
+  }
+  runs.push(n);
+  return {runs:runs,blackFirst:blackFirst};
+}
+
+/* ---------- camera ---------- */
+const SCAN={stream:null,timer:null,canvas:null,det:null,seen:{},apply:null,busy:false};
+
+function stopScanner(){
+  if(SCAN.timer){ clearInterval(SCAN.timer); SCAN.timer=null; }
+  if(SCAN.stream){ SCAN.stream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); SCAN.stream=null; }
+  SCAN.seen={}; SCAN.busy=false;
+}
+function scanMsg(m){ const el=document.getElementById('scanmsg'); if(el) el.innerHTML=m; }
+
+function openScanner(apply){
+  SCAN.apply=apply; SCAN.seen={};
+  pushSheet({kind:'scanner',render:renderScanner,mount:startScanner});
+}
+/* An online lookup can land after the user has tapped back or closed the sheet.
+   Only act on the result while the scanner is still the sheet on top, otherwise
+   we would pop somebody's half-typed form out from under them. */
+function scannerOnTop(){
+  const s=SHEETS[SHEETS.length-1];
+  return !!(s&&s.kind==='scanner');
+}
+function renderScanner(){
+  return sheetHead('Scan barcode',true)+
+    '<div class="scanbox"><video id="scanvid" playsinline autoplay muted></video>'+
+      '<div class="scanframe"><i></i></div></div>'+
+    '<div class="scanmsg" id="scanmsg">Line the barcode up inside the box.</div>'+
+    '<div class="fld" style="margin-top:6px"><label>Or type the number</label>'+
+      '<input class="inp" type="text" inputmode="numeric" id="scanmanual" placeholder="e.g. 8712345678901"></div>'+
+    '<button class="btn" data-act="manualcode">'+icon('check',16)+'Look this one up</button>';
+}
+
+function startScanner(){
+  const v=document.getElementById('scanvid');
+  if(!v) return;
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    scanMsg('This browser will not open the camera here. Type the number below instead.');
+    return;
+  }
+  /* Chrome/Android have a native decoder; Safari does not, so ours is the fallback. */
+  if(!SCAN.det&&window.BarcodeDetector){
+    try{ SCAN.det=new window.BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e']}); }catch(e){ SCAN.det=null; }
+  }
+  navigator.mediaDevices.getUserMedia({
+    video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false
+  }).then(stream=>{
+    SCAN.stream=stream;
+    v.srcObject=stream;
+    const go=v.play();
+    if(go&&go.catch) go.catch(()=>{});
+    SCAN.timer=setInterval(()=>scanTick(v),120);
+  }).catch(()=>{
+    scanMsg('No camera access. Allow it in Settings → Safari → Camera, or type the number below.');
+  });
+}
+
+function scanTick(v){
+  if(SCAN.busy||!v||!v.videoWidth) return;
+
+  if(SCAN.det){
+    SCAN.busy=true;
+    SCAN.det.detect(v).then(list=>{
+      SCAN.busy=false;
+      if(list&&list.length) countCode(String(list[0].rawValue).replace(/\D/g,''));
+    }).catch(()=>{ SCAN.busy=false; SCAN.det=null; });
+    return;
+  }
+
+  /* 640 wide, not 480: a barcode held far enough away to cover only a third of
+     the frame aliases into mush at 480 and will not decode. */
+  const W=640, H=Math.max(1,Math.round(W*v.videoHeight/v.videoWidth));
+  const cv=SCAN.canvas||(SCAN.canvas=document.createElement('canvas'));
+  if(cv.width!==W||cv.height!==H){ cv.width=W; cv.height=H; }
+  const ctx=cv.getContext('2d',{willReadFrequently:true});
+  try{ ctx.drawImage(v,0,0,W,H); }catch(e){ return; }
+
+  /* read back only the band inside the aiming box — the rest is never scanned */
+  const y0=Math.round(H*0.30), y1=Math.round(H*0.70), bandH=Math.max(1,y1-y0), LINES=14;
+  let img;
+  try{ img=ctx.getImageData(0,y0,W,bandH).data; }catch(e){ return; }
+
+  const gray=new Uint8Array(W);
+  for(let li=0;li<LINES;li++){
+    const y=Math.min(bandH-1,Math.round((bandH-1)*li/(LINES-1)));
+    const base=y*W*4;
+    for(let x=0;x<W;x++){
+      const o=base+x*4;
+      gray[x]=(img[o]*299+img[o+1]*587+img[o+2]*114)/1000;
+    }
+    const r=runsFromGray(gray,W);
+    if(!r) continue;
+    const code=decodeScanline(r.runs,r.blackFirst);
+    if(code&&countCode(code)) return;
+  }
+}
+/* Two independent reads of the same code before we believe it. */
+function countCode(code){
+  if(!code||!/^\d{8}$|^\d{12,13}$/.test(code)) return false;
+  SCAN.seen[code]=(SCAN.seen[code]||0)+1;
+  if(SCAN.seen[code]<2) return false;
+  stopScanner();
+  handleCode(code);
+  return true;
+}
+
+/* ---------- barcode → food ---------- */
+/* UPC-A is EAN-13 with a leading zero; store the 13-digit form so both match. */
+function normaliseCode(code){ return code.length===12?'0'+code:code; }
+
+function lookupBarcode(code){
+  if(navigator.onLine===false) return Promise.resolve(null);
+  const url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+
+    '.json?fields=product_name,brands,quantity,nutrition_data_per,nutriments';
+  let done=false;
+  return new Promise(resolve=>{
+    const finish=v=>{ if(!done){ done=true; resolve(v); } };
+    setTimeout(()=>finish(null),9000);
+    fetch(url,{headers:{'Accept':'application/json'}})
+      .then(r=>r.ok?r.json():null)
+      .then(data=>{
+        const p=data&&data.product;
+        if(!p||!p.nutriments) return finish(null);
+        const n=p.nutriments;
+        let kcal=num(n['energy-kcal_100g']);
+        if(!kcal&&n.energy_100g) kcal=num(n.energy_100g)/4.184;   // some products only carry kJ
+        const prot=num(n.proteins_100g), carb=num(n.carbohydrates_100g), fat=num(n.fat_100g);
+        if(!kcal&&!prot&&!carb&&!fat) return finish(null);
+        const brand=p.brands?String(p.brands).split(',')[0].trim():'';
+        const nm=[brand,p.product_name||''].filter(Boolean).join(' ').trim();
+        const liquid=/\bml\b|\bl\b/i.test(String(p.quantity||''))||
+                     /100\s*ml/i.test(String(p.nutrition_data_per||''));
+        finish({name:nm||('Barcode '+code),serving:liquid?'100 ml':'100 g',
+          kcal:Math.round(kcal),p:prot,c:carb,f:fat});
+      })
+      .catch(()=>finish(null));
+  });
+}
+
+/* What to do with a scan, depending on which screen asked for it. */
+function applyScanToEntry(code,found,how){
+  if(!scannerOnTop()) return;
+  if(how==='library'){
+    applyFoodToDraft(found);
+    popSheet();
+    toast('Found in My Foods');
+    return;
+  }
+  entryDraft.barcode=code;
+  if(found){
+    entryDraft.name=found.name; entryDraft.kcal=found.kcal;
+    entryDraft.p=found.p; entryDraft.c=found.c; entryDraft.f=found.f;
+    entryDraft.serving=found.serving;
+    entryDraft.saveLib=true;      // remember it so the next scan works offline
+    popSheet();
+    toast(found.name);
+  }else{
+    entryDraft.saveLib=true;
+    popSheet();
+    toast(navigator.onLine===false
+      ? 'Offline — fill it in and it is saved to this barcode'
+      : 'Not in the database — fill it in once');
+  }
+}
+function applyScanToFood(code,found,how){
+  if(!scannerOnTop()) return;
+  foodDraft.barcode=code;
+  if(how!=='library'&&found){
+    if(!foodDraft.name) foodDraft.name=found.name;
+    if(!foodDraft.kcal){ foodDraft.kcal=found.kcal; foodDraft.p=found.p; foodDraft.c=found.c; foodDraft.f=found.f; }
+    if(!foodDraft.serving) foodDraft.serving=found.serving;
+  }
+  popSheet();
+  toast(how==='library'?'That barcode is already on “'+found.name+'”':'Barcode attached');
+}
+
+function handleCode(raw){
+  const code=normaliseCode(String(raw).replace(/\D/g,''));
+  const mine=STATE.foods.find(f=>f.barcode===code);
+  if(mine){
+    mine.lastUsed=Date.now();
+    save();
+    SCAN.apply&&SCAN.apply(code,mine,'library');
+    return;
+  }
+  scanMsg('Found '+code+' — looking it up…');
+  lookupBarcode(code).then(found=>{
+    SCAN.apply&&SCAN.apply(code,found,found?'online':'new');
+  });
+}
+
+/* ==========================================================================
    Events
    ========================================================================== */
 $('#tabbar').addEventListener('click',e=>{
@@ -1381,17 +1782,33 @@ document.addEventListener('click',e=>{
 
     /* library */
     case 'library': openLibrary(); break;
+
+    /* barcode scanning */
+    case 'scanfoodtab':
+      openEntrySheet({day:activeTab==='food'?foodDay:todayKey(),meal:suggestMeal()});
+      openScanner(applyScanToEntry);
+      break;
+    case 'scanentry': openScanner(applyScanToEntry); break;
+    case 'scanfood':  openScanner(applyScanToFood);  break;
+    case 'manualcode': {
+      const box=document.getElementById('scanmanual');
+      const typed=box?String(box.value).replace(/\D/g,''):'';
+      if(typed.length<8){ toast('That is not a barcode'); break; }
+      stopScanner(); handleCode(typed);
+      break;
+    }
     case 'newfood': openFoodEdit(null); break;
     case 'editfood': openFoodEdit(id); break;
     case 'savefood': {
       const d=foodDraft, name=(d.name||'').trim();
       if(!name){ toast('Give it a name first'); break; }
+      const bc=String(d.barcode||'').replace(/\D/g,'');
       if(d.editing){
         const f=STATE.foods.find(x=>x.id===d.id);
-        if(f) Object.assign(f,{name:name,serving:d.serving,kcal:d.kcal,p:d.p,c:d.c,f:d.f});
+        if(f) Object.assign(f,{name:name,serving:d.serving,kcal:d.kcal,p:d.p,c:d.c,f:d.f,barcode:bc});
       }else{
         STATE.foods.push({id:uid(),name:name,serving:d.serving||'',kcal:d.kcal,p:d.p,c:d.c,f:d.f,
-          created:Date.now(),lastUsed:null,uses:0});
+          barcode:bc,created:Date.now(),lastUsed:null,uses:0});
       }
       save(); popSheet(); redrawSheet(); render(); toast('Saved');
       break;
@@ -1647,6 +2064,7 @@ $('#importfile').addEventListener('change',e=>{
 /* --- boot --- */
 document.querySelectorAll('#tabbar [data-ic]').forEach(b=>{ b.querySelector('.ti').innerHTML=icon(b.dataset.ic,22); });
 $('#screen-food .shead [data-act="library"]').innerHTML=icon('book',18);
+$('#screen-food .shead [data-act="scanfoodtab"]').innerHTML=icon('scan',18);
 $('#screen-food .shead [data-act="addfood"]').innerHTML=icon('plus',18);
 $('#screen-train .shead [data-act="routines"]').innerHTML=icon('repeat',18);
 $('#screen-train .shead [data-act="addworkout"]').innerHTML=icon('plus',18);

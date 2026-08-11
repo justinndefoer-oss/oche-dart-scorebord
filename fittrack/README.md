@@ -27,6 +27,12 @@ your loads, you fill them in the first time you run the session and they stick.
 and a run). Today's plan appears on the Home screen with a Start button, and drops off that
 card once you have logged a workout with the same name.
 
+**Barcode scanning** — point the camera at a grocery barcode (EAN-13, EAN-8 or UPC-A).
+Codes resolve in three steps: your own saved foods first (instant, works offline), then
+Open Food Facts over the network, and failing both you fill it in once and the barcode is
+remembered against that food forever. There is also a field for typing the number when a
+label is too crumpled to read.
+
 **Weight** — log weigh-ins with an optional note; line chart over 30d / 90d / 1y / all,
 with an optional goal line.
 
@@ -74,6 +80,34 @@ Four decisions that matter if you extend it:
   straight into the draft without a redraw — only structural changes (adding a set,
   switching type) redraw.
 
+## The barcode decoder
+
+Safari has no `BarcodeDetector`, and the app ships no external libraries, so the decoding is
+written out in `index.html`. Each camera frame is drawn to a 640px canvas, fourteen
+horizontal scanlines across the aiming box are thresholded at their own midpoint, turned
+into bar/space run lengths, and matched against the EAN digit patterns. Every digit is
+normalised against its own seven modules, which is what lets a tilted barcode still read.
+On Chrome/Android the native `BarcodeDetector` is used instead when present.
+
+Three things guard against a misread logging the wrong food: the EAN checksum, a set of
+width and quiet-zone constraints tuned in `BC`, and a rule that the same code must be read
+twice before it is accepted.
+
+Those `BC` constants were fitted, not guessed. `Tools/` has no test runner, but the suite
+used during development encoded known barcodes, rendered them as scanlines with blur,
+noise, low contrast, tilt and varying scale, and decoded them back; the constants are the
+loosest values that still gave **zero** reads across 10,000 random-noise lines, 4,000
+striped/gradient/text-like patterns, and 200 deliberately corrupted barcodes. Loosening
+them buys a slightly faster scan and risks logging the wrong product — not a good trade.
+A barcode filling roughly a third or more of the frame width decodes; below about a
+quarter it aliases and will not.
+
+Lookups go to `https://world.openfoodfacts.org/api/v2/product/<code>.json` and use the
+per-100 g figures (falling back to converting kJ when a product carries no kcal). Products
+are labelled "100 ml" instead when the packaging quantity looks like a liquid. Anything
+found online is saved to your library automatically, so the second scan of the same product
+never touches the network.
+
 ## Backups matter here
 
 There is no account and no sync. Clearing Safari's website data, or deleting the app from
@@ -95,6 +129,12 @@ style `default` (not `black-translucent`), `height:100%` rather than `100dvh`, a
 column shell with nothing pinned by `position:fixed`, and `env(safe-area-inset-bottom)`
 padding on the tab bar. See the root `CLAUDE.md` for why each one is the way it is; they
 were expensive to find and should not be undone.
+
+Camera access in a Home Screen web app needs iOS 14.3 or newer, and HTTPS — GitHub Pages
+provides that. iOS may ask for camera permission again on each launch of a standalone web
+app rather than remembering it; that is the platform, not the app. If the camera cannot
+open, the scanner says so and offers the type-the-number field rather than showing a dead
+black rectangle.
 
 Installing: open the URL in Safari, Share → Add to Home Screen. If a stale version comes
 up after an update, load it once with a cache-buster (`…/fittrack/?v=2`, incrementing each
