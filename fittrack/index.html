@@ -236,11 +236,11 @@ textarea.inp{resize:none;min-height:64px;line-height:1.4;}
 .scanbox{position:relative;width:100%;aspect-ratio:4/3;background:#000;border-radius:14px;
   overflow:hidden;margin-bottom:10px;}
 .scanbox video{width:100%;height:100%;object-fit:cover;display:block;}
-.scanframe{position:absolute;left:7%;right:7%;top:30%;bottom:30%;border:2px solid rgba(255,255,255,.85);
+.scanframe{position:absolute;left:9%;right:9%;top:20%;bottom:20%;border:2px solid rgba(255,255,255,.85);
   border-radius:10px;box-shadow:0 0 0 2000px rgba(0,0,0,.3);}
 .scanframe i{position:absolute;left:2px;right:2px;top:50%;height:2px;background:var(--accent);
   box-shadow:0 0 8px var(--accent);animation:scanline 1.9s ease-in-out infinite;}
-@keyframes scanline{0%,100%{transform:translateY(-34px)}50%{transform:translateY(34px)}}
+@keyframes scanline{0%,100%{transform:translateY(-46px)}50%{transform:translateY(46px)}}
 .scanmsg{font-size:12.5px;color:var(--txt2);text-align:center;min-height:36px;line-height:1.45;padding:0 8px;}
 .scanmsg .ic-svg{vertical-align:-2px;}
 
@@ -1845,19 +1845,56 @@ function decodeScanline(runs,blackFirst){
   return decodeRuns(runs.slice().reverse(),lastIsBlack);
 }
 
-/* One row of greyscale pixels → run lengths, thresholded at its own midpoint. */
+/* One line of greyscale pixels → run lengths.
+   The threshold is LOCAL, not one midpoint for the whole line. A real camera
+   line crosses background, shadow and highlights as well as the label; with a
+   single midpoint, one bright spot elsewhere in the line drags the threshold up
+   until the barcode's white spaces read as black and every bar merges into one
+   run. Blocks of 32px each get their own black/white midpoint, flat blocks
+   inherit from their neighbours, and the value is interpolated between block
+   centres so the boundaries do not invent edges of their own. */
+const TH_BLOCK=32;
 function runsFromGray(gray,width){
-  let mn=255,mx=0;
-  for(let x=0;x<width;x++){ const v=gray[x]; if(v<mn)mn=v; if(v>mx)mx=v; }
-  if(mx-mn<40) return null;             // flat row: no barcode here
-  const t=(mn+mx)/2;
-  const runs=[]; let cur=gray[0]<t, n=0;
-  const blackFirst=cur;
+  const nb=Math.max(1,Math.ceil(width/TH_BLOCK));
+  const th=new Float64Array(nb);
+  let lo=255,hi=0;
+  for(let b=0;b<nb;b++){
+    const s=b*TH_BLOCK, e=Math.min(width,s+TH_BLOCK);
+    let mn=255,mx=0;
+    for(let x=s;x<e;x++){ const v=gray[x]; if(v<mn)mn=v; if(v>mx)mx=v; }
+    if(mn<lo) lo=mn;
+    if(mx>hi) hi=mx;
+    th[b]=(mx-mn<24)?-1:(mn+mx)/2;      // flat block: nothing to threshold yet
+  }
+  if(hi-lo<40) return null;             // the whole line is flat
+  for(let b=0;b<nb;b++){
+    if(th[b]>=0) continue;
+    let l=b-1,r=b+1;
+    while(l>=0&&th[l]<0) l--;
+    while(r<nb&&th[r]<0) r++;
+    if(l>=0&&r<nb) th[b]=(th[l]+th[r])/2;
+    else if(l>=0) th[b]=th[l];
+    else if(r<nb) th[b]=th[r];
+    else th[b]=(lo+hi)/2;
+  }
+  const runs=[];
+  let cur=null,n=0,blackFirst=false;
   for(let x=0;x<width;x++){
-    const b=gray[x]<t;
-    if(b===cur) n++; else { runs.push(n); cur=b; n=1; }
+    const pos=x/TH_BLOCK-0.5;
+    let b0=Math.floor(pos), f=pos-b0;
+    if(b0<0){ b0=0; f=0; }                 // clamp at the ends, do not extrapolate
+    if(b0>nb-1){ b0=nb-1; f=0; }
+    let b1=b0+1;
+    if(b1>nb-1){ b1=nb-1; f=0; }
+    const t=th[b0]+(th[b1]-th[b0])*f;
+    const black=gray[x]<t;
+    if(cur===null){ cur=black; blackFirst=black; n=1; }
+    else if(black===cur) n++;
+    else { runs.push(n); cur=black; n=1; }
   }
   runs.push(n);
+  /* blackFirst must come from the same classification the runs did — deriving it
+     separately lets the two disagree and flips every bar to a space. */
   return {runs:runs,blackFirst:blackFirst};
 }
 
@@ -1867,7 +1904,7 @@ const SCAN={stream:null,timer:null,canvas:null,det:null,seen:{},apply:null,busy:
 function stopScanner(){
   if(SCAN.timer){ clearInterval(SCAN.timer); SCAN.timer=null; }
   if(SCAN.stream){ SCAN.stream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); SCAN.stream=null; }
-  SCAN.seen={}; SCAN.busy=false;
+  SCAN.seen={}; SCAN.busy=false; SCAN.ticks=0;
 }
 function scanMsg(m){ const el=document.getElementById('scanmsg'); if(el) el.innerHTML=m; }
 
@@ -1886,7 +1923,7 @@ function renderScanner(){
   return sheetHead('Scan barcode',true)+
     '<div class="scanbox"><video id="scanvid" playsinline autoplay muted></video>'+
       '<div class="scanframe"><i></i></div></div>'+
-    '<div class="scanmsg" id="scanmsg">Line the barcode up inside the box.</div>'+
+    '<div class="scanmsg" id="scanmsg">Starting the camera…</div>'+
     '<div class="fld" style="margin-top:6px"><label>Or type the number</label>'+
       '<input class="inp" type="text" inputmode="numeric" id="scanmanual" placeholder="e.g. 8712345678901"></div>'+
     '<button class="btn" data-act="manualcode">'+icon('check',16)+'Look this one up</button>';
@@ -1910,6 +1947,8 @@ function startScanner(){
     v.srcObject=stream;
     const go=v.play();
     if(go&&go.catch) go.catch(()=>{});
+    SCAN.ticks=0;
+    scanMsg('Scanning — hold the barcode inside the box, upright or sideways.');
     SCAN.timer=setInterval(()=>scanTick(v),120);
   }).catch(()=>{
     scanMsg('No camera access. Allow it in Settings → Safari → Camera, or type the number below.');
@@ -1928,32 +1967,60 @@ function scanTick(v){
     return;
   }
 
-  /* 640 wide, not 480: a barcode held far enough away to cover only a third of
-     the frame aliases into mush at 480 and will not decode. */
-  const W=640, H=Math.max(1,Math.round(W*v.videoHeight/v.videoWidth));
+  /* 640x480 to match the 4:3 preview box. Wider than 480 on purpose: a barcode
+     covering only a third of the frame aliases into mush at lower resolution. */
+  const W=640, H=480;
   const cv=SCAN.canvas||(SCAN.canvas=document.createElement('canvas'));
   if(cv.width!==W||cv.height!==H){ cv.width=W; cv.height=H; }
   const ctx=cv.getContext('2d',{willReadFrequently:true});
-  try{ ctx.drawImage(v,0,0,W,H); }catch(e){ return; }
 
-  /* read back only the band inside the aiming box — the rest is never scanned */
-  const y0=Math.round(H*0.30), y1=Math.round(H*0.70), bandH=Math.max(1,y1-y0), LINES=14;
+  /* The preview is object-fit:cover, so part of the camera frame is hidden.
+     Draw the same crop the user is looking at, otherwise "line it up in the
+     box" is a lie and we scan pixels they cannot see. */
+  const vw=v.videoWidth, vh=v.videoHeight;
+  const boxAspect=W/H;
+  let sx=0,sy=0,sw=vw,sh=vh;
+  if(vw/vh>boxAspect){ sw=Math.round(vh*boxAspect); sx=Math.round((vw-sw)/2); }
+  else { sh=Math.round(vw/boxAspect); sy=Math.round((vh-sh)/2); }
+  try{ ctx.drawImage(v,sx,sy,sw,sh,0,0,W,H); }catch(e){ return; }
+
   let img;
-  try{ img=ctx.getImageData(0,y0,W,bandH).data; }catch(e){ return; }
+  try{ img=ctx.getImageData(0,0,W,H).data; }catch(e){ return; }
 
-  const gray=new Uint8Array(W);
+  const lum=(SCAN.lum&&SCAN.lum.length===W*H)?SCAN.lum:(SCAN.lum=new Uint8Array(W*H));
+  for(let i=0,j=0;i<W*H;i++,j+=4) lum[i]=(img[j]*299+img[j+1]*587+img[j+2]*114)/1000;
+
+  const LINES=16;
+  const line=(SCAN.line&&SCAN.line.length===Math.max(W,H))?SCAN.line:(SCAN.line=new Uint8Array(Math.max(W,H)));
+
+  /* Horizontal sweep — upright barcodes. */
+  const y0=Math.round(H*0.22), y1=Math.round(H*0.78);
   for(let li=0;li<LINES;li++){
-    const y=Math.min(bandH-1,Math.round((bandH-1)*li/(LINES-1)));
-    const base=y*W*4;
-    for(let x=0;x<W;x++){
-      const o=base+x*4;
-      gray[x]=(img[o]*299+img[o+1]*587+img[o+2]*114)/1000;
-    }
-    const r=runsFromGray(gray,W);
+    const y=y0+Math.round((y1-y0)*li/(LINES-1));
+    const base=y*W;
+    for(let x=0;x<W;x++) line[x]=lum[base+x];
+    const r=runsFromGray(line,W);
     if(!r) continue;
     const code=decodeScanline(r.runs,r.blackFirst);
     if(code&&countCode(code)) return;
   }
+
+  /* Vertical sweep — barcodes printed sideways, which is most tubes and cans.
+     Without this, turning the product 90 degrees makes it undecodable. */
+  const x0=Math.round(W*0.10), x1=Math.round(W*0.90);
+  for(let li=0;li<LINES;li++){
+    const x=x0+Math.round((x1-x0)*li/(LINES-1));
+    for(let y=0;y<H;y++) line[y]=lum[y*W+x];
+    const r=runsFromGray(line,H);
+    if(!r) continue;
+    const code=decodeScanline(r.runs,r.blackFirst);
+    if(code&&countCode(code)) return;
+  }
+
+  /* Keep the user informed rather than staring at a silent preview. */
+  SCAN.ticks=(SCAN.ticks||0)+1;
+  if(SCAN.ticks===40) scanMsg('Still looking. Try holding it about 15&nbsp;cm away — closer than that and the camera cannot focus.');
+  else if(SCAN.ticks===90) scanMsg('Still nothing. Try more light, or type the number below.');
 }
 /* Two independent reads of the same code before we believe it. */
 function countCode(code){

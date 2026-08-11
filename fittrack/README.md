@@ -115,11 +115,28 @@ keystroke.
 ## The barcode decoder
 
 Safari has no `BarcodeDetector`, and the app ships no external libraries, so the decoding is
-written out in `index.html`. Each camera frame is drawn to a 640px canvas, fourteen
-horizontal scanlines across the aiming box are thresholded at their own midpoint, turned
-into bar/space run lengths, and matched against the EAN digit patterns. Every digit is
-normalised against its own seven modules, which is what lets a tilted barcode still read.
-On Chrome/Android the native `BarcodeDetector` is used instead when present.
+written out in `index.html`. Each camera frame is drawn to a 640×480 canvas, then swept
+sixteen times horizontally and sixteen times vertically; each line is binarised, turned into
+bar/space run lengths, and matched against the EAN digit patterns. Every digit is normalised
+against its own seven modules, which is what lets a tilted barcode still read. On
+Chrome/Android the native `BarcodeDetector` is used instead when present.
+
+Three details are load-bearing, and the first two were found only after the first version
+failed on real packaging while passing every synthetic test:
+
+- **The threshold is local, not global.** Splitting each line into 32px blocks with their own
+  black/white midpoint, interpolated between block centres. A single midpoint per line works
+  on a synthetic barcode that fills the frame, and fails on a real one: the line also crosses
+  background, shadow and highlights, so one bright spot drags the threshold up until the
+  label's white spaces read as black and every bar merges into a single run.
+- **Both orientations are swept.** Horizontal lines alone miss any barcode printed sideways,
+  which is most tubes and cans.
+- **`blackFirst` comes from the same pass that built the runs.** Deriving it separately lets
+  the two disagree, which flips every bar to a space and breaks decoding outright.
+
+The preview is `object-fit: cover`, so `drawImage` takes the same crop the user is looking
+at rather than the whole camera frame — otherwise "line it up in the box" is not true and
+the scanner reads pixels that are not on screen.
 
 Three things guard against a misread logging the wrong food: the EAN checksum, a set of
 width and quiet-zone constraints tuned in `BC`, and a rule that the same code must be read
