@@ -496,6 +496,205 @@ function presetToRoutine(p){
     exercises:(p.ex||[]).map(e=>({name:e[0],sets:e[1],reps:e[2],weight:0}))};
 }
 
+/* ==========================================================================
+   Built-in basics — generic foods, per 100 g (per 100 ml for drinks).
+
+   Open Food Facts covers packaged products with a barcode but is poor at plain
+   things like "banana" or "chicken breast", and it needs a connection. This list
+   is bundled so the everyday stuff is searchable instantly and offline.
+
+   These are typical reference values, not measurements of the specific thing in
+   your kitchen — brands and cuts vary, and anything picked from here lands in an
+   editable form. Second field is Dutch search aliases, so "kip" finds chicken.
+   Fields: name, aliases, kcal, protein, carbs, fat, group.
+   ========================================================================== */
+const BASIC_GROUPS=['Fruit','Vegetables','Bread & grains','Pasta & rice','Dairy & eggs',
+  'Meat','Fish','Nuts & legumes','Fats & oils','Drinks','Sweets & snacks','Sauces','Prepared'];
+const BASICS_RAW=[
+  ['Apple','appel',52,0.3,14,0.2,0],
+  ['Banana','banaan',89,1.1,23,0.3,0],
+  ['Orange','sinaasappel',47,0.9,12,0.1,0],
+  ['Mandarin','mandarijn',53,0.8,13,0.3,0],
+  ['Strawberries','aardbei aardbeien',32,0.7,7.7,0.3,0],
+  ['Blueberries','blauwe bes bessen',57,0.7,14,0.3,0],
+  ['Raspberries','framboos frambozen',52,1.2,12,0.7,0],
+  ['Grapes','druiven',69,0.7,18,0.2,0],
+  ['Pear','peer',57,0.4,15,0.1,0],
+  ['Kiwi','kiwi',61,1.1,15,0.5,0],
+  ['Mango','mango',60,0.8,15,0.4,0],
+  ['Pineapple','ananas',50,0.5,13,0.1,0],
+  ['Watermelon','watermeloen',30,0.6,7.6,0.2,0],
+  ['Peach','perzik',39,0.9,10,0.3,0],
+  ['Avocado','avocado',160,2,9,15,0],
+  ['Dates, dried','dadels',282,2.5,75,0.4,0],
+  ['Raisins','rozijnen',299,3.1,79,0.5,0],
+
+  ['Broccoli','broccoli',34,2.8,7,0.4,1],
+  ['Carrot','wortel wortels peen',41,0.9,10,0.2,1],
+  ['Tomato','tomaat tomaten',18,0.9,3.9,0.2,1],
+  ['Cucumber','komkommer',15,0.7,3.6,0.1,1],
+  ['Bell pepper','paprika',31,1,6,0.3,1],
+  ['Spinach','spinazie',23,2.9,3.6,0.4,1],
+  ['Lettuce','sla',15,1.4,2.9,0.2,1],
+  ['Onion','ui uien',40,1.1,9.3,0.1,1],
+  ['Potato, raw','aardappel aardappelen',77,2,17,0.1,1],
+  ['Sweet potato','zoete aardappel',86,1.6,20,0.1,1],
+  ['Courgette','courgette',17,1.2,3.1,0.3,1],
+  ['Aubergine','aubergine',25,1,6,0.2,1],
+  ['Cauliflower','bloemkool',25,1.9,5,0.3,1],
+  ['Green beans','sperziebonen',31,1.8,7,0.1,1],
+  ['Peas','doperwten erwten',81,5.4,14,0.4,1],
+  ['Mushrooms','champignons paddenstoelen',22,3.1,3.3,0.3,1],
+  ['Cabbage','kool witte kool',25,1.3,6,0.1,1],
+  ['Brussels sprouts','spruitjes',43,3.4,9,0.3,1],
+  ['Sweetcorn','mais',86,3.2,19,1.2,1],
+  ['Beetroot','biet bietjes',43,1.6,10,0.2,1],
+  ['Leek','prei',61,1.5,14,0.3,1],
+  ['Kale','boerenkool',49,4.3,9,0.9,1],
+  ['Chicory','witlof',17,1.3,3.4,0.2,1],
+
+  ['White bread','wit brood witbrood boterham',265,9,49,3.2,2],
+  ['Wholemeal bread','volkorenbrood bruin brood',247,13,41,3.4,2],
+  ['Rye bread','roggebrood',259,9,48,3.3,2],
+  ['Crispbread','knackebrod cracker crackers',366,10,74,1.5,2],
+  ['Oats, dry','havermout haver',379,13,68,6.5,2],
+  ['Muesli','muesli',375,10,66,6,2],
+  ['Cornflakes','cornflakes ontbijtgranen',357,7.5,84,0.4,2],
+  ['Wheat flour','bloem meel',364,10,76,1,2],
+  ['Tortilla wrap','wrap tortilla',310,8,52,7,2],
+  ['Bagel','bagel',250,10,49,1.5,2],
+  ['Croissant','croissant',406,8,46,21,2],
+
+  ['Rice, cooked','rijst gekookt',130,2.7,28,0.3,3],
+  ['Rice, dry','rijst ongekookt',360,7,79,0.7,3],
+  ['Pasta, cooked','pasta gekookt spaghetti',158,5.8,31,0.9,3],
+  ['Pasta, dry','pasta ongekookt',371,13,75,1.5,3],
+  ['Couscous, dry','couscous',376,13,77,0.6,3],
+  ['Quinoa, cooked','quinoa',120,4.4,21,1.9,3],
+  ['Bulgur, dry','bulgur',342,12,76,1.3,3],
+  ['Noodles, cooked','noedels mie',138,4.5,25,2.1,3],
+
+  ['Milk, whole','volle melk',61,3.2,4.8,3.3,4],
+  ['Milk, semi-skimmed','halfvolle melk',46,3.4,4.8,1.5,4],
+  ['Milk, skimmed','magere melk',34,3.4,5,0.1,4],
+  ['Greek yoghurt 0%','griekse yoghurt mager',59,10,3.6,0.4,4],
+  ['Greek yoghurt, full fat','griekse yoghurt vol',97,9,4,5,4],
+  ['Yoghurt, plain','yoghurt naturel',61,3.5,4.7,3.3,4],
+  ['Quark 0%','magere kwark',68,12,4,0.2,4],
+  ['Cottage cheese','hüttenkäse cottage cheese',98,11,3.4,4.3,4],
+  ['Cheese, Gouda 48+','kaas goudse kaas',356,25,2.2,27,4],
+  ['Cheese 30+','kaas 30+ magere kaas',285,28,0,19,4],
+  ['Mozzarella','mozzarella',250,18,2.2,19,4],
+  ['Feta','feta',264,14,4.1,21,4],
+  ['Parmesan','parmezaan',392,36,3.2,26,4],
+  ['Cream cheese','roomkaas smeerkaas',342,6,4,34,4],
+  ['Egg, whole','ei eieren',143,13,0.7,9.5,4],
+  ['Egg white','eiwit',52,11,0.7,0.2,4],
+  ['Whipping cream','slagroom room',340,2.1,2.8,36,4],
+  ['Ice cream','ijs roomijs',207,3.5,24,11,4],
+  ['Custard','vla',97,3.2,15,2.6,4],
+
+  ['Chicken breast','kipfilet kip',165,31,0,3.6,5],
+  ['Chicken thigh','kippendij',209,26,0,11,5],
+  ['Turkey breast','kalkoenfilet',135,30,0,1,5],
+  ['Beef mince 5%','mager rundergehakt',137,21,0,5,5],
+  ['Beef mince 20%','rundergehakt',254,17,0,20,5],
+  ['Steak','biefstuk',206,27,0,10,5],
+  ['Pork chop','karbonade varkensvlees',231,26,0,14,5],
+  ['Minced pork','varkensgehakt',263,17,0,21,5],
+  ['Bacon','spek bacon',541,37,1.4,42,5],
+  ['Ham','ham',145,18,1.5,7,5],
+  ['Salami','salami',407,22,2.4,34,5],
+  ['Sausage','worst braadworst',301,12,2,27,5],
+
+  ['Salmon','zalm',208,20,0,13,6],
+  ['Tuna, canned in water','tonijn blik',116,26,0,1,6],
+  ['Cod','kabeljauw',82,18,0,0.7,6],
+  ['Mackerel','makreel',205,19,0,14,6],
+  ['Herring','haring',158,18,0,9,6],
+  ['Shrimp','garnalen',99,24,0.2,0.3,6],
+  ['Tilapia','tilapia',96,20,0,1.7,6],
+
+  ['Lentils, cooked','linzen',116,9,20,0.4,7],
+  ['Chickpeas, cooked','kikkererwten',164,8.9,27,2.6,7],
+  ['Black beans, cooked','zwarte bonen',132,8.9,24,0.5,7],
+  ['Kidney beans, cooked','kidneybonen bruine bonen',127,8.7,23,0.5,7],
+  ['Tofu','tofu',76,8,1.9,4.8,7],
+  ['Tempeh','tempeh',192,20,7.6,11,7],
+  ['Peanut butter','pindakaas',588,25,20,50,7],
+  ['Peanuts','pinda pindas',567,26,16,49,7],
+  ['Almonds','amandelen',579,21,22,50,7],
+  ['Walnuts','walnoten',654,15,14,65,7],
+  ['Cashews','cashewnoten',553,18,30,44,7],
+  ['Hazelnuts','hazelnoten',628,15,17,61,7],
+  ['Sunflower seeds','zonnebloempitten',584,21,20,51,7],
+  ['Chia seeds','chiazaad',486,17,42,31,7],
+  ['Flaxseed','lijnzaad',534,18,29,42,7],
+
+  ['Olive oil','olijfolie',884,0,0,100,8],
+  ['Sunflower oil','zonnebloemolie',884,0,0,100,8],
+  ['Coconut oil','kokosolie',892,0,0,99,8],
+  ['Butter','boter',717,0.9,0.1,81,8],
+  ['Margarine','margarine',717,0.2,0.7,80,8],
+  ['Low-fat spread','halvarine',362,0.2,0.4,40,8],
+  ['Mayonnaise','mayonaise',680,1,0.6,75,8],
+
+  ['Water','water',0,0,0,0,9],
+  ['Coffee, black','koffie zwart',2,0.3,0,0,9],
+  ['Tea','thee',1,0,0.2,0,9],
+  ['Orange juice','sinaasappelsap jus',45,0.7,10,0.2,9],
+  ['Apple juice','appelsap',46,0.1,11,0.1,9],
+  ['Cola','cola',42,0,10.6,0,9],
+  ['Cola zero','cola zero light',0.3,0,0,0,9],
+  ['Beer','bier pils',43,0.5,3.6,0,9],
+  ['Red wine','rode wijn',85,0.1,2.6,0,9],
+  ['White wine','witte wijn',82,0.1,2.6,0,9],
+  ['Spirits 40%','sterke drank jenever',250,0,0,0,9],
+  ['Sports drink','sportdrank',24,0,6,0,9],
+  ['Almond milk, unsweetened','amandelmelk',15,0.5,0.3,1.2,9],
+  ['Soy milk','sojamelk',43,3.3,2.6,1.8,9],
+  ['Whey protein powder','eiwitpoeder whey',400,80,8,6,9],
+
+  ['Milk chocolate','melkchocolade chocolade',535,7.6,59,30,10],
+  ['Dark chocolate 70%','pure chocolade',598,7.8,46,43,10],
+  ['Crisps','chips',536,7,53,34,10],
+  ['Biscuit','koekje koek',480,6,65,21,10],
+  ['Sponge cake','cake gebak',297,5,50,9,10],
+  ['Doughnut','donut',452,5,51,25,10],
+  ['Popcorn, plain','popcorn',387,13,78,4.5,10],
+  ['Cereal bar','mueslireep',400,6,65,13,10],
+  ['Honey','honing',304,0.3,82,0,10],
+  ['Sugar','suiker',387,0,100,0,10],
+  ['Jam','jam',278,0.4,69,0.1,10],
+  ['Chocolate sprinkles','hagelslag',461,6.5,68,17,10],
+  ['Stroopwafel','stroopwafel',434,4.6,66,16,10],
+  ['Speculaas','speculaas',470,5,72,17,10],
+  ['Liquorice','drop',350,5,77,0.5,10],
+
+  ['Ketchup','ketchup',112,1.2,26,0.1,11],
+  ['Mustard','mosterd',66,4,6,3,11],
+  ['Soy sauce','sojasaus ketjap',53,8,4.9,0.1,11],
+  ['Passata','tomatensaus passata',32,1.6,6,0.3,11],
+  ['Pesto','pesto',450,5,6,45,11],
+  ['Hummus','hummus',166,8,14,10,11],
+  ['Vinegar','azijn',20,0,0.6,0,11],
+  ['Apple sauce','appelmoes',68,0.2,17,0.1,11],
+
+  ['Pizza margherita','pizza',266,11,33,10,12],
+  ['Chips / fries','friet patat frietjes',312,3.4,41,15,12],
+  ['Hamburger','hamburger',295,17,24,14,12],
+  ['Sushi roll','sushi',145,5,30,1,12],
+  ['Vegetable soup','groentesoep soep',40,1.5,6,1,12],
+  ['Pancake','pannenkoek',227,6,28,10,12],
+  ['Omelette','omelet',154,11,1,12,12],
+  ['Bitterballen','bitterbal bitterballen',270,9,25,15,12]
+];
+/* drinks are per 100 ml, everything else per 100 g */
+const BASICS=BASICS_RAW.map((r,i)=>({
+  idx:i, name:r[0], alt:r[1], kcal:r[2], p:r[3], c:r[4], f:r[5],
+  group:BASIC_GROUPS[r[6]], serving:r[6]===9?'100 ml':'100 g'
+}));
+
 /* ---------- weekly plan ---------- */
 const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const DOW_FULL=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
@@ -970,7 +1169,7 @@ function renderEntrySheet(){
   return sheetHead(d.editing?'Edit entry':'Add food')+
     (d.editing?'':'<div style="display:flex;gap:10px;margin-bottom:14px">'+
       '<button class="btn pri" data-act="scanentry">'+icon('scan',16)+'Scan barcode</button>'+
-      '<button class="btn" data-act="pickfood">'+icon('book',16)+'My Foods</button></div>')+
+      '<button class="btn" data-act="pickfood">'+icon('book',16)+'Search</button></div>')+
     (d.barcode?'<div class="hint" style="margin-top:-6px">'+icon('barcode',13)+' '+esc(d.barcode)+
       (d.editing?'':' — saving this will remember it for next time')+'</div>':'')+
     '<div class="fld"><label>Name</label><input class="inp" data-d="name" value="'+esc(d.name)+'" placeholder="e.g. Greek yoghurt"></div>'+
@@ -1068,15 +1267,123 @@ function renderLibrary(){
       : '<div class="empty">'+icon('book',26)+'<div>No saved foods yet.</div>'+
         '<div>Tick “Save to My Foods” when logging something, or add one here.</div></div>');
 }
+/* ---------- unified food search: my foods → built-in basics → online ---------- */
+let OFF={q:'',loading:false,items:[],err:''};
+let offTimer=null;
+
 function openPicker(){
-  libSearch='';
-  pushSheet({render:function(){
-    const list=libList();
-    return sheetHead('Pick a food',true)+
-      '<div class="srch"><input class="inp" data-lib="search" value="'+esc(libSearch)+'" placeholder="Search"></div>'+
-      (list.length?'<div class="pick">'+list.map(f=>foodRow(f,'usefood')).join('')+'</div>'
-        :'<div class="empty">'+icon('book',26)+'<div>No saved foods yet.</div></div>');
-  }});
+  libSearch=''; OFF={q:'',loading:false,items:[],err:''};
+  clearTimeout(offTimer);
+  pushSheet({kind:'search',render:renderSearch});
+}
+function searchOnTop(){
+  const s=SHEETS[SHEETS.length-1];
+  return !!(s&&s.kind==='search');
+}
+function basicsMatching(q){
+  if(!q) return [];
+  return BASICS.filter(b=>b.name.toLowerCase().indexOf(q)>=0||b.alt.indexOf(q)>=0).slice(0,40);
+}
+/* Debounced so typing does not fire a request per keystroke. */
+function scheduleOFFSearch(q){
+  clearTimeout(offTimer);
+  if(q.length<3){ OFF={q:q,loading:false,items:[],err:''}; return; }
+  if(navigator.onLine===false){ OFF={q:q,loading:false,items:[],err:'offline'}; return; }
+  OFF={q:q,loading:true,items:[],err:''};
+  offTimer=setTimeout(()=>runOFFSearch(q),500);
+}
+function runOFFSearch(q){
+  const url='https://'+OFF_HOST+'/cgi/search.pl?search_terms='+encodeURIComponent(q)+
+    '&search_simple=1&action=process&json=1&page_size=20'+
+    '&fields=code,product_name,brands,quantity,nutrition_data_per,nutriments';
+  let settled=false;
+  const done=(items,err)=>{
+    if(settled) return; settled=true;
+    if(OFF.q!==q) return;                    // the query moved on while we waited
+    OFF={q:q,loading:false,items:items||[],err:err||''};
+    if(searchOnTop()) redrawSearchKeepingFocus();
+  };
+  setTimeout(()=>done(null,'slow'),10000);
+  fetch(url,{headers:{'Accept':'application/json'}})
+    .then(r=>r.ok?r.json():null)
+    .then(data=>{
+      const raw=(data&&data.products)||[];
+      const out=[];
+      for(let i=0;i<raw.length;i++){
+        const item=offProduct(raw[i]);
+        if(item) out.push(item);
+      }
+      done(out,out.length?'':'none');
+    })
+    .catch(()=>done(null,'failed'));
+}
+/* Shape one Open Food Facts product into the same fields the app uses. */
+function offProduct(p){
+  if(!p||!p.nutriments) return null;
+  const n=p.nutriments;
+  let kcal=num(n['energy-kcal_100g']);
+  if(!kcal&&n.energy_100g) kcal=num(n.energy_100g)/4.184;
+  const prot=num(n.proteins_100g), carb=num(n.carbohydrates_100g), fat=num(n.fat_100g);
+  if(!kcal&&!prot&&!carb&&!fat) return null;
+  const brand=p.brands?String(p.brands).split(',')[0].trim():'';
+  const nm=[brand,p.product_name||''].filter(Boolean).join(' ').trim();
+  if(!nm) return null;
+  const liquid=/\bml\b|\bl\b/i.test(String(p.quantity||''))||
+               /100\s*ml/i.test(String(p.nutrition_data_per||''));
+  return {name:nm,serving:liquid?'100 ml':'100 g',kcal:Math.round(kcal),
+    p:prot,c:carb,f:fat,barcode:String(p.code||'')};
+}
+/* A redraw wipes the search box, so put the caret back where it was. */
+function redrawSearchKeepingFocus(){
+  const before=$('#sheet').querySelector('[data-lib="search"]');
+  const pos=before?before.selectionStart:null;
+  const had=before&&document.activeElement===before;
+  redrawSheet();
+  if(!had) return;
+  const after=$('#sheet').querySelector('[data-lib="search"]');
+  if(after){ after.focus(); const at=pos==null?after.value.length:pos; after.setSelectionRange(at,at); }
+}
+
+function resultRow(name,sub,kcal,act,i){
+  return '<div class="row tapp" data-act="'+act+'" data-i="'+i+'">'+
+    '<div class="g"><div class="t">'+esc(name)+'</div><div class="s">'+esc(sub)+'</div></div>'+
+    '<div class="v">'+kc(kcal)+'</div></div>';
+}
+function renderSearch(){
+  const q=libSearch.trim().toLowerCase();
+  const mine=libList();
+  const basics=basicsMatching(q);
+  const online=OFF.items;
+
+  let body='';
+  if(mine.length){
+    body+='<div class="card" style="margin:0 0 10px"><h2>'+icon('book',13)+'My foods</h2>'+
+      mine.slice(0,25).map(f=>foodRow(f,'usefood')).join('')+'</div>';
+  }
+  if(basics.length){
+    body+='<div class="card" style="margin:0 0 10px"><h2>'+icon('list',13)+'Basics</h2>'+
+      basics.map(b=>resultRow(b.name,b.group+' · per '+b.serving,b.kcal,'usebasic',b.idx)).join('')+
+      '</div>';
+  }
+  if(q.length>=3){
+    let onlineBody='';
+    if(OFF.loading) onlineBody='<div class="empty">Searching…</div>';
+    else if(OFF.err==='offline') onlineBody='<div class="empty">Offline — only your foods and the basics above.</div>';
+    else if(OFF.err==='failed'||OFF.err==='slow') onlineBody='<div class="empty">Could not reach the food database.<br>'+
+      '<button class="btn dim" data-act="retryoff" style="margin-top:10px">Try again</button></div>';
+    else if(OFF.err==='none') onlineBody='<div class="empty">No packaged products match “'+esc(libSearch.trim())+'”.</div>';
+    else if(online.length) onlineBody=online.map((o,i)=>
+      resultRow(o.name,'per '+o.serving,o.kcal,'useoff',i)).join('');
+    if(onlineBody) body+='<div class="card" style="margin:0 0 10px"><h2>'+icon('scan',13)+'Packaged products</h2>'+onlineBody+'</div>';
+  }
+  if(!body){
+    body=q?'<div class="empty">Nothing matches “'+esc(libSearch.trim())+'”.<br>Type three letters or more to search packaged products too.</div>'
+          :'<div class="empty">'+icon('book',26)+'<div>Search your own foods, the built-in basics, and packaged products.</div>'+
+           '<div style="margin-top:6px">Basics are typical values per 100 g — adjust them after picking.</div></div>';
+  }
+  return sheetHead('Find a food',true)+
+    '<div class="srch"><input class="inp" data-lib="search" value="'+esc(libSearch)+'" placeholder="Search, e.g. banana or kipfilet" autocomplete="off"></div>'+
+    body;
 }
 let foodDraft=null;
 function openFoodEdit(id){
@@ -1382,6 +1689,10 @@ function renderWeightSheet(){
    checksum passes AND the same code comes back twice, so a misread cannot
    quietly log the wrong food.
    ========================================================================== */
+/* nl. ranks Dutch products first and still returns everything else;
+   change to world. for a different country bias. */
+const OFF_HOST='nl.openfoodfacts.org';
+
 const EAN_L=['0001101','0011001','0010011','0111101','0100011','0110001','0101111','0111011','0110111','0001011'];
 /* which of the 6 left-hand digits use even parity — this encodes the 13th digit */
 const EAN_PARITY=['000000','001011','001101','001110','010011','011001','011100','010101','010110','011010'];
@@ -1660,7 +1971,7 @@ function normaliseCode(code){ return code.length===12?'0'+code:code; }
 
 function lookupBarcode(code){
   if(navigator.onLine===false) return Promise.resolve(null);
-  const url='https://world.openfoodfacts.org/api/v2/product/'+encodeURIComponent(code)+
+  const url='https://'+OFF_HOST+'/api/v2/product/'+encodeURIComponent(code)+
     '.json?fields=product_name,brands,quantity,nutrition_data_per,nutriments';
   let done=false;
   return new Promise(resolve=>{
@@ -1772,6 +2083,29 @@ document.addEventListener('click',e=>{
       if(f){ applyFoodToDraft(f); popSheet(); }
       break;
     }
+    case 'usebasic': {
+      const b=BASICS[i];
+      if(!b) break;
+      entryDraft.name=b.name; entryDraft.kcal=b.kcal;
+      entryDraft.p=b.p; entryDraft.c=b.c; entryDraft.f=b.f;
+      entryDraft.serving=b.serving; entryDraft.foodId=null;
+      /* basics are always available offline, so no need to copy them to My Foods */
+      popSheet();
+      break;
+    }
+    case 'useoff': {
+      const o=OFF.items[i];
+      if(!o) break;
+      entryDraft.name=o.name; entryDraft.kcal=o.kcal;
+      entryDraft.p=o.p; entryDraft.c=o.c; entryDraft.f=o.f;
+      entryDraft.serving=o.serving; entryDraft.foodId=null;
+      entryDraft.barcode=o.barcode||'';
+      entryDraft.saveLib=true;      // keep it so the next time works offline
+      popSheet();
+      toast(o.name);
+      break;
+    }
+    case 'retryoff': scheduleOFFSearch(libSearch.trim().toLowerCase()); redrawSheet(); break;
     case 'saveentry': saveEntry(); break;
     case 'delentry':
       if(confirm('Delete this entry?')){
@@ -2020,10 +2354,13 @@ document.addEventListener('input',e=>{
     else wDraft.val=num(v);
     return;
   }
-  if(t.dataset.lib==='search'){ libSearch=v; redrawSheet();
-    const s=$('#sheet').querySelector('[data-lib="search"]');
-    if(s){ s.focus(); s.setSelectionRange(s.value.length,s.value.length); }
-    return; }
+  if(t.dataset.lib==='search'){
+    libSearch=v;
+    /* only the unified search reaches out to the network */
+    if(searchOnTop()) scheduleOFFSearch(v.trim().toLowerCase());
+    redrawSearchKeepingFocus();
+    return;
+  }
   if(t.dataset.set){ S()[t.dataset.set]=Math.round(num(v)); save(); return; }
   if(t.dataset.setw){ S().weightGoalKg=stoW(num(v)); save(); return; }
 });

@@ -27,6 +27,12 @@ your loads, you fill them in the first time you run the session and they stick.
 and a run). Today's plan appears on the Home screen with a Start button, and drops off that
 card once you have logged a workout with the same name.
 
+**Food search** — one search box across three sources: your own saved foods, ~165 bundled
+generic foods (per 100 g, searchable in English or Dutch — "kip" finds chicken breast), and
+Open Food Facts for packaged products when you are online. The bundled basics cover the
+everyday things a product database is bad at — banana, rice, chicken breast — and work with
+no connection at all.
+
 **Barcode scanning** — point the camera at a grocery barcode (EAN-13, EAN-8 or UPC-A).
 Codes resolve in three steps: your own saved foods first (instant, works offline), then
 Open Food Facts over the network, and failing both you fill it in once and the barcode is
@@ -79,6 +85,32 @@ Four decisions that matter if you extend it:
   Save, so Cancel costs nothing. Redrawing a sheet drops keyboard focus, so typing writes
   straight into the draft without a redraw — only structural changes (adding a set,
   switching type) redraw.
+
+## Where the food data comes from
+
+Three sources, deliberately, because no single one covers everything:
+
+| Source | Covers | Offline? |
+| --- | --- | --- |
+| Your saved foods | whatever you have logged before | yes |
+| Bundled basics (`BASICS_RAW`) | ~165 generic foods, per 100 g | yes |
+| Open Food Facts | packaged products, by name or barcode | no |
+
+A full product database **cannot** be bundled — Open Food Facts' own dump runs to several
+gigabytes, far past what a page can ship or localStorage can hold. So packaged products
+need a connection the first time, after which they land in your library and stop needing
+one.
+
+`BASICS_RAW` values are typical reference figures per 100 g, not measurements of the exact
+brand in your kitchen; everything picked from it opens in an editable form. Each row carries
+Dutch aliases used for searching only. Wine and spirits are the one place where calories
+deliberately exceed what the macros explain — alcohol carries 7 kcal/g and is not protein,
+carbohydrate or fat.
+
+`OFF_HOST` is set to `nl.openfoodfacts.org`, which ranks Dutch products first and still
+returns everything else; change that one constant for a different country bias. Name search
+is debounced by 500ms and needs three characters, so typing does not fire a request per
+keystroke.
 
 ## The barcode decoder
 
