@@ -1899,17 +1899,29 @@ function runsFromGray(gray,width){
 }
 
 /* ---------- camera ---------- */
-const SCAN={stream:null,timer:null,canvas:null,det:null,seen:{},apply:null,busy:false};
+const SCAN={stream:null,timer:null,canvas:null,det:null,seen:{},apply:null,busy:false,video:null};
 
 function stopScanner(){
   if(SCAN.timer){ clearInterval(SCAN.timer); SCAN.timer=null; }
+  /* Detach the stream from the element before stopping the tracks. A stopped
+     stream left bound to a discarded <video> makes the NEXT getUserMedia fail on
+     iOS, which is why scanning a second time died. */
+  if(SCAN.video){
+    try{ SCAN.video.pause(); }catch(e){}
+    try{ SCAN.video.srcObject=null; }catch(e){}
+    SCAN.video=null;
+  }
   if(SCAN.stream){ SCAN.stream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} }); SCAN.stream=null; }
   SCAN.seen={}; SCAN.busy=false; SCAN.ticks=0;
+}
+function cameraFailed(msg){
+  scanMsg(msg+'<br><button class="btn dim" data-act="rescan" style="margin-top:10px">'+
+    icon('scan',15)+'Try the camera again</button>');
 }
 function scanMsg(m){ const el=document.getElementById('scanmsg'); if(el) el.innerHTML=m; }
 
 function openScanner(apply){
-  SCAN.apply=apply; SCAN.seen={};
+  SCAN.apply=apply; SCAN.seen={}; SCAN.retried=false;
   pushSheet({kind:'scanner',render:renderScanner,mount:startScanner});
 }
 /* An online lookup can land after the user has tapped back or closed the sheet.
@@ -1930,8 +1942,12 @@ function renderScanner(){
 }
 
 function startScanner(){
+  const wasRetry=SCAN.retried;
+  stopScanner();                       // never leave two sessions running at once
+  SCAN.retried=wasRetry;
   const v=document.getElementById('scanvid');
   if(!v) return;
+  SCAN.video=v;
   if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
     scanMsg('This browser will not open the camera here. Type the number below instead.');
     return;
@@ -1943,6 +1959,13 @@ function startScanner(){
   navigator.mediaDevices.getUserMedia({
     video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false
   }).then(stream=>{
+    /* The user can back out while the permission prompt is up. Without this the
+       camera stays on and an orphaned timer decodes into whatever sheet is
+       showing by then. */
+    if(!scannerOnTop()||SCAN.video!==v){
+      stream.getTracks().forEach(t=>{ try{t.stop();}catch(e){} });
+      return;
+    }
     SCAN.stream=stream;
     v.srcObject=stream;
     const go=v.play();
@@ -1950,8 +1973,23 @@ function startScanner(){
     SCAN.ticks=0;
     scanMsg('Scanning — hold the barcode inside the box, upright or sideways.');
     SCAN.timer=setInterval(()=>scanTick(v),120);
-  }).catch(()=>{
-    scanMsg('No camera access. Allow it in Settings → Safari → Camera, or type the number below.');
+  }).catch(err=>{
+    if(!scannerOnTop()||SCAN.video!==v) return;
+    const name=(err&&err.name)||'';
+    if(name==='NotAllowedError'||name==='SecurityError'){
+      cameraFailed('No camera permission. Allow it in Settings → Safari → Camera.');
+      return;
+    }
+    /* NotReadableError / AbortError usually means the previous session has not
+       finished releasing the camera — iOS is slower at this than desktop. Give it
+       a moment and try once more before giving up on the user. */
+    if(!SCAN.retried){
+      SCAN.retried=true;
+      scanMsg('Waiting for the camera…');
+      setTimeout(()=>{ if(scannerOnTop()&&SCAN.video===v) startScanner(); },450);
+      return;
+    }
+    cameraFailed('The camera did not start.');
   });
 }
 
@@ -2067,7 +2105,7 @@ function lookupBarcode(code){
 
 /* What to do with a scan, depending on which screen asked for it. */
 function applyScanToEntry(code,found,how){
-  if(!scannerOnTop()) return;
+  if(!scannerOnTop()||!entryDraft) return;
   if(how==='library'){
     applyFoodToDraft(found);
     popSheet();
@@ -2091,7 +2129,7 @@ function applyScanToEntry(code,found,how){
   }
 }
 function applyScanToFood(code,found,how){
-  if(!scannerOnTop()) return;
+  if(!scannerOnTop()||!foodDraft) return;
   foodDraft.barcode=code;
   if(how!=='library'&&found){
     if(!foodDraft.name) foodDraft.name=found.name;
@@ -2190,6 +2228,7 @@ document.addEventListener('click',e=>{
       openScanner(applyScanToEntry);
       break;
     case 'scanentry': openScanner(applyScanToEntry); break;
+    case 'rescan': SCAN.retried=false; startScanner(); break;
     case 'scanfood':  openScanner(applyScanToFood);  break;
     case 'manualcode': {
       const box=document.getElementById('scanmanual');

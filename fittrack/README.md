@@ -138,6 +138,29 @@ The preview is `object-fit: cover`, so `drawImage` takes the same crop the user 
 at rather than the whole camera frame — otherwise "line it up in the box" is not true and
 the scanner reads pixels that are not on screen.
 
+## Camera lifecycle
+
+Getting the camera *back* turned out to be harder than getting it the first time, so
+`stopScanner` / `startScanner` are stricter than they look:
+
+- The stream is **detached from the `<video>` before the tracks are stopped**. A stopped
+  stream still bound to a discarded element leaves iOS believing the camera is in use, and
+  the next `getUserMedia` fails.
+- `startScanner` calls `stopScanner` first, so two sessions can never overlap.
+- If the permission promise resolves after the user has left the sheet, the stream is
+  stopped immediately instead of being attached — otherwise the camera light stays on and an
+  orphaned timer decodes into whatever sheet is showing by then.
+- `NotReadableError` / `AbortError` means the previous session has not finished releasing
+  the camera; that gets one automatic retry after 450ms before the user is told anything,
+  and then a manual "try again" button rather than a dead end.
+
+`Tools/` holds no test runner, but the camera path was driven end to end during development
+by replacing `getUserMedia` with `canvas.captureStream()` on a canvas with a barcode painted
+on it — that covers the video element, the cover-crop, both sweeps and the decode, plus
+scanning several times in a row. Worth knowing: Chromium releases a camera on `track.stop()`
+promptly enough that it does **not** reproduce the iOS re-acquire failure, so that specific
+fix rests on the documented iOS behaviour rather than on a reproduction.
+
 Three things guard against a misread logging the wrong food: the EAN checksum, a set of
 width and quiet-zone constraints tuned in `BC`, and a rule that the same code must be read
 twice before it is accepted.
