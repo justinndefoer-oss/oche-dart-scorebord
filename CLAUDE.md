@@ -1,5 +1,20 @@
 # OCHE — Dart Scorebord
 
+## What is in this repo
+
+Two unrelated apps, deployed from the same GitHub Pages site:
+
+1. **OCHE dart scoreboard** — the root `index.html` / `sw.js` / `manifest.json`. Everything
+   below in this file is about this app unless a section says otherwise.
+2. **FitTrack** — `fittrack/`, an offline calorie/workout/weight PWA built the same way
+   (single `index.html`, own `sw.js`, own scope at `/fittrack/`). See `fittrack/README.md`.
+   It reuses the iOS standalone fixes documented here; do not "fix" them differently there.
+3. **FitTrack (native)** — `FitTrack/`, a SwiftUI/SwiftData version of the same app. Written
+   before the owner confirmed they have no Mac, so it has never been compiled. Left in the
+   repo for later; not deployed and not part of the Pages site.
+
+# The dart scoreboard
+
 Offline iPhone dart-scoring PWA. **Single file: `index.html`** (HTML + CSS + JS, no build step).
 Plus `sw.js` (service worker) for offline + auto-update. Design comes from the Claude Design
 handoff in `project/` and `chats/`.
@@ -74,8 +89,9 @@ automatically; cache is only a fallback when offline.
 - Chromium does NOT reproduce the iOS standalone viewport bug — confirm those on a real device.
 
 ## Git / deploy
-- The container's git proxy is only authorized for the original repo, so it CANNOT push to
-  `justinndefoer-oss/oche-dart-scorebord` (403). Commit locally on branch `feat/oche-app`; the
-  owner uploads `index.html`/`sw.js` via the GitHub web UI.
+- Pushing to a `claude/…` feature branch on `justinndefoer-oss/oche-dart-scorebord` DOES work
+  from this container (verified Aug 2026) — `git push -u origin <branch>`. The older note that
+  the proxy always 403s is out of date; try the push before assuming it will fail.
+- The owner deploys by uploading files via the GitHub web UI, or by merging the branch.
 - `*.github.io` is blocked by the container network egress policy, so the live Pages site can't
   be fetched from here — only the owner can verify the deployed site.
