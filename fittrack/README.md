@@ -18,10 +18,19 @@ calorie goal.
 and cardio (duration, distance, calories burned). Save any session as a routine and start
 from it later. History grouped by day, with a detail view.
 
-**Ready-made routines** — 15 presets in five groups (full body A/B/C, push/pull/legs,
-upper/lower, home & bodyweight, cardio). Picking one copies it into your own routines, so
-you can edit it freely afterwards. Starting weights are 0 on purpose: the app cannot know
-your loads, you fill them in the first time you run the session and they stick.
+**Ready-made routines** — 68 presets in eight groups: full body, 5×5 and barbell strength
+(5×5, novice 3×5, Texas Method, 5/3/1, heavy triples, Smolov Jr, 20-rep squat),
+push/pull/legs, upper/lower, body-part split (including German Volume Training), home &
+bodyweight, conditioning, and cardio. Searchable by routine name or by any exercise inside
+it, so "deadlift" surfaces every session containing one. Picking one copies it into your own
+routines, so you can edit it freely afterwards. Starting weights are 0 on purpose: the app
+cannot know your loads, you fill them in the first time and they stick.
+
+Where a programme has a loading scheme the data model cannot express — 5/3/1 works off
+percentages, Smolov rotates its rep brackets weekly — the scheme is written into the
+routine's notes, which are copied onto every workout started from it. The library carries
+programme names that are generic in the training world; it deliberately contains no routine
+attributed to a named individual who did not publish it.
 
 **Weekly plan** — assign routines to weekdays (more than one per day is fine, e.g. a lift
 and a run). Today's plan appears on the Home screen with a Start button, and drops off that

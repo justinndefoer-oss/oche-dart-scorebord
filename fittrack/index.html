@@ -455,37 +455,180 @@ const typeOf=k=>TYPES.find(t=>t.k===k)||TYPES[2];
    Starting weights are deliberately 0: the app cannot know your loads, so you
    fill them in the first time you run the session and they stick from then on. */
 const PRESETS=[
+  /* ---- full body ---- */
   {g:'Full body', name:'Full Body A', type:'strength', ex:[
     ['Back squat',3,8],['Bench press',3,8],['Barbell row',3,8],['Overhead press',3,10],['Hanging leg raise',3,12]]},
   {g:'Full body', name:'Full Body B', type:'strength', ex:[
     ['Deadlift',3,5],['Incline dumbbell press',3,10],['Lat pulldown',3,10],['Dumbbell lunge',3,10],['Face pull',3,15]]},
   {g:'Full body', name:'Full Body C', type:'strength', ex:[
     ['Front squat',3,8],['Dip',3,8],['Pull-up',3,6],['Romanian deadlift',3,10],['Cable curl',3,12]]},
+  {g:'Full body', name:'Beginner full body (machines)', type:'strength',
+    notes:'Machines only — good for a first month while you learn the movements.', ex:[
+    ['Leg press',3,12],['Chest press machine',3,12],['Seated row',3,12],['Lat pulldown',3,12],['Machine shoulder press',3,12]]},
+  {g:'Full body', name:'Full body in 30 minutes', type:'strength',
+    notes:'Four compounds, straight through. Rest 60 seconds.', ex:[
+    ['Goblet squat',3,12],['Push-up',3,12],['One-arm dumbbell row',3,12],['Dumbbell RDL',3,12]]},
+  {g:'Full body', name:'Full body power', type:'strength',
+    notes:'Explosive work first, while you are fresh.', ex:[
+    ['Power clean',5,3],['Box jump',4,5],['Front squat',4,5],['Push press',4,5]]},
+  {g:'Full body', name:'Kettlebell full body', type:'strength', ex:[
+    ['Kettlebell swing',5,15],['Goblet squat',4,10],['Kettlebell clean and press',4,6],['Kettlebell row',4,10],['Turkish get-up',3,4]]},
+  {g:'Full body', name:'Minimalist full body', type:'strength',
+    notes:'Three lifts, three times a week. The least that still works.', ex:[
+    ['Back squat',3,5],['Bench press',3,5],['Barbell row',3,5]]},
 
+  /* ---- 5x5 and barbell strength ---- */
+  {g:'5×5 & barbell strength', name:'5×5 Strength A', type:'strength',
+    notes:'Alternate A and B three times a week. Add 2.5 kg once all five sets hit five reps; drop 10% after three failures.', ex:[
+    ['Back squat',5,5],['Bench press',5,5],['Barbell row',5,5]]},
+  {g:'5×5 & barbell strength', name:'5×5 Strength B', type:'strength',
+    notes:'The other half of the 5×5 pair. Deadlift is one work set of five.', ex:[
+    ['Back squat',5,5],['Overhead press',5,5],['Deadlift',1,5]]},
+  {g:'5×5 & barbell strength', name:'Novice 3×5 A', type:'strength',
+    notes:'Classic novice linear progression — add weight every single session for as long as you can.', ex:[
+    ['Back squat',3,5],['Bench press',3,5],['Deadlift',1,5]]},
+  {g:'5×5 & barbell strength', name:'Novice 3×5 B', type:'strength',
+    notes:'Alternates with A. Swap the power clean for barbell rows if you have not been coached on it.', ex:[
+    ['Back squat',3,5],['Overhead press',3,5],['Power clean',5,3]]},
+  {g:'5×5 & barbell strength', name:'Texas Method — volume day', type:'strength',
+    notes:'Monday of the Texas Method: five sets of five at about 90% of your best five-rep weight.', ex:[
+    ['Back squat',5,5],['Bench press',5,5],['Barbell row',5,5]]},
+  {g:'5×5 & barbell strength', name:'Texas Method — intensity day', type:'strength',
+    notes:'Friday: work up to one heavy set of five, aiming to beat last week.', ex:[
+    ['Back squat',1,5],['Bench press',1,5],['Deadlift',1,5]]},
+  {g:'5×5 & barbell strength', name:'5/3/1 — Squat day', type:'strength',
+    notes:'Jim Wendler\u2019s 5/3/1. Main lift is three work sets, 5/3/1 reps depending on the week, off percentages of 90% of your max. Then assistance.', ex:[
+    ['Back squat',3,5],['Front squat',5,10],['Hanging leg raise',5,15]]},
+  {g:'5×5 & barbell strength', name:'5/3/1 — Bench day', type:'strength',
+    notes:'Main lift 5/3/1, then push and pull assistance at five sets of ten.', ex:[
+    ['Bench press',3,5],['Dumbbell bench press',5,10],['Barbell row',5,10]]},
+  {g:'5×5 & barbell strength', name:'5/3/1 — Deadlift day', type:'strength',
+    notes:'Main lift 5/3/1, then posterior chain and midsection.', ex:[
+    ['Deadlift',3,5],['Romanian deadlift',5,10],['Hanging leg raise',5,15]]},
+  {g:'5×5 & barbell strength', name:'5/3/1 — Press day', type:'strength',
+    notes:'Main lift 5/3/1, then dips and chins to fill it out.', ex:[
+    ['Overhead press',3,5],['Dip',5,10],['Chin-up',5,10]]},
+  {g:'5×5 & barbell strength', name:'Heavy triples', type:'strength',
+    notes:'Low reps, long rests. Three to five minutes between sets.', ex:[
+    ['Back squat',5,3],['Bench press',5,3],['Deadlift',3,3]]},
+  {g:'5×5 & barbell strength', name:'Smolov Jr — bench', type:'strength',
+    notes:'Four bench sessions a week rotating 6×6, 7×5, 8×4, 10×3. Three weeks is plenty; do not run it year round.', ex:[
+    ['Bench press',6,6],['Barbell row',5,10],['Triceps pushdown',3,15]]},
+  {g:'5×5 & barbell strength', name:'20-rep squat', type:'strength',
+    notes:'One all-out set of twenty, breathing between reps. Add 2.5 kg every session. Famously effective and famously unpleasant.', ex:[
+    ['Back squat',1,20],['Dumbbell pullover',1,20],['Bench press',3,8],['Chin-up',3,8]]},
+
+  /* ---- push / pull / legs ---- */
   {g:'Push / Pull / Legs', name:'Push day', type:'strength', ex:[
     ['Bench press',4,8],['Overhead press',3,10],['Incline dumbbell press',3,10],['Lateral raise',3,15],['Triceps pushdown',3,12]]},
   {g:'Push / Pull / Legs', name:'Pull day', type:'strength', ex:[
     ['Deadlift',3,5],['Pull-up',4,6],['Barbell row',3,10],['Face pull',3,15],['Barbell curl',3,12]]},
   {g:'Push / Pull / Legs', name:'Leg day', type:'strength', ex:[
-    ['Back squat',4,8],['Romanian deadlift',3,10],['Leg press',3,12],['Leg curl',3,12],['Calf raise',4,15]]},
+    ['Back squat',4,8],['Romanian deadlift',3,10],['Leg press',3,12],['Leg curl',3,12],['Standing calf raise',4,15]]},
+  {g:'Push / Pull / Legs', name:'Push — heavy', type:'strength', ex:[
+    ['Bench press',5,5],['Overhead press',4,6],['Incline dumbbell press',3,8],['Lateral raise',3,12],['Skull crusher',3,10]]},
+  {g:'Push / Pull / Legs', name:'Pull — heavy', type:'strength', ex:[
+    ['Deadlift',4,5],['Weighted pull-up',4,5],['Barbell row',4,6],['Face pull',3,15],['Barbell curl',3,10]]},
+  {g:'Push / Pull / Legs', name:'Legs — heavy', type:'strength', ex:[
+    ['Back squat',5,5],['Romanian deadlift',4,6],['Bulgarian split squat',3,8],['Leg curl',3,12],['Standing calf raise',4,12]]},
+  {g:'Push / Pull / Legs', name:'Push — volume', type:'strength',
+    notes:'Lighter, higher reps, short rests. Pairs with the heavy push day.', ex:[
+    ['Incline dumbbell press',4,12],['Chest press machine',3,15],['Cable fly',3,15],['Lateral raise',4,15],['Triceps pushdown',4,15]]},
+  {g:'Push / Pull / Legs', name:'Pull — volume', type:'strength', ex:[
+    ['Lat pulldown',4,12],['Seated row',4,12],['Straight-arm pulldown',3,15],['Face pull',4,20],['Hammer curl',4,12]]},
+  {g:'Push / Pull / Legs', name:'Legs — volume', type:'strength', ex:[
+    ['Leg press',4,15],['Walking lunge',3,20],['Leg extension',4,15],['Leg curl',4,15],['Seated calf raise',4,20]]},
 
+  /* ---- upper / lower ---- */
   {g:'Upper / Lower', name:'Upper body', type:'strength', ex:[
     ['Bench press',4,8],['Barbell row',4,8],['Overhead press',3,10],['Lat pulldown',3,10],['Barbell curl',3,12],['Triceps pushdown',3,12]]},
   {g:'Upper / Lower', name:'Lower body', type:'strength', ex:[
-    ['Back squat',4,8],['Romanian deadlift',3,10],['Walking lunge',3,12],['Leg curl',3,12],['Calf raise',4,15]]},
+    ['Back squat',4,8],['Romanian deadlift',3,10],['Walking lunge',3,12],['Leg curl',3,12],['Standing calf raise',4,15]]},
+  {g:'Upper / Lower', name:'Upper — power', type:'strength',
+    notes:'Four-day power/hypertrophy split: two power days, two volume days.', ex:[
+    ['Bench press',4,5],['Barbell row',4,5],['Overhead press',3,6],['Weighted pull-up',3,6],['Barbell curl',3,8],['Skull crusher',3,8]]},
+  {g:'Upper / Lower', name:'Lower — power', type:'strength', ex:[
+    ['Back squat',4,5],['Deadlift',3,5],['Leg press',3,10],['Leg curl',3,10],['Standing calf raise',4,10]]},
+  {g:'Upper / Lower', name:'Upper — hypertrophy', type:'strength', ex:[
+    ['Incline dumbbell press',4,10],['Lat pulldown',4,10],['Cable fly',3,12],['Seated row',3,12],['Lateral raise',4,15],['Hammer curl',3,12]]},
+  {g:'Upper / Lower', name:'Lower — hypertrophy', type:'strength', ex:[
+    ['Front squat',4,10],['Romanian deadlift',4,10],['Bulgarian split squat',3,12],['Leg extension',3,15],['Seated calf raise',4,15]]},
 
+  /* ---- body-part split ---- */
+  {g:'Body-part split', name:'Chest', type:'strength', ex:[
+    ['Bench press',4,8],['Incline dumbbell press',4,10],['Cable fly',3,12],['Dip',3,10],['Push-up',2,20]]},
+  {g:'Body-part split', name:'Back', type:'strength', ex:[
+    ['Deadlift',4,6],['Pull-up',4,8],['Barbell row',4,10],['Lat pulldown',3,12],['Seated row',3,12]]},
+  {g:'Body-part split', name:'Shoulders', type:'strength', ex:[
+    ['Overhead press',4,8],['Arnold press',3,10],['Lateral raise',4,15],['Rear delt fly',4,15],['Shrug',4,12]]},
+  {g:'Body-part split', name:'Arms', type:'strength', ex:[
+    ['Barbell curl',4,10],['Skull crusher',4,10],['Hammer curl',3,12],['Triceps pushdown',3,12],['Cable curl',3,15],['Overhead triceps extension',3,12]]},
+  {g:'Body-part split', name:'Legs (bodybuilding)', type:'strength', ex:[
+    ['Back squat',4,10],['Leg press',4,12],['Leg extension',4,15],['Leg curl',4,15],['Standing calf raise',5,15]]},
+  {g:'Body-part split', name:'Chest & back superset', type:'strength',
+    notes:'The golden-era pairing: alternate the pushing and the pulling exercise back to back with little rest.', ex:[
+    ['Bench press',4,10],['Barbell row',4,10],['Incline dumbbell press',3,12],['Lat pulldown',3,12],['Cable fly',3,15],['Straight-arm pulldown',3,15]]},
+  {g:'Body-part split', name:'German Volume Training — chest & back', type:'strength',
+    notes:'Ten sets of ten at roughly 60% of your one-rep max, 90 seconds rest, one pair per session. Expect the last sets to be ugly.', ex:[
+    ['Bench press',10,10],['Barbell row',10,10],['Cable fly',3,12],['Face pull',3,15]]},
+  {g:'Body-part split', name:'German Volume Training — legs', type:'strength',
+    notes:'Same idea for the lower body. One session a week is enough.', ex:[
+    ['Back squat',10,10],['Leg curl',10,10],['Standing calf raise',3,15]]},
+
+  /* ---- home & bodyweight ---- */
   {g:'Home & bodyweight', name:'Bodyweight full body', type:'strength', ex:[
     ['Push-up',3,12],['Bodyweight squat',3,20],['Inverted row',3,10],['Glute bridge',3,15],['Mountain climber',3,20]]},
   {g:'Home & bodyweight', name:'Dumbbell full body', type:'strength', ex:[
     ['Goblet squat',3,12],['Dumbbell bench press',3,10],['One-arm dumbbell row',3,10],['Dumbbell RDL',3,12],['Dumbbell shoulder press',3,10]]},
   {g:'Home & bodyweight', name:'Core', type:'strength', ex:[
     ['Hanging leg raise',3,12],['Cable crunch',3,15],['Russian twist',3,20],['Back extension',3,15]]},
+  {g:'Home & bodyweight', name:'Bodyweight beginner', type:'strength',
+    notes:'Start here if push-ups from the floor are still out of reach.', ex:[
+    ['Incline push-up',3,10],['Bodyweight squat',3,15],['Glute bridge',3,15],['Bird dog',3,10],['Dead bug',3,10]]},
+  {g:'Home & bodyweight', name:'No-equipment strength', type:'strength',
+    notes:'High volume, no kit. Rest 60 seconds between sets.', ex:[
+    ['Push-up',5,15],['Bodyweight squat',5,25],['Pull-up',5,8],['Lunge',4,20],['Mountain climber',4,30]]},
+  {g:'Home & bodyweight', name:'Resistance band full body', type:'strength', ex:[
+    ['Band squat',3,15],['Band chest press',3,15],['Band row',3,15],['Band shoulder press',3,12],['Band curl',3,15]]},
+  {g:'Home & bodyweight', name:'Hotel room workout', type:'strength',
+    notes:'Nothing but a chair and the floor.', ex:[
+    ['Push-up',4,15],['Bodyweight squat',4,20],['Bulgarian split squat',3,12],['Chair dip',3,12],['Mountain climber',3,30]]},
+  {g:'Home & bodyweight', name:'Kettlebell circuit', type:'strength',
+    notes:'Three to five rounds, moving straight from one to the next.', ex:[
+    ['Kettlebell swing',5,20],['Goblet squat',4,12],['Kettlebell press',4,8],['Kettlebell row',4,12]]},
+  {g:'Home & bodyweight', name:'Pull-up & dip progression', type:'strength',
+    notes:'Add reps before you add weight. Twice a week.', ex:[
+    ['Pull-up',5,5],['Dip',5,8],['Chin-up',3,6],['Inverted row',3,10]]},
 
-  {g:'Cardio', name:'Easy run 5 km', type:'cardio', duration:30, distance:5, ex:[]},
+  /* ---- conditioning ---- */
+  {g:'Conditioning', name:'Full body circuit', type:'strength',
+    notes:'Three to five rounds with minimal rest. Treat it as conditioning, not strength.', ex:[
+    ['Burpee',4,15],['Kettlebell swing',4,20],['Push-up',4,15],['Bodyweight squat',4,20],['Mountain climber',4,30]]},
+  {g:'Conditioning', name:'20-minute AMRAP', type:'strength',
+    notes:'As many rounds as possible in twenty minutes: 5 pull-ups, 10 push-ups, 15 squats. Log the rounds you managed in the notes.', ex:[
+    ['Pull-up',5,5],['Push-up',5,10],['Bodyweight squat',5,15]]},
+  {g:'Conditioning', name:'Stretch & mobility', type:'other', duration:20,
+    notes:'Hips, hamstrings, thoracic spine, shoulders. Hold each for a minute.', ex:[]},
+
+  /* ---- cardio ---- */
+  {g:'Cardio', name:'Easy run 5 km', type:'cardio', duration:30, distance:5, ex:[],
+    notes:'Conversational pace the whole way.'},
   {g:'Cardio', name:'Interval run', type:'cardio', duration:25, distance:4, ex:[],
-    notes:'Warm up 8 min, then 6 × 1 min hard / 2 min easy, cool down.'},
+    notes:'Warm up 8 minutes, then 6 × 1 minute hard with 2 minutes easy, cool down.'},
+  {g:'Cardio', name:'Tempo run', type:'cardio', duration:35, distance:7, ex:[],
+    notes:'10 minutes easy, 15 minutes at a pace you could hold for an hour, 10 minutes easy.'},
+  {g:'Cardio', name:'Long run 10 km', type:'cardio', duration:60, distance:10, ex:[]},
+  {g:'Cardio', name:'Sprint intervals', type:'cardio', duration:20, distance:3, ex:[],
+    notes:'Warm up, then 10 × 30 seconds hard with 90 seconds walking.'},
   {g:'Cardio', name:'Long walk', type:'cardio', duration:60, distance:5, ex:[]},
   {g:'Cardio', name:'Bike ride', type:'cardio', duration:45, distance:15, ex:[]},
+  {g:'Cardio', name:'Zone 2 ride', type:'cardio', duration:90, distance:35, ex:[],
+    notes:'Steady and easy enough to hold a conversation. The boring one that works.'},
+  {g:'Cardio', name:'HIIT bike', type:'cardio', duration:25, distance:10, ex:[],
+    notes:'5 minutes warm-up, then 8 × 20 seconds all-out with 100 seconds easy.'},
+  {g:'Cardio', name:'Rowing 2 km', type:'cardio', duration:10, distance:2, ex:[]},
+  {g:'Cardio', name:'Swim 1 km', type:'cardio', duration:30, distance:1, ex:[]},
+  {g:'Cardio', name:'Stair climber', type:'other', duration:25, ex:[]}
 ];
 const PRESET_GROUPS=PRESETS.reduce((acc,p)=>{ if(acc.indexOf(p.g)<0) acc.push(p.g); return acc; },[]);
 
@@ -1334,13 +1477,14 @@ function offProduct(p){
     p:prot,c:carb,f:fat,barcode:String(p.code||'')};
 }
 /* A redraw wipes the search box, so put the caret back where it was. */
-function redrawSearchKeepingFocus(){
-  const before=$('#sheet').querySelector('[data-lib="search"]');
+function redrawSearchKeepingFocus(sel){
+  sel=sel||'[data-lib="search"]';
+  const before=$('#sheet').querySelector(sel);
   const pos=before?before.selectionStart:null;
   const had=before&&document.activeElement===before;
   redrawSheet();
   if(!had) return;
-  const after=$('#sheet').querySelector('[data-lib="search"]');
+  const after=$('#sheet').querySelector(sel);
   if(after){ after.focus(); const at=pos==null?after.value.length:pos; after.setSelectionRange(at,at); }
 }
 
@@ -1553,22 +1697,41 @@ function renderRoutines(){
       '<div>Create one here, or tick “Save as routine” when you log a workout.</div></div>');
 }
 /* ---------- ready-made routine browser ---------- */
-let presetIndex=null;
-function openPresets(){ pushSheet({render:renderPresets}); }
+let presetIndex=null, presetQ='';
+function openPresets(){ presetQ=''; pushSheet({kind:'presets',render:renderPresets}); }
+/* matches the routine name, its group, or any exercise in it — so "squat"
+   surfaces every session that contains one */
+function presetMatches(p,q){
+  if(!q) return true;
+  if(p.name.toLowerCase().indexOf(q)>=0) return true;
+  if(p.g.toLowerCase().indexOf(q)>=0) return true;
+  if(typeOf(p.type).t.toLowerCase().indexOf(q)>=0) return true;
+  const ex=p.ex||[];
+  for(let i=0;i<ex.length;i++) if(ex[i][0].toLowerCase().indexOf(q)>=0) return true;
+  return false;
+}
 function renderPresets(){
+  const q=presetQ.trim().toLowerCase();
+  const hits=PRESETS.map((p,i)=>({p:p,i:i})).filter(x=>presetMatches(x.p,q));
+  const body=PRESET_GROUPS.map(g=>{
+    const inGroup=hits.filter(x=>x.p.g===g);
+    if(!inGroup.length) return '';
+    return '<div class="card" style="margin:0 0 10px"><h2>'+esc(g)+'</h2>'+
+      inGroup.map(x=>
+        '<div class="row tapp" data-act="preset" data-i="'+x.i+'">'+
+          '<div class="ico">'+icon(typeOf(x.p.type).ic,17)+'</div>'+
+          '<div class="g"><div class="t">'+esc(x.p.name)+'</div><div class="s">'+presetSummary(x.p)+'</div></div>'+
+          '<span class="cv">'+icon('chevR',15)+'</span></div>').join('')+
+      '</div>';
+  }).join('');
   return sheetHead('Ready-made routines',true)+
-    '<div class="hint">Pick one to copy into your routines. Weights start at 0 — fill them in '+
-      'the first time you run it and they stay put.</div>'+
+    '<div class="hint">'+PRESETS.length+' routines. Pick one to copy into your own — weights start '+
+      'at 0, you fill them in the first time and they stay put.</div>'+
+    '<div class="srch"><input class="inp" data-ps="search" value="'+esc(presetQ)+'" '+
+      'placeholder="Search routines or exercises" autocomplete="off"></div>'+
     '<button class="btn" data-act="newroutine" style="margin-bottom:14px">'+icon('plus',16)+
       'Build your own routine</button>'+
-    PRESET_GROUPS.map(g=>
-      '<div class="card" style="margin:0 0 10px"><h2>'+esc(g)+'</h2>'+
-      PRESETS.map((p,i)=>p.g!==g?'':
-        '<div class="row tapp" data-act="preset" data-i="'+i+'">'+
-          '<div class="ico">'+icon(typeOf(p.type).ic,17)+'</div>'+
-          '<div class="g"><div class="t">'+esc(p.name)+'</div><div class="s">'+presetSummary(p)+'</div></div>'+
-          '<span class="cv">'+icon('chevR',15)+'</span></div>').join('')+
-      '</div>').join('');
+    (body||'<div class="empty">Nothing matches “'+esc(presetQ.trim())+'”.</div>');
 }
 function presetSummary(p){
   if(p.type==='strength') return p.ex.length+' exercise'+(p.ex.length===1?'':'s');
@@ -2458,6 +2621,11 @@ document.addEventListener('input',e=>{
     if(k==='note') wDraft.note=v;
     else if(k==='when') wDraft.ts=fromLocalInput(v);
     else wDraft.val=num(v);
+    return;
+  }
+  if(t.dataset.ps==='search'){
+    presetQ=v;
+    redrawSearchKeepingFocus('[data-ps="search"]');
     return;
   }
   if(t.dataset.lib==='search'){
