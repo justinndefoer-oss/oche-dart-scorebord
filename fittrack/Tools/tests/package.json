@@ -1,0 +1,5 @@
+{
+  "type": "commonjs",
+  "private": true,
+  "description": "The repo root sets type:module for the Capacitor build; these tests are CommonJS."
+}

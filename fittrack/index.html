@@ -220,6 +220,12 @@ textarea.inp{resize:none;min-height:64px;line-height:1.4;}
 .tile .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.3px;}
 .tile .c{font-size:10.5px;color:var(--dim);margin-top:2px;}
 
+/* ===== last-time hint in the workout editor ===== */
+.lasttime{font-size:11px;color:var(--txt2);line-height:1.5;margin:-2px 0 8px;padding:6px 8px;
+  background:rgba(var(--accent-rgb),.07);border-radius:8px;}
+.lasttime .ic-svg{color:var(--accent);vertical-align:-1px;}
+.lasttime .dim{color:var(--dim);}
+
 /* ===== weekly plan ===== */
 .dow{width:34px;font-size:12px;font-weight:700;color:var(--txt2);flex:none;}
 .row.today .dow{color:var(--accent);}
@@ -288,6 +294,7 @@ textarea.inp{resize:none;min-height:64px;line-height:1.4;}
     <section class="screen" id="screen-train">
       <div class="shead">
         <h1>Workouts</h1>
+        <button class="hbtn" data-act="records" aria-label="Records"></button>
         <button class="hbtn" data-act="routines" aria-label="Routines"></button>
         <button class="hbtn pri" data-act="addworkout" aria-label="Log workout"></button>
       </div>
@@ -361,6 +368,8 @@ const ICONS={
   trend:'<path d="M22 7 13.5 15.5 8.5 10.5 2 17"/><path d="M16 7h6v6"/>',
   scan:'<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
   barcode:'<path d="M3 5v14"/><path d="M7 5v14"/><path d="M11 5v9"/><path d="M15 5v14"/><path d="M19 5v9"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
+  trophy:'<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>',
 };
 function icon(n,size,sw){size=size||20;return '<svg class="ic-svg" viewBox="0 0 24 24" width="'+size+'" height="'+size+
   '" fill="none" stroke="currentColor" stroke-width="'+(sw||2)+'" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
@@ -438,6 +447,8 @@ const stoW=v=>wUnit()==='lb'?v/LB_PER_KG:v;
 const dispD=km=>dUnit()==='mi'?km*MI_PER_KM:km;
 const stoD=v=>dUnit()==='mi'?v/MI_PER_KM:v;
 const showW=(kg,d)=>fmt(dispW(kg),d==null?1:d)+' '+wUnit();
+/* rounded for text inputs: 60 kg in pounds is 132.3, not 132.277357308 */
+const dispWr=kg=>Math.round(dispW(kg)*10)/10;
 const showD=(km,d)=>fmt(dispD(km),d==null?2:d)+' '+dUnit();
 
 /* ---------- domain ---------- */
@@ -972,13 +983,15 @@ function weeklyBarsHTML(){
   '</div>';
 }
 /* weight line chart — Y axis fits the data, never zero-based */
-function weightChartHTML(pts,h){
+function weightChartHTML(pts,h,showGoal){
   h=h||120;
+  if(showGoal===undefined) showGoal=true;
   if(pts.length<2) return '<div class="empty">'+icon('trend',26)+'<div>Log at least two weigh-ins to see a trend.</div></div>';
   const W=320,H=h,padL=34,padR=8,padT=10,padB=18;
   const vals=pts.map(p=>dispW(p.kg));
   let lo=Math.min.apply(null,vals),hi=Math.max.apply(null,vals);
-  const goal=S().weightGoalKg>0?dispW(S().weightGoalKg):null;
+  /* the body-weight goal line is meaningless on a per-exercise chart */
+  const goal=(showGoal&&S().weightGoalKg>0)?dispW(S().weightGoalKg):null;
   const pad=Math.max((hi-lo)*0.2,0.5);
   lo-=pad; hi+=pad;
   if(goal!=null){ lo=Math.min(lo,goal-pad/2); hi=Math.max(hi,goal+pad/2); }
@@ -1557,6 +1570,153 @@ function renderFoodEdit(){
 }
 
 /* ---------- workouts ---------- */
+/* ---------- exercise history ----------
+   A routine stores the scheme, not your loads. Carrying the weights forward from
+   the last time you did the exercise is the whole point of a progression
+   programme — otherwise every 5×5 session starts at zero and you have to go
+   digging through history to remember what was on the bar. */
+function exKey(name){ return String(name||'').trim().toLowerCase(); }
+
+/* Most recent logged session containing this exercise. */
+function lastSetsFor(name,excludeWorkoutId){
+  const key=exKey(name);
+  if(!key) return null;
+  let best=null;
+  for(let i=0;i<STATE.workouts.length;i++){
+    const w=STATE.workouts[i];
+    if(excludeWorkoutId&&w.id===excludeWorkoutId) continue;
+    const list=w.exercises||[];
+    for(let j=0;j<list.length;j++){
+      if(exKey(list[j].name)!==key) continue;
+      if(!best||w.ts>best.ts) best={ts:w.ts,day:w.day,sets:(list[j].sets||[]).slice()};
+    }
+  }
+  return best&&best.sets.length?best:null;
+}
+/* Heaviest set ever logged; ties broken by reps. Weight is in kg, as stored. */
+function bestSetFor(name){
+  const key=exKey(name);
+  if(!key) return null;
+  let best=null;
+  STATE.workouts.forEach(w=>{
+    (w.exercises||[]).forEach(e=>{
+      if(exKey(e.name)!==key) return;
+      (e.sets||[]).forEach(s=>{
+        if(!(s.weight>0)&&!(s.reps>0)) return;
+        if(!best||s.weight>best.weight||(s.weight===best.weight&&s.reps>best.reps)){
+          best={weight:s.weight,reps:s.reps,ts:w.ts,day:w.day};
+        }
+      });
+    });
+  });
+  return best;
+}
+/* Every exercise you have ever logged, most recently used first. */
+function loggedExercises(){
+  const map={};
+  STATE.workouts.forEach(w=>{
+    (w.exercises||[]).forEach(e=>{
+      const key=exKey(e.name);
+      if(!key) return;
+      const vol=(e.sets||[]).reduce((n,s)=>n+s.reps*s.weight,0);
+      if(!map[key]) map[key]={key:key,name:e.name,lastTs:0,sessions:0,volume:0};
+      map[key].sessions++;
+      map[key].volume+=vol;
+      if(w.ts>map[key].lastTs){ map[key].lastTs=w.ts; map[key].name=e.name; }
+    });
+  });
+  return Object.keys(map).map(k=>map[k]).sort((a,b)=>b.lastTs-a.lastTs);
+}
+/* Build a draft's sets for one exercise, taking the scheme from the routine and
+   the load from the last time it was done. */
+function setsFromHistory(name,count,reps,routineWeightKg){
+  const hist=lastSetsFor(name);
+  const out=[];
+  for(let i=0;i<count;i++){
+    let kg=routineWeightKg||0;
+    if(hist){
+      const prev=hist.sets[Math.min(i,hist.sets.length-1)];
+      if(prev&&prev.weight>0) kg=prev.weight;
+    }
+    out.push({reps:reps,weight:dispWr(kg),done:false});
+  }
+  return out;
+}
+
+/* "Last time: 5 × 60 kg, 5 × 62.5 kg · Tue 4 Aug" under an exercise, so you know
+   what to put on the bar without leaving the screen. */
+function lastTimeHint(name,excludeWorkoutId){
+  const hist=lastSetsFor(name,excludeWorkoutId);
+  if(!hist) return '';
+  const shown=hist.sets.slice(0,4).map(s=>s.reps+' × '+showW(s.weight)).join(', ');
+  const more=hist.sets.length>4?' …':'';
+  const best=bestSetFor(name);
+  return '<div class="lasttime">'+icon('clock',11)+' Last time: '+esc(shown)+more+
+    ' <span class="dim">· '+dayLabel(hist.day)+'</span>'+
+    (best&&best.weight>0?'<br>'+icon('trophy',11)+' Best: '+best.reps+' × '+showW(best.weight):'')+
+    '</div>';
+}
+
+/* ---------- records ---------- */
+let recordEx=null;
+function openRecords(){ pushSheet({render:renderRecords}); }
+function renderRecords(){
+  const list=loggedExercises();
+  if(!list.length){
+    return sheetHead('Records')+
+      '<div class="empty">'+icon('trophy',26)+'<div>Nothing logged yet.</div>'+
+      '<div>Log a few strength sessions and your best sets show up here.</div></div>';
+  }
+  return sheetHead('Records')+
+    '<div class="hint">Every exercise you have logged, most recent first. Tap one for its history.</div>'+
+    '<div class="card" style="margin:0">'+list.map(x=>{
+      const best=bestSetFor(x.name);
+      return '<div class="row tapp" data-act="exhist" data-k="'+esc(x.key)+'">'+
+        '<div class="g"><div class="t">'+esc(x.name)+'</div>'+
+        '<div class="s">'+x.sessions+' session'+(x.sessions===1?'':'s')+' · last '+dayLabel(dayKey(x.lastTs))+'</div></div>'+
+        (best&&best.weight>0
+          ? '<div class="v">'+best.reps+' × '+showW(best.weight)+'</div>'
+          : '<div class="s">—</div>')+
+        '</div>';
+    }).join('')+'</div>';
+}
+/* Per-exercise history: the top set of each session, newest first, plus a chart. */
+function exerciseSessions(key){
+  const out=[];
+  STATE.workouts.forEach(w=>{
+    (w.exercises||[]).forEach(e=>{
+      if(exKey(e.name)!==key) return;
+      const sets=(e.sets||[]);
+      if(!sets.length) return;
+      let top=sets[0];
+      sets.forEach(s=>{ if(s.weight>top.weight||(s.weight===top.weight&&s.reps>top.reps)) top=s; });
+      const volume=sets.reduce((n,s)=>n+s.reps*s.weight,0);
+      out.push({ts:w.ts,day:w.day,name:e.name,sets:sets,top:top,volume:volume});
+    });
+  });
+  return out.sort((a,b)=>b.ts-a.ts);
+}
+function renderExerciseHistory(){
+  const sessions=exerciseSessions(recordEx);
+  if(!sessions.length) return sheetHead('History',true)+'<div class="empty">Nothing logged.</div>';
+  const name=sessions[0].name;
+  const best=bestSetFor(name);
+  const pts=sessions.slice().reverse().map(s=>({day:s.day,kg:s.top.weight}));
+  return sheetHead(name,true)+
+    '<div class="tiles" style="margin-bottom:12px">'+
+      tile('Best set','trophy',best&&best.weight>0?best.reps+' × '+showW(best.weight):'—',
+        best?dayLabel(best.day):'')+
+      tile('Sessions','calendar',String(sessions.length),'logged')+
+    '</div>'+
+    (pts.length>1?'<div class="card" style="margin:0 0 12px"><h2>'+icon('trend',13)+'Top set</h2>'+
+      weightChartHTML(pts,130,false)+'</div>':'')+
+    '<div class="card" style="margin:0"><h2>'+icon('list',13)+'Every session</h2>'+
+      sessions.map(s=>'<div class="row"><div class="g"><div class="t">'+dayLabel(s.day)+'</div>'+
+        '<div class="s">'+s.sets.map(x=>x.reps+' × '+showW(x.weight)).join(', ')+'</div></div>'+
+        '<div class="v">'+showW(s.volume,0)+'</div></div>').join('')+
+    '</div>';
+}
+
 let woDraft=null;
 function openWorkoutSheet(opts){
   opts=opts||{};
@@ -1566,14 +1726,14 @@ function openWorkoutSheet(opts){
     woDraft=JSON.parse(JSON.stringify(w));
     woDraft.editing=true;
     woDraft.distance=dispD(w.distance||0);
-    (woDraft.exercises||[]).forEach(e=>(e.sets||[]).forEach(s=>{ s.weight=dispW(s.weight||0); }));
+    (woDraft.exercises||[]).forEach(e=>(e.sets||[]).forEach(s=>{ s.weight=dispWr(s.weight||0); }));
     woDraft.saveRoutine=false;
   }else if(opts.routine){
     const r=opts.routine;
     woDraft={editing:false,id:null,name:r.name,type:r.type,ts:Date.now(),notes:r.notes||'',
       duration:r.duration||0,distance:dispD(r.distance||0),burned:0,saveRoutine:false,
       exercises:(r.exercises||[]).map(e=>({name:e.name,
-        sets:Array.from({length:Math.max(e.sets||1,1)},()=>({reps:e.reps||10,weight:dispW(e.weight||0),done:false}))}))};
+        sets:setsFromHistory(e.name,Math.max(e.sets||1,1),e.reps||10,e.weight||0)}))};
     r.lastUsed=Date.now(); save();
   }else{
     woDraft={editing:false,id:null,name:'',type:'strength',ts:Date.now(),notes:'',
@@ -1593,9 +1753,10 @@ function renderWorkoutSheet(){
     (strength
       ? '<div class="fld"><label>Exercises</label>'+
           (d.exercises||[]).map((e,i)=>
-            '<div class="ex"><div class="eh">'+
+            '<div class="ex" data-ex="'+i+'"><div class="eh">'+
               '<input class="inp" data-w="exname" data-i="'+i+'" value="'+esc(e.name)+'" placeholder="Exercise '+(i+1)+'">'+
               '<button class="del" data-act="delex" data-i="'+i+'">'+icon('trash',15)+'</button></div>'+
+            lastTimeHint(e.name,d.editing?d.id:null)+
             (e.sets||[]).map((s,j)=>
               '<div class="setr"><span class="n">'+(j+1)+'</span>'+
                 '<input class="inp" type="text" inputmode="numeric" data-w="reps" data-i="'+i+'" data-j="'+j+'" value="'+(s.reps||'')+'" placeholder="0">'+
@@ -1788,7 +1949,7 @@ function openRoutineEdit(id){
     rouDraft=JSON.parse(JSON.stringify(r));
     rouDraft.editing=true;
     rouDraft.distance=dispD(r.distance||0);
-    (rouDraft.exercises||[]).forEach(e=>{ e.weight=dispW(e.weight||0); });
+    (rouDraft.exercises||[]).forEach(e=>{ e.weight=dispWr(e.weight||0); });
   }else{
     rouDraft={editing:false,id:null,name:'',type:'strength',notes:'',duration:0,distance:0,
       exercises:[{name:'',sets:3,reps:10,weight:0}]};
@@ -2464,6 +2625,8 @@ document.addEventListener('click',e=>{
 
     /* routines */
     case 'routines': openRoutines(); break;
+    case 'records': openRecords(); break;
+    case 'exhist': recordEx=el.dataset.k; pushSheet({render:renderExerciseHistory}); break;
     case 'newroutine': openRoutineEdit(null); break;
     case 'editroutine': openRoutineEdit(id); break;
     case 'rtype': rouDraft.type=el.dataset.t; redrawSheet(); break;
@@ -2642,6 +2805,42 @@ document.addEventListener('input',e=>{
 document.addEventListener('change',e=>{
   if(e.target.dataset.set||e.target.dataset.setw){ if(activeTab==='settings') renderSettings(); }
 },true);
+/* Naming an exercise by hand should behave like picking it from a routine:
+   carry last session's load in. Only fills sets that are still empty. */
+document.addEventListener('blur',e=>{
+  const t=e.target;
+  if(!t||t.dataset.w!=='exname'||!woDraft) return;
+  const i=+t.dataset.i;
+  const ex=woDraft.exercises[i];
+  if(!ex||!exKey(ex.name)) return;
+  const hist=lastSetsFor(ex.name,woDraft.editing?woDraft.id:null);
+  let filled=false;
+  if(hist){
+    ex.sets.forEach((s,j)=>{
+      if(s.weight>0) return;
+      const prev=hist.sets[Math.min(j,hist.sets.length-1)];
+      if(prev&&prev.weight>0){ s.weight=dispWr(prev.weight); if(!s.reps) s.reps=prev.reps; filled=true; }
+    });
+  }
+  /* Update the fields in place. A full redraw here would rebuild the form while
+     the user is on their way into the next input — the tap lands on a detached
+     element and the keyboard closes. */
+  const box=$('#sheet').querySelector('.ex[data-ex="'+i+'"]');
+  if(!box) return;
+  if(filled){
+    ex.sets.forEach((st,j)=>{
+      const wEl=box.querySelector('[data-w="weight"][data-i="'+i+'"][data-j="'+j+'"]');
+      if(wEl) wEl.value=st.weight||'';
+      const rEl=box.querySelector('[data-w="reps"][data-i="'+i+'"][data-j="'+j+'"]');
+      if(rEl) rEl.value=st.reps||'';
+    });
+  }
+  const html=lastTimeHint(ex.name,woDraft.editing?woDraft.id:null);
+  const existing=box.querySelector('.lasttime');
+  if(existing) existing.outerHTML=html;
+  else if(html){ const head=box.querySelector('.eh'); if(head) head.insertAdjacentHTML('afterend',html); }
+  if(filled) toast('Filled in from last time');
+},true);
 
 /* --- backup --- */
 function exportData(){
@@ -2677,6 +2876,7 @@ document.querySelectorAll('#tabbar [data-ic]').forEach(b=>{ b.querySelector('.ti
 $('#screen-food .shead [data-act="library"]').innerHTML=icon('book',18);
 $('#screen-food .shead [data-act="scanfoodtab"]').innerHTML=icon('scan',18);
 $('#screen-food .shead [data-act="addfood"]').innerHTML=icon('plus',18);
+$('#screen-train .shead [data-act="records"]').innerHTML=icon('trophy',18);
 $('#screen-train .shead [data-act="routines"]').innerHTML=icon('repeat',18);
 $('#screen-train .shead [data-act="addworkout"]').innerHTML=icon('plus',18);
 $('#screen-weight .shead [data-act="addweight"]').innerHTML=icon('plus',18);

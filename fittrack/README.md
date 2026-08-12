@@ -48,6 +48,14 @@ Open Food Facts over the network, and failing both you fill it in once and the b
 remembered against that food forever. There is also a field for typing the number when a
 label is too crumpled to read.
 
+**Progress carried forward** — starting a routine fills each exercise's weights in from the
+last time you did it, and the editor shows "Last time: 5 × 60 kg" and your best set under
+each exercise. A progression programme is unusable otherwise. Typing an exercise name by
+hand does the same, and never overwrites a weight you already entered.
+
+**Records** — every exercise you have logged, with its best set, session count and a chart
+of the top set over time.
+
 **Weight** — log weigh-ins with an optional note; line chart over 30d / 90d / 1y / all,
 with an optional goal line.
 
@@ -163,8 +171,8 @@ Getting the camera *back* turned out to be harder than getting it the first time
   the camera; that gets one automatic retry after 450ms before the user is told anything,
   and then a manual "try again" button rather than a dead end.
 
-`Tools/` holds no test runner, but the camera path was driven end to end during development
-by replacing `getUserMedia` with `canvas.captureStream()` on a canvas with a barcode painted
+The camera path is driven end to end by `Tools/tests/camera.js`,
+which replaces `getUserMedia` with `canvas.captureStream()` on a canvas with a barcode painted
 on it — that covers the video element, the cover-crop, both sweeps and the decode, plus
 scanning several times in a row. Worth knowing: Chromium releases a camera on `track.stop()`
 promptly enough that it does **not** reproduce the iOS re-acquire failure, so that specific
@@ -174,8 +182,7 @@ Three things guard against a misread logging the wrong food: the EAN checksum, a
 width and quiet-zone constraints tuned in `BC`, and a rule that the same code must be read
 twice before it is accepted.
 
-Those `BC` constants were fitted, not guessed. `Tools/` has no test runner, but the suite
-used during development encoded known barcodes, rendered them as scanlines with blur,
+Those `BC` constants were fitted, not guessed. `Tools/tests/` holds the suite. It encoded known barcodes, rendered them as scanlines with blur,
 noise, low contrast, tilt and varying scale, and decoded them back; the constants are the
 loosest values that still gave **zero** reads across 10,000 random-noise lines, 4,000
 striped/gradient/text-like patterns, and 200 deliberately corrupted barcodes. Loosening
@@ -224,12 +231,16 @@ builds by itself.
 
 ## Testing changes
 
-No build step, so open `index.html` directly in a browser. Before shipping:
+No build step, so open `index.html` directly in a browser. There is a test suite:
 
-1. Extract the `<script>` block and run `node --check` on it to catch syntax errors.
-2. Drive it with Playwright + the preinstalled Chromium (viewport 393×852,
-   `deviceScaleFactor:3`, `isMobile:true`, `hasTouch:true`) and screenshot the five tabs
-   plus the sheets. Watch the console — a thrown error inside a render function leaves a
-   blank screen.
-3. Chromium will not reproduce the iOS standalone viewport quirks. Confirm those on the
-   phone.
+```bash
+cd fittrack/Tools/tests && ./run.sh
+```
+
+Eleven suites, around 200 checks, covering the barcode decoder, the camera path, food
+logging and search, routines, the weekly plan and exercise history. See
+`Tools/tests/README.md` for what each one covers and the two habits worth keeping when
+adding more.
+
+Chromium will not reproduce the iOS standalone viewport quirks, or the camera re-acquire
+behaviour. Confirm those on the phone.
