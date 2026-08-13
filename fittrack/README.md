@@ -65,11 +65,16 @@ today's workouts, the last 7 days of calories as a bar chart, and the 30-day wei
 **Settings** — calorie goal, optional macro goals, goal weight, kg/lb, km/mi, and
 JSON export/import.
 
+See **[ROADMAP.md](ROADMAP.md)** for where this sits against MyFitnessPal, Strong and
+MacroFactor, what a PWA can and cannot do on an iPhone, and what to build next.
+
 ## Files
 
 | File | Purpose |
 | --- | --- |
 | `index.html` | The entire app — markup, styles and logic |
+| `ROADMAP.md` | Competitive analysis, PWA capability limits, prioritised plan |
+| `Tools/tests/` | Test suite — `./run.sh` |
 | `sw.js` | Service worker: network-first, cache fallback |
 | `manifest.json` | PWA manifest (standalone, portrait) |
 | `icon-180/192/512.png` | App icons |
