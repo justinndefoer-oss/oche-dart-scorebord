@@ -51,6 +51,23 @@ State (the parsed roster, position rows, and every placement) is kept in `localS
 a refresh doesn't lose your work. There's also a manual "+ Add person" form for anyone the
 PDF parser missed or garbled, and a Print button for a paper copy of the current day.
 
+## Hours are fixed, by construction
+
+A person's times come from the roster and cannot be changed by placing them. The drop
+x-coordinate is never read: `assignShift` records only which position row a shift went to,
+and the block's position is computed from the shift's own start and end. Dropping the same
+person at the far left, middle or far right of a row produces an identical block. While
+dragging, a dashed preview snaps to those rostered hours wherever the cursor is, so the rule
+is visible rather than something the user has to trust.
+
+The one deliberate exception is the **+ Add person** form, which exists for people missing
+from the PDF and therefore has to accept typed times. Using it for a name already in the
+roster warns, since that is nearly always a mistake.
+
+Note for future edits: the drop preview's class is `.drop-preview`, *not* `.ghost` —
+`.ghost` is already the header's borderless-button style, and reusing it made those buttons
+`position:absolute` and stacked them on top of the title.
+
 ## Import check
 
 A silent mis-parse is the real risk here: a dropped shift means somebody quietly never
