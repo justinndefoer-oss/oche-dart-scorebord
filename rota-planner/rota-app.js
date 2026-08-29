@@ -16,7 +16,13 @@
 
   let armedChipId = null;   // click-to-place selection (not persisted)
   let draggingShiftId = null; // shift currently being dragged, for the drop preview
-  let posCounter = (STATE.positions || []).reduce((m, p) => Math.max(m, idNum(p.id)), 0);
+  // Rows live inside named groups (one per fitting room), so ids are counted across all of them.
+  function allPositions() {
+    return (STATE.groups || []).reduce((acc, g) => acc.concat(g.positions || []), []);
+  }
+  let posCounter = allPositions().concat(STATE.positions || [])
+    .reduce((m, p) => Math.max(m, idNum(p.id)), 0);
+  let groupCounter = (STATE.groups || []).reduce((m, g) => Math.max(m, idNum(g.id)), 0);
   let manualCounter = (STATE.manualEntries || []).reduce((m, e) => Math.max(m, idNum(e.id)), 0);
 
   function idNum(id) {
@@ -119,13 +125,43 @@
     }
   }
 
-  function ensureDefaultPositions() {
-    if (STATE.positions.length === 0) {
-      for (let i = 1; i <= 6; i++) {
-        posCounter++;
-        STATE.positions.push({ id: `pos-${posCounter}`, label: `Position ${i}` });
-      }
+  // The fitting rooms this rota covers. All names are editable, and groups can be
+  // added or removed, so this is only a starting point.
+  const DEFAULT_GROUPS = [
+    "Fitting Room Lower Ground",
+    "Fitting Room 1st Floor",
+    "Fitting Room 2nd Floor",
+    "Fitting Room 5th Floor",
+  ];
+
+  function newGroup(label, positionCount) {
+    groupCounter++;
+    const positions = [];
+    for (let i = 1; i <= positionCount; i++) {
+      posCounter++;
+      positions.push({ id: `pos-${posCounter}`, label: `Position ${i}` });
     }
+    return { id: `grp-${groupCounter}`, label, positions };
+  }
+
+  function ensureDefaultPositions() {
+    let changed = false;
+    if (!STATE.groups) { STATE.groups = []; changed = true; }
+    // Saves written before grouping existed keep their rows and their assignments:
+    // the position ids are unchanged, so nothing placed is lost.
+    if (STATE.positions && STATE.positions.length) {
+      groupCounter++;
+      STATE.groups.push({ id: `grp-${groupCounter}`, label: "Fitting Room", positions: STATE.positions });
+      delete STATE.positions;
+      changed = true;
+    }
+    if (STATE.groups.length === 0) {
+      STATE.groups = DEFAULT_GROUPS.map((label) => newGroup(label, 4));
+      changed = true;
+    }
+    // Persist the migration/seed right away, so the stored shape matches what is on
+    // screen even if the user changes nothing this session.
+    if (changed) saveState();
   }
 
   // ------------------------------- rendering -------------------------------
@@ -257,7 +293,7 @@
       ticks.push(`<div class="tick" style="left:${pct}%">${h}:00</div>`);
     }
 
-    const rows = STATE.positions.map((pos) => {
+    const rowHtml = (pos) => {
       const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
       const items = ids.map((id) => dayShifts.find((s) => s.id === id)).filter(Boolean);
       items.sort((a, b) => parseTime(a.start) - parseTime(b.start));
@@ -274,14 +310,26 @@
         </div>
         <div class="track" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
       </div>`;
-    }).join("");
+    };
+
+    const rows = STATE.groups.map((g) => `
+      <div class="group">
+        <div class="group-head">
+          <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
+                 title="Rename this fitting room">
+          <span style="flex:1"></span>
+          <button class="ghost" data-add-pos="${escapeHtml(g.id)}" style="padding:3px 8px;font-size:12px">+ Position</button>
+          <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
+        </div>
+        ${g.positions.map(rowHtml).join("")}
+      </div>`).join("");
 
     wrap.innerHTML = `
       <div class="grid-scroll">
         <div class="grid-inner">
           <div class="ruler"><div class="ruler-label"></div><div class="ruler-scale">${ticks.join("")}</div></div>
           <div class="rows">${rows}</div>
-          <div class="addrow"><button id="btnAddPos">+ Add position</button></div>
+          <div class="addrow"><button id="btnAddGroup">+ Add fitting room</button></div>
         </div>
       </div>`;
     return wrap;
@@ -461,7 +509,7 @@
 
     appEl.querySelectorAll("[data-pos-label]").forEach((input) => {
       input.addEventListener("change", () => {
-        const pos = STATE.positions.find((p) => p.id === input.dataset.posLabel);
+        const pos = allPositions().find((p) => p.id === input.dataset.posLabel);
         if (pos) { pos.label = input.value.trim() || pos.label; saveState(); }
       });
       input.addEventListener("click", (e) => e.stopPropagation());
@@ -471,17 +519,51 @@
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
         const posId = btn.dataset.delPos;
-        STATE.positions = STATE.positions.filter((p) => p.id !== posId);
+        for (const g of STATE.groups) g.positions = g.positions.filter((p) => p.id !== posId);
         for (const d in STATE.assignments) delete STATE.assignments[d][posId];
         saveState();
         render();
       });
     });
 
-    const addBtn = document.getElementById("btnAddPos");
-    if (addBtn) addBtn.addEventListener("click", () => {
-      posCounter++;
-      STATE.positions.push({ id: `pos-${posCounter}`, label: `Position ${STATE.positions.length + 1}` });
+    appEl.querySelectorAll("[data-group-label]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const g = STATE.groups.find((x) => x.id === input.dataset.groupLabel);
+        if (g) { g.label = input.value.trim() || g.label; saveState(); }
+      });
+      input.addEventListener("click", (e) => e.stopPropagation());
+    });
+
+    appEl.querySelectorAll("[data-add-pos]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const g = STATE.groups.find((x) => x.id === btn.dataset.addPos);
+        if (!g) return;
+        posCounter++;
+        g.positions.push({ id: `pos-${posCounter}`, label: `Position ${g.positions.length + 1}` });
+        saveState();
+        render();
+      });
+    });
+
+    appEl.querySelectorAll("[data-del-group]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const g = STATE.groups.find((x) => x.id === btn.dataset.delGroup);
+        if (!g) return;
+        // Drop the assignments belonging to this room's rows, so nothing is orphaned.
+        for (const pos of g.positions) {
+          for (const d in STATE.assignments) delete STATE.assignments[d][pos.id];
+        }
+        STATE.groups = STATE.groups.filter((x) => x.id !== g.id);
+        saveState();
+        render();
+      });
+    });
+
+    const addGroupBtn = document.getElementById("btnAddGroup");
+    if (addGroupBtn) addGroupBtn.addEventListener("click", () => {
+      STATE.groups.push(newGroup(`Fitting Room ${STATE.groups.length + 1}`, 4));
       saveState();
       render();
     });
