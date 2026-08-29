@@ -41,11 +41,16 @@ on the day(s) and at the hours their contract row actually shows — there is no
 someone on a day they don't work, or edit their hours, by design.
 
 For each day (a fixed 07:00–22:30 window) you drag — or tap, then tap a row — chips onto
-freeform "position" rows to build the rota. A position row can hold more than one person
-across the day (e.g. a till covered by two people back to back); if two placements overlap
-in time they render side by side and turn red so it's obvious. Rows are freeform on purpose:
-this version doesn't know about departments or floors, just "Position 1, 2, 3…", renamed to
-whatever you want.
+position rows to build the rota. Rows are grouped under a named header per fitting room
+(Lower Ground, 1st, 2nd and 5th floor by default, matching the fitting rooms in the export),
+with numbered positions beneath each. Every name is editable, rooms and positions can be
+added or removed, and deleting a room clears the placements on its rows rather than orphaning
+them. A row can hold more than one person across the day; if two placements overlap in time
+they stack into separate lanes and turn red.
+
+Saves written before rooms existed are migrated on load: the flat position list becomes a
+single "Fitting Room" group, keeping every row name, id and placement, and the migrated shape
+is written back immediately so the store matches the screen.
 
 State (the parsed roster, position rows, and every placement) is kept in `localStorage`, so
 a refresh doesn't lose your work. There's also a manual "+ Add person" form for anyone the
