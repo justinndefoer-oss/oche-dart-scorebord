@@ -557,8 +557,20 @@
     "Fitting Room Lower Ground",
     "Fitting Room 1st Floor",
     "Fitting Room 2nd Floor",
+    "Fitting Room 3rd Floor",
     "Fitting Room 5th Floor",
   ];
+  // Bumped when a room is added to the list above, with the list as it stood at each
+  // version. A save made before the bump is topped up with exactly the rooms added
+  // since — the delta, not a name match, because a room the user renamed would fail a
+  // name match and be added a second time. Guarded by the version, so a room deleted
+  // afterwards stays deleted.
+  const ROOMS_SEED_VERSION = 2;
+  const ROOMS_SEEDED_AT = {
+    1: ["Fitting Room Lower Ground", "Fitting Room 1st Floor",
+        "Fitting Room 2nd Floor", "Fitting Room 5th Floor"],
+    2: DEFAULT_GROUPS,
+  };
 
   function newGroup(label, positionCount) {
     groupCounter++;
@@ -583,6 +595,17 @@
     }
     if (STATE.groups.length === 0) {
       STATE.groups = DEFAULT_GROUPS.map((label) => newGroup(label, 4));
+      changed = true;
+    } else if ((STATE.roomsSeedVersion || 1) < ROOMS_SEED_VERSION) {
+      const alreadySeeded = ROOMS_SEEDED_AT[STATE.roomsSeedVersion || 1] || [];
+      DEFAULT_GROUPS.forEach((label, i) => {
+        if (alreadySeeded.includes(label)) return;
+        STATE.groups.splice(Math.min(i, STATE.groups.length), 0, newGroup(label, 4));
+        changed = true;
+      });
+    }
+    if (STATE.roomsSeedVersion !== ROOMS_SEED_VERSION) {
+      STATE.roomsSeedVersion = ROOMS_SEED_VERSION;
       changed = true;
     }
     // Persist the migration/seed right away, so the stored shape matches what is on

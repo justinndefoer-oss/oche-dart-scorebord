@@ -42,7 +42,7 @@ someone on a day they don't work, or edit their hours, by design.
 
 For each day (a fixed 07:00–22:30 window) you drag — or tap, then tap a row — chips onto
 position rows to build the rota. Rows are grouped under a named header per fitting room
-(Lower Ground, 1st, 2nd and 5th floor by default, matching the fitting rooms in the export),
+(Lower Ground, 1st, 2nd, 3rd and 5th floor by default),
 with numbered positions beneath each. Every name is editable, rooms and positions can be
 added or removed, and deleting a room clears the placements on its rows rather than orphaning
 them. A row can hold more than one person across the day; if two placements overlap in time
@@ -51,6 +51,12 @@ they stack into separate lanes and turn red.
 Saves written before rooms existed are migrated on load: the flat position list becomes a
 single "Fitting Room" group, keeping every row name, id and placement, and the migrated shape
 is written back immediately so the store matches the screen.
+
+When a room is added to the default list, `ROOMS_SEED_VERSION` is bumped and the list as it
+stood at each version recorded in `ROOMS_SEEDED_AT`. An older save is topped up with exactly
+the rooms added since — the delta between versions, deliberately *not* a name match against
+the rooms present, because a room the user has renamed would fail that match and be added a
+second time. The version guard also means a room deleted after the top-up stays deleted.
 
 State (the parsed roster, position rows, and every placement) is kept in `localStorage`, so
 a refresh doesn't lose your work. There's also a manual "+ Add person" form for anyone the
