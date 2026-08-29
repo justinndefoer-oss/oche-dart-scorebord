@@ -444,6 +444,105 @@
     });
   }
 
+  // ------------------------------- import check -------------------------------
+  // The PDF states each person's weekly hours in its Totaal column. That number is
+  // independent of the shift times, so reconciling the two catches a shift (or a
+  // whole person) that failed to parse. Breaks are deducted from the stated total,
+  // never more than an hour per shift, so the stated figure must land in
+  // [sum of shift lengths - 1h per shift, sum of shift lengths].
+
+  function parseHM(s) {
+    const m = /^(\d{1,3}):(\d{2})$/.exec(s || "");
+    return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : null;
+  }
+  function rangeLength(range) {
+    const [a, b] = String(range).split("-");
+    const s = parseHM(a);
+    let e = parseHM(b);
+    if (s == null || e == null) return 0;
+    if (e <= s) e += 1440; // crosses midnight
+    return e - s;
+  }
+  function fmtHours(mins) {
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return m ? `${h}h ${m}m` : `${h}h`;
+  }
+
+  function verifyImport(roster) {
+    const issues = [];
+    const perDay = {};
+    let totalShifts = 0;
+    for (const d of roster.dayLabels) perDay[d] = 0;
+
+    for (const emp of roster.employees) {
+      const shifts = [];
+      for (const d of roster.dayLabels) {
+        const r = (emp.shifts && emp.shifts[d]) || [];
+        perDay[d] += r.length;
+        for (const one of r) shifts.push(one);
+      }
+      totalShifts += shifts.length;
+
+      if (!emp.name || emp.name.replace(/[^A-Za-zÀ-ÿ]/g, "").length < 2) {
+        issues.push({ emp, reason: "the name came out blank or unreadable" });
+        continue;
+      }
+      const stated = parseHM(emp.totaal);
+      if (stated == null) {
+        issues.push({ emp, reason: "no weekly total in the PDF to check against" });
+        continue;
+      }
+      const raw = shifts.reduce((a, r) => a + rangeLength(r), 0);
+      if (shifts.length === 0) {
+        if (stated > 0) {
+          issues.push({ emp, reason: `roster says ${emp.totaal} this week, but no shifts were read` });
+        }
+        continue;
+      }
+      const lo = raw - 60 * shifts.length;
+      if (stated < lo || stated > raw) {
+        issues.push({
+          emp,
+          reason: `hours don't add up — read ${fmtHours(raw)} across ${shifts.length} shift(s), ` +
+                  `roster total says ${emp.totaal}`,
+        });
+      }
+    }
+    return { issues, totalShifts, people: roster.employees.length, perDay };
+  }
+
+  function renderCheckReport() {
+    if (!STATE.roster) return;
+    const r = verifyImport(STATE.roster);
+    const ok = r.issues.length === 0;
+    const dayRows = STATE.roster.dayLabels
+      .map((d) => `<span style="display:inline-block;margin:0 14px 4px 0">${escapeHtml(d)}: <b>${r.perDay[d]}</b></span>`)
+      .join("");
+    parseWarningEl.innerHTML = `
+      <div class="${ok ? "ok-banner" : "warning-banner"}" style="display:block">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <b>${ok ? "✅ Import looks complete" : `⚠️ ${r.issues.length} ${r.issues.length === 1 ? "person needs" : "people need"} checking`}</b>
+          <span>· ${r.people} people · ${r.totalShifts} shifts read</span>
+          <span class="spacer" style="flex:1"></span>
+          <button class="ghost" id="btnCloseCheck" style="padding:2px 8px">Close</button>
+        </div>
+        <div style="margin-top:8px;font-size:12.5px;opacity:.85">${dayRows}</div>
+        ${ok
+          ? `<div style="margin-top:8px;font-size:12.5px">Every person's shifts add up to the weekly total printed
+             in the PDF, so nobody was missed or misread.</div>`
+          : `<div style="margin-top:10px;font-size:12.5px">
+               These didn't match the weekly totals in the PDF — check them against the paper copy
+               and add anyone missing with <b>+ Add person</b>:
+             </div>
+             <ul style="margin:8px 0 0;padding-left:20px;font-size:12.5px;line-height:1.6;max-height:220px;overflow:auto">
+               ${r.issues.map((i) => `<li><b>${escapeHtml(i.emp.name || "(no name)")}</b>
+                  <span style="opacity:.7">${escapeHtml(i.emp.persnr || "")}</span> — ${escapeHtml(i.reason)}</li>`).join("")}
+             </ul>`}
+      </div>`;
+    const close = document.getElementById("btnCloseCheck");
+    if (close) close.addEventListener("click", () => { parseWarningEl.innerHTML = ""; });
+  }
+
   // ------------------------------- top bar actions -------------------------------
 
   // The worker lives in vendor/ in the multi-file build, but is inlined into a
@@ -531,6 +630,8 @@
       ensureDefaultPositions();
       saveState();
       render();
+      // Always report on the import, so a silent mis-parse can't go unnoticed.
+      if (dayLabels.length && totalShifts > 0) renderCheckReport();
     } catch (err) {
       parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Couldn't read that PDF (${escapeHtml(err.message || String(err))}). Make sure it's the weekly roster export.</div>`;
       renderRosterStatus();
@@ -540,6 +641,15 @@
   });
 
   btnPrint.addEventListener("click", () => window.print());
+
+  const btnCheck = document.getElementById("btnCheck");
+  btnCheck.addEventListener("click", () => {
+    if (!STATE.roster) {
+      parseWarningEl.innerHTML = `<div class="warning-banner">Upload a roster PDF first, then this will check it imported completely.</div>`;
+      return;
+    }
+    renderCheckReport();
+  });
 
   btnManual.addEventListener("click", () => manualForm.classList.add("open"));
   document.getElementById("mCancel").addEventListener("click", () => manualForm.classList.remove("open"));
