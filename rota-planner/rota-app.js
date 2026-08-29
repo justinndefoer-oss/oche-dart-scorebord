@@ -175,7 +175,7 @@
           <h2>Upload your roster PDF to get started</h2>
           <p>Every name and hour from the PDF will show up here as a selectable block, split by day.<br>
              You then drag each person onto a position row to build the day's rota.</p>
-          <label class="btn primary" for="fileInput">Upload PDF</label>
+          <button class="primary" data-upload>Upload PDF</button>
         </div>`;
       return;
     }
@@ -491,6 +491,23 @@
       return await parseRosterPdf(pdfjsLib, retryCopy);
     }
   }
+
+  // Open the picker from JS rather than a <label for>: iOS Safari is unreliable
+  // about labels bound to a hidden file input. Delegated so the button rendered
+  // into the empty state works too.
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#btnUpload, [data-upload]")) {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  // Anything that blows up should say so on screen — on a phone there is no
+  // console to check, and a silent failure looks like "the button is broken".
+  window.addEventListener("error", (e) => {
+    parseWarningEl.innerHTML =
+      `<div class="warning-banner">⚠️ Something went wrong: ${escapeHtml(e.message || "unknown error")}</div>`;
+  });
 
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];

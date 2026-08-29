@@ -32,7 +32,10 @@
   button.danger{color:var(--danger);border-color:#fca5a5}
   button.danger:hover{background:var(--danger-bg)}
   button:disabled{opacity:.45;cursor:not-allowed}
-  input[type=file]{display:none}
+  /* Visually hidden, but NOT display:none — iOS Safari refuses to open the picker
+     for a display:none file input. It is triggered via fileInput.click() in JS. */
+  input[type=file]{position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
   main{max-width:1400px;margin:0 auto;padding:16px}
 
   .roster-status{font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -132,8 +135,8 @@
   <div class="spacer"></div>
   <button class="ghost" id="btnManual" title="Add a person by hand">+ Add person</button>
   <button id="btnPrint" title="Print current day">Print</button>
-  <label class="btn primary" for="fileInput">Upload PDF</label>
-  <input type="file" id="fileInput" accept="application/pdf">
+  <button class="primary" id="btnUpload">Upload PDF</button>
+  <input type="file" id="fileInput" accept="application/pdf,.pdf">
 </header>
 
 <main>
@@ -556,7 +559,7 @@
           <h2>Upload your roster PDF to get started</h2>
           <p>Every name and hour from the PDF will show up here as a selectable block, split by day.<br>
              You then drag each person onto a position row to build the day's rota.</p>
-          <label class="btn primary" for="fileInput">Upload PDF</label>
+          <button class="primary" data-upload>Upload PDF</button>
         </div>`;
       return;
     }
@@ -872,6 +875,23 @@
       return await parseRosterPdf(pdfjsLib, retryCopy);
     }
   }
+
+  // Open the picker from JS rather than a <label for>: iOS Safari is unreliable
+  // about labels bound to a hidden file input. Delegated so the button rendered
+  // into the empty state works too.
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#btnUpload, [data-upload]")) {
+      e.preventDefault();
+      fileInput.click();
+    }
+  });
+
+  // Anything that blows up should say so on screen — on a phone there is no
+  // console to check, and a silent failure looks like "the button is broken".
+  window.addEventListener("error", (e) => {
+    parseWarningEl.innerHTML =
+      `<div class="warning-banner">⚠️ Something went wrong: ${escapeHtml(e.message || "unknown error")}</div>`;
+  });
 
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
