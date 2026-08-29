@@ -279,7 +279,7 @@
     wrap.innerHTML = `
       <div class="grid-scroll">
         <div class="grid-inner">
-          <div class="ruler">${ticks.join("")}</div>
+          <div class="ruler"><div class="ruler-label"></div><div class="ruler-scale">${ticks.join("")}</div></div>
           <div class="rows">${rows}</div>
           <div class="addrow"><button id="btnAddPos">+ Add position</button></div>
         </div>

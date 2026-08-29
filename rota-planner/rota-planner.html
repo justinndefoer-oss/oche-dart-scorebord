@@ -77,7 +77,9 @@
     overflow:hidden}
   .grid-scroll{overflow-x:auto}
   .grid-inner{min-width:1180px}
-  .ruler{display:flex;border-bottom:1px solid var(--border);padding-left:160px;position:relative;height:26px}
+  .ruler{display:flex;border-bottom:1px solid var(--border);height:26px}
+  .ruler-label{width:160px;flex:none;border-right:1px solid var(--border);background:#fafbfc}
+  .ruler-scale{position:relative;flex:1}
   .ruler .tick{position:absolute;top:0;bottom:0;font-size:10.5px;color:var(--text-dim);
     border-left:1px solid var(--border);padding-left:4px;padding-top:5px;white-space:nowrap}
   .rows{}
@@ -691,7 +693,7 @@
     wrap.innerHTML = `
       <div class="grid-scroll">
         <div class="grid-inner">
-          <div class="ruler">${ticks.join("")}</div>
+          <div class="ruler"><div class="ruler-label"></div><div class="ruler-scale">${ticks.join("")}</div></div>
           <div class="rows">${rows}</div>
           <div class="addrow"><button id="btnAddPos">+ Add position</button></div>
         </div>
