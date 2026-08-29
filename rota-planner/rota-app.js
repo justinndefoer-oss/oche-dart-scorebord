@@ -1,0 +1,499 @@
+(function () {
+  "use strict";
+
+  const STORE_KEY = "rota-planner-state-v1";
+  const DAY_START = 7 * 60;        // 07:00
+  const DAY_END = 22 * 60 + 30;    // 22:30
+  const SPAN = DAY_END - DAY_START;
+
+  let STATE = loadState() || {
+    roster: null,          // { employees, dayLabels, weekDates }
+    manualEntries: [],      // [{ id, name, day, start, end }]
+    positions: [],          // [{ id, label }]
+    assignments: {},        // { [day]: { [positionId]: [shiftId, ...] } }
+    activeDay: null,
+  };
+
+  let armedChipId = null;   // click-to-place selection (not persisted)
+  let posCounter = (STATE.positions || []).reduce((m, p) => Math.max(m, idNum(p.id)), 0);
+  let manualCounter = (STATE.manualEntries || []).reduce((m, e) => Math.max(m, idNum(e.id)), 0);
+
+  function idNum(id) {
+    const m = /(\d+)$/.exec(String(id || ""));
+    return m ? parseInt(m[1], 10) : 0;
+  }
+
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      parsed.manualEntries = parsed.manualEntries || [];
+      parsed.positions = parsed.positions || [];
+      parsed.assignments = parsed.assignments || {};
+      return parsed;
+    } catch (e) { return null; }
+  }
+
+  function saveState() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); } catch (e) { /* storage full/unavailable */ }
+  }
+
+  function parseTime(t) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+    if (!m) return null;
+    return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  }
+  function fmtTime(mins) {
+    mins = ((mins % 1440) + 1440) % 1440;
+    const h = Math.floor(mins / 60), m = mins % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  }
+
+  // ---- derive the flat list of placeable shift instances from roster + manual entries ----
+  function buildShiftInstances() {
+    const list = [];
+    const dayLabels = getDayLabels();
+    if (STATE.roster) {
+      for (const emp of STATE.roster.employees) {
+        for (const day of dayLabels) {
+          const ranges = (emp.shifts && emp.shifts[day]) || [];
+          ranges.forEach((range, idx) => {
+            const [start, end] = range.split("-");
+            list.push({
+              id: `r::${emp.persnr}::${day}::${idx}`,
+              name: emp.name,
+              day, start, end,
+              dept: emp.dept,
+              manual: false,
+            });
+          });
+        }
+      }
+    }
+    for (const m of STATE.manualEntries) {
+      list.push({ id: m.id, name: m.name, day: m.day, start: m.start, end: m.end, manual: true });
+    }
+    return list;
+  }
+
+  function getDayLabels() {
+    return (STATE.roster && STATE.roster.dayLabels && STATE.roster.dayLabels.length)
+      ? STATE.roster.dayLabels
+      : [];
+  }
+
+  function assignedIdsForDay(day) {
+    const set = new Set();
+    const byPos = STATE.assignments[day] || {};
+    for (const posId in byPos) for (const id of byPos[posId]) set.add(id);
+    return set;
+  }
+
+  function assignShift(day, positionId, shiftId) {
+    // remove from any position on this day first (single placement)
+    unassignShift(day, shiftId);
+    if (!STATE.assignments[day]) STATE.assignments[day] = {};
+    if (!STATE.assignments[day][positionId]) STATE.assignments[day][positionId] = [];
+    STATE.assignments[day][positionId].push(shiftId);
+    saveState();
+  }
+
+  function unassignShift(day, shiftId) {
+    const byPos = STATE.assignments[day];
+    if (!byPos) return;
+    for (const posId in byPos) {
+      const idx = byPos[posId].indexOf(shiftId);
+      if (idx !== -1) byPos[posId].splice(idx, 1);
+    }
+  }
+
+  function pruneStaleAssignments() {
+    const validIds = new Set(buildShiftInstances().map((s) => s.id));
+    for (const day in STATE.assignments) {
+      const byPos = STATE.assignments[day];
+      for (const posId in byPos) {
+        byPos[posId] = byPos[posId].filter((id) => validIds.has(id));
+      }
+    }
+  }
+
+  function ensureDefaultPositions() {
+    if (STATE.positions.length === 0) {
+      for (let i = 1; i <= 6; i++) {
+        posCounter++;
+        STATE.positions.push({ id: `pos-${posCounter}`, label: `Position ${i}` });
+      }
+    }
+  }
+
+  // ------------------------------- rendering -------------------------------
+
+  const rosterStatusEl = document.getElementById("rosterStatus");
+  const appEl = document.getElementById("app");
+  const parseWarningEl = document.getElementById("parseWarning");
+  const btnManual = document.getElementById("btnManual");
+  const btnPrint = document.getElementById("btnPrint");
+  const fileInput = document.getElementById("fileInput");
+  const manualForm = document.getElementById("manualForm");
+  const mDay = document.getElementById("mDay");
+  const mName = document.getElementById("mName");
+  const mStart = document.getElementById("mStart");
+  const mEnd = document.getElementById("mEnd");
+
+  function renderRosterStatus() {
+    if (!STATE.roster) {
+      rosterStatusEl.innerHTML = `<span>No roster loaded yet.</span>`;
+      return;
+    }
+    const r = STATE.roster;
+    const dates = r.dayLabels.map((d) => r.weekDates[d]).filter(Boolean);
+    const range = dates.length ? `${dates[0]} – ${dates[dates.length - 1]}` : "";
+    rosterStatusEl.innerHTML =
+      `<span><b>${r.employees.length}</b> staff loaded${range ? " &middot; " + range : ""}</span>`;
+  }
+
+  function renderManualDayOptions() {
+    const dayLabels = getDayLabels();
+    mDay.innerHTML = dayLabels.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`).join("");
+    btnManual.disabled = dayLabels.length === 0;
+    btnManual.title = dayLabels.length === 0 ? "Upload a roster PDF first" : "";
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function render() {
+    renderRosterStatus();
+    renderManualDayOptions();
+
+    const dayLabels = getDayLabels();
+    if (dayLabels.length === 0) {
+      appEl.innerHTML = `
+        <div class="empty-state">
+          <h2>Upload your roster PDF to get started</h2>
+          <p>Every name and hour from the PDF will show up here as a selectable block, split by day.<br>
+             You then drag each person onto a position row to build the day's rota.</p>
+          <label class="btn primary" for="fileInput">Upload PDF</label>
+        </div>`;
+      return;
+    }
+
+    if (!STATE.activeDay || !dayLabels.includes(STATE.activeDay)) STATE.activeDay = dayLabels[0];
+    ensureDefaultPositions();
+
+    const day = STATE.activeDay;
+    const allShifts = buildShiftInstances();
+    const assigned = assignedIdsForDay(day);
+    const dayShifts = allShifts.filter((s) => s.day === day);
+    const pool = dayShifts.filter((s) => !assigned.has(s.id));
+
+    appEl.innerHTML = "";
+    appEl.appendChild(renderDayTabs(dayLabels, allShifts));
+    appEl.appendChild(renderPool(pool, day));
+    appEl.appendChild(renderGrid(day, dayShifts));
+
+    wireDayTabEvents();
+    wirePoolEvents(day);
+    wireGridEvents(day, dayShifts);
+  }
+
+  function renderDayTabs(dayLabels, allShifts) {
+    const wrap = document.createElement("div");
+    wrap.className = "daytabs";
+    wrap.innerHTML = dayLabels.map((d) => {
+      const date = STATE.roster.weekDates[d];
+      const shortDate = date ? date.slice(0, 5) : "";
+      const count = allShifts.filter((s) => s.day === d).length;
+      const active = d === STATE.activeDay ? " active" : "";
+      return `<div class="daytab${active}" data-day="${escapeHtml(d)}">${escapeHtml(d)}<span class="count">${count}</span>${shortDate ? `<span class="n">${shortDate}</span>` : ""}</div>`;
+    }).join("");
+    return wrap;
+  }
+
+  let poolFilterText = "";
+
+  function renderPool(pool, day) {
+    const section = document.createElement("section");
+    section.className = "pool";
+    const filtered = poolFilterText
+      ? pool.filter((s) => s.name.toLowerCase().includes(poolFilterText.toLowerCase()))
+      : pool;
+    const countLabel = poolFilterText ? `${filtered.length} of ${pool.length}` : `${pool.length}`;
+    section.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+        <h3 style="margin:0">Available for ${escapeHtml(day)} (${countLabel})</h3>
+        ${pool.length > 8 ? `<input type="search" id="poolFilter" placeholder="Filter by name…" value="${escapeHtml(poolFilterText)}"
+            style="font:inherit;font-size:12.5px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:6px;width:180px">` : ""}
+      </div>
+      <div class="chips" id="poolChips" style="margin-top:10px">
+        ${pool.length === 0
+          ? `<span class="pool-empty">Everyone scheduled this day has been placed.</span>`
+          : filtered.length === 0
+          ? `<span class="pool-empty">No one matches "${escapeHtml(poolFilterText)}".</span>`
+          : filtered.map(chipHtml).join("")}
+      </div>`;
+    return section;
+  }
+
+  function chipHtml(s) {
+    return `<div class="chip" draggable="true" data-id="${escapeHtml(s.id)}" title="${escapeHtml(s.name)} · ${s.start}–${s.end}">
+      <span class="n">${escapeHtml(s.name)}</span><span class="t">${s.start}–${s.end}</span>
+    </div>`;
+  }
+
+  function renderGrid(day, dayShifts) {
+    const wrap = document.createElement("div");
+    wrap.className = "grid-wrap";
+
+    const ticks = [];
+    for (let h = 7; h <= 22; h++) {
+      const pct = ((h * 60 - DAY_START) / SPAN) * 100;
+      ticks.push(`<div class="tick" style="left:${pct}%">${h}:00</div>`);
+    }
+
+    const rows = STATE.positions.map((pos) => {
+      const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
+      const items = ids.map((id) => dayShifts.find((s) => s.id === id)).filter(Boolean);
+      items.sort((a, b) => parseTime(a.start) - parseTime(b.start));
+      const overlapIds = findOverlaps(items);
+      const lanes = assignLanes(items);
+      const laneCount = Math.max(1, ...items.map((s) => lanes.get(s.id) + 1));
+      const laneHeight = 44;
+      const trackHeight = laneCount * laneHeight + 8;
+      const blocks = items.map((s) => blockHtml(s, overlapIds.has(s.id), lanes.get(s.id), laneHeight)).join("");
+      return `<div class="row" data-pos="${escapeHtml(pos.id)}">
+        <div class="label-cell">
+          <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
+          <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
+        </div>
+        <div class="track" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
+      </div>`;
+    }).join("");
+
+    wrap.innerHTML = `
+      <div class="grid-scroll">
+        <div class="grid-inner">
+          <div class="ruler">${ticks.join("")}</div>
+          <div class="rows">${rows}</div>
+          <div class="addrow"><button id="btnAddPos">+ Add position</button></div>
+        </div>
+      </div>`;
+    return wrap;
+  }
+
+  function findOverlaps(items) {
+    const bad = new Set();
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i], b = items[j];
+        const aStart = parseTime(a.start), aEnd = normEnd(a);
+        const bStart = parseTime(b.start), bEnd = normEnd(b);
+        if (aStart < bEnd && bStart < aEnd) { bad.add(a.id); bad.add(b.id); }
+      }
+    }
+    return bad;
+  }
+  function normEnd(s) {
+    const start = parseTime(s.start);
+    let end = parseTime(s.end);
+    if (end <= start) end += 1440; // shift crosses midnight
+    return end;
+  }
+
+  // Greedy interval-scheduling lane assignment so overlapping blocks stack in
+  // separate horizontal lanes instead of covering each other.
+  function assignLanes(items) {
+    const laneEnds = []; // end time (minutes) currently occupied in each lane
+    const lanes = new Map();
+    for (const s of items) {
+      const start = parseTime(s.start);
+      const end = normEnd(s);
+      let lane = laneEnds.findIndex((e) => e <= start);
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(end); }
+      else { laneEnds[lane] = end; }
+      lanes.set(s.id, lane);
+    }
+    return lanes;
+  }
+
+  function blockHtml(s, overlap, lane, laneHeight) {
+    const startMin = parseTime(s.start);
+    let endMin = parseTime(s.end);
+    if (endMin <= startMin) endMin = DAY_END; // overnight shift: clip to close of window
+    const left = clamp((startMin - DAY_START) / SPAN * 100, 0, 100);
+    const rightRaw = clamp((endMin - DAY_START) / SPAN * 100, 0, 100);
+    const width = Math.max(rightRaw - left, 1.4);
+    const top = 4 + (lane || 0) * laneHeight;
+    return `<div class="block${overlap ? " overlap" : ""}" draggable="true" data-block-id="${escapeHtml(s.id)}"
+        style="left:${left}%;width:${width}%;top:${top}px;height:${laneHeight - 6}px" title="${escapeHtml(s.name)} · ${s.start}–${s.end}">
+      <span class="x" data-unassign="${escapeHtml(s.id)}">&times;</span>
+      <span class="nm">${escapeHtml(s.name)}</span>
+      <span class="tm">${s.start}–${s.end}</span>
+    </div>`;
+  }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+  // ------------------------------- event wiring -------------------------------
+
+  function wireDayTabEvents() {
+    appEl.querySelectorAll(".daytab").forEach((el) => {
+      el.addEventListener("click", () => {
+        STATE.activeDay = el.dataset.day;
+        armedChipId = null;
+        saveState();
+        render();
+      });
+    });
+  }
+
+  function wirePoolEvents(day) {
+    const filterInput = document.getElementById("poolFilter");
+    if (filterInput) {
+      filterInput.addEventListener("input", () => {
+        poolFilterText = filterInput.value;
+        render();
+        const el = document.getElementById("poolFilter");
+        if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+      });
+    }
+    const chips = appEl.querySelectorAll("#poolChips .chip");
+    chips.forEach((chip) => {
+      chip.addEventListener("dragstart", (e) => {
+        chip.classList.add("dragging");
+        e.dataTransfer.setData("text/plain", chip.dataset.id);
+        e.dataTransfer.effectAllowed = "move";
+      });
+      chip.addEventListener("dragend", () => chip.classList.remove("dragging"));
+      chip.addEventListener("click", () => {
+        if (armedChipId === chip.dataset.id) { armedChipId = null; }
+        else { armedChipId = chip.dataset.id; }
+        render();
+        // re-apply armed highlight after re-render since armedChipId is transient
+        if (armedChipId) {
+          const el = appEl.querySelector(`#poolChips .chip[data-id="${cssEscape(armedChipId)}"]`);
+          if (el) el.classList.add("armed");
+        }
+      });
+    });
+  }
+
+  function cssEscape(s) {
+    return window.CSS && CSS.escape ? CSS.escape(s) : s.replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+  }
+
+  function wireGridEvents(day, dayShifts) {
+    appEl.querySelectorAll(".track").forEach((track) => {
+      const posId = track.dataset.track;
+      track.addEventListener("dragover", (e) => { e.preventDefault(); track.classList.add("dragover"); });
+      track.addEventListener("dragleave", () => track.classList.remove("dragover"));
+      track.addEventListener("drop", (e) => {
+        e.preventDefault();
+        track.classList.remove("dragover");
+        const id = e.dataTransfer.getData("text/plain");
+        if (id) { assignShift(day, posId, id); armedChipId = null; render(); }
+      });
+      track.addEventListener("click", (e) => {
+        if (e.target.closest(".block")) return;
+        if (armedChipId) { assignShift(day, posId, armedChipId); armedChipId = null; render(); }
+      });
+    });
+
+    appEl.querySelectorAll(".block").forEach((block) => {
+      block.addEventListener("dragstart", (e) => {
+        e.dataTransfer.setData("text/plain", block.dataset.blockId);
+        e.dataTransfer.effectAllowed = "move";
+      });
+    });
+
+    appEl.querySelectorAll("[data-unassign]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        unassignShift(day, btn.dataset.unassign);
+        saveState();
+        render();
+      });
+    });
+
+    appEl.querySelectorAll("[data-pos-label]").forEach((input) => {
+      input.addEventListener("change", () => {
+        const pos = STATE.positions.find((p) => p.id === input.dataset.posLabel);
+        if (pos) { pos.label = input.value.trim() || pos.label; saveState(); }
+      });
+      input.addEventListener("click", (e) => e.stopPropagation());
+    });
+
+    appEl.querySelectorAll("[data-del-pos]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const posId = btn.dataset.delPos;
+        STATE.positions = STATE.positions.filter((p) => p.id !== posId);
+        for (const d in STATE.assignments) delete STATE.assignments[d][posId];
+        saveState();
+        render();
+      });
+    });
+
+    const addBtn = document.getElementById("btnAddPos");
+    if (addBtn) addBtn.addEventListener("click", () => {
+      posCounter++;
+      STATE.positions.push({ id: `pos-${posCounter}`, label: `Position ${STATE.positions.length + 1}` });
+      saveState();
+      render();
+    });
+  }
+
+  // ------------------------------- top bar actions -------------------------------
+
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    try {
+      rosterStatusEl.innerHTML = `<span>Reading PDF…</span>`;
+      const buf = await file.arrayBuffer();
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+      const { employees, dayLabels, weekDates } = await parseRosterPdf(pdfjsLib, buf);
+      if (!dayLabels.length) {
+        parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Could not find the day columns in this PDF — the layout may differ from the expected export. Try a different file, or add people manually.</div>`;
+      } else {
+        parseWarningEl.innerHTML = "";
+      }
+      const totalShifts = employees.reduce((n, e) => n + Object.values(e.shifts).reduce((a, r) => a + r.length, 0), 0);
+      if (dayLabels.length && totalShifts === 0) {
+        parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Found ${employees.length} names but no shift times — double check the PDF is the "Node Weekrooster" schedule export.</div>`;
+      }
+      STATE.roster = { employees, dayLabels, weekDates };
+      STATE.activeDay = dayLabels[0] || null;
+      pruneStaleAssignments();
+      ensureDefaultPositions();
+      saveState();
+      render();
+    } catch (err) {
+      parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Couldn't read that PDF (${escapeHtml(err.message || String(err))}). Make sure it's the weekly roster export.</div>`;
+      renderRosterStatus();
+    } finally {
+      fileInput.value = "";
+    }
+  });
+
+  btnPrint.addEventListener("click", () => window.print());
+
+  btnManual.addEventListener("click", () => manualForm.classList.add("open"));
+  document.getElementById("mCancel").addEventListener("click", () => manualForm.classList.remove("open"));
+  document.getElementById("mAdd").addEventListener("click", () => {
+    const name = mName.value.trim();
+    const day = mDay.value;
+    const start = mStart.value;
+    const end = mEnd.value;
+    if (!name || !day || !start || !end) return;
+    manualCounter++;
+    STATE.manualEntries.push({ id: `m::${manualCounter}`, name, day, start, end });
+    mName.value = "";
+    manualForm.classList.remove("open");
+    saveState();
+    render();
+  });
+
+  render();
+})();

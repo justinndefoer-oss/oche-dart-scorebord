@@ -2,7 +2,7 @@
 
 ## What is in this repo
 
-Two unrelated apps, deployed from the same GitHub Pages site:
+Unrelated apps, deployed from the same GitHub Pages site:
 
 1. **OCHE dart scoreboard** — the root `index.html` / `sw.js` / `manifest.json`. Everything
    below in this file is about this app unless a section says otherwise.
@@ -12,6 +12,10 @@ Two unrelated apps, deployed from the same GitHub Pages site:
 3. **FitTrack (native)** — `FitTrack/`, a SwiftUI/SwiftData version of the same app. Written
    before the owner confirmed they have no Mac, so it has never been compiled. Left in the
    repo for later; not deployed and not part of the Pages site.
+4. **Rota Planner** — `rota-planner/`, a standalone daily-rota builder (not a PWA, no service
+   worker). Upload a "Node Weekrooster" PDF export and it parses names/days/hours client-side
+   via a vendored `pdf.js`, then you drag people onto freeform position rows for a 07:00–22:30
+   day. See `rota-planner/README.md` for the PDF parsing approach.
 
 # The dart scoreboard
 
