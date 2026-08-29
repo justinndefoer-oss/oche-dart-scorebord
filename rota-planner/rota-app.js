@@ -15,6 +15,7 @@
   };
 
   let armedChipId = null;   // click-to-place selection (not persisted)
+  let draggingShiftId = null; // shift currently being dragged, for the drop preview
   let posCounter = (STATE.positions || []).reduce((m, p) => Math.max(m, idNum(p.id)), 0);
   let manualCounter = (STATE.manualEntries || []).reduce((m, e) => Math.max(m, idNum(e.id)), 0);
 
@@ -224,6 +225,9 @@
     section.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <h3 style="margin:0">Available for ${escapeHtml(day)} (${countLabel})</h3>
+        <span style="font-size:11.5px;color:var(--text-dim);font-weight:500">
+          🔒 Hours are fixed by the roster — drop anywhere on a row, the person keeps their own times
+        </span>
         ${pool.length > 8 ? `<input type="search" id="poolFilter" placeholder="Filter by name…" value="${escapeHtml(poolFilterText)}"
             style="font:inherit;font-size:12.5px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:6px;width:180px">` : ""}
       </div>
@@ -281,6 +285,32 @@
         </div>
       </div>`;
     return wrap;
+  }
+
+  // While dragging, show exactly where the block will land. The drop x is ignored
+  // — a person always occupies their rostered hours — so the preview snaps to those
+  // hours no matter where the cursor is, which makes the rule visible rather than
+  // something the user has to take on trust.
+  function clearGhosts() {
+    document.querySelectorAll(".drop-preview").forEach((g) => g.remove());
+  }
+
+  function showGhost(track, dayShifts) {
+    if (!draggingShiftId) return;
+    const s = dayShifts.find((x) => x.id === draggingShiftId);
+    if (!s) return;
+    clearGhosts();
+    const startMin = parseTime(s.start);
+    let endMin = parseTime(s.end);
+    if (endMin <= startMin) endMin = DAY_END;
+    const left = clamp((startMin - DAY_START) / SPAN * 100, 0, 100);
+    const right = clamp((endMin - DAY_START) / SPAN * 100, 0, 100);
+    const g = document.createElement("div");
+    g.className = "drop-preview";
+    g.style.left = left + "%";
+    g.style.width = Math.max(right - left, 1.4) + "%";
+    g.textContent = `${s.start}–${s.end}`;
+    track.appendChild(g);
   }
 
   function findOverlaps(items) {
@@ -362,10 +392,15 @@
     chips.forEach((chip) => {
       chip.addEventListener("dragstart", (e) => {
         chip.classList.add("dragging");
+        draggingShiftId = chip.dataset.id;
         e.dataTransfer.setData("text/plain", chip.dataset.id);
         e.dataTransfer.effectAllowed = "move";
       });
-      chip.addEventListener("dragend", () => chip.classList.remove("dragging"));
+      chip.addEventListener("dragend", () => {
+        chip.classList.remove("dragging");
+        draggingShiftId = null;
+        clearGhosts();
+      });
       chip.addEventListener("click", () => {
         if (armedChipId === chip.dataset.id) { armedChipId = null; }
         else { armedChipId = chip.dataset.id; }
@@ -386,11 +421,17 @@
   function wireGridEvents(day, dayShifts) {
     appEl.querySelectorAll(".track").forEach((track) => {
       const posId = track.dataset.track;
-      track.addEventListener("dragover", (e) => { e.preventDefault(); track.classList.add("dragover"); });
-      track.addEventListener("dragleave", () => track.classList.remove("dragover"));
+      track.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        track.classList.add("dragover");
+        showGhost(track, dayShifts);
+      });
+      track.addEventListener("dragleave", () => { track.classList.remove("dragover"); clearGhosts(); });
       track.addEventListener("drop", (e) => {
         e.preventDefault();
         track.classList.remove("dragover");
+        clearGhosts();
+        draggingShiftId = null;
         const id = e.dataTransfer.getData("text/plain");
         if (id) { assignShift(day, posId, id); armedChipId = null; render(); }
       });
@@ -402,9 +443,11 @@
 
     appEl.querySelectorAll(".block").forEach((block) => {
       block.addEventListener("dragstart", (e) => {
+        draggingShiftId = block.dataset.blockId;
         e.dataTransfer.setData("text/plain", block.dataset.blockId);
         e.dataTransfer.effectAllowed = "move";
       });
+      block.addEventListener("dragend", () => { draggingShiftId = null; clearGhosts(); });
     });
 
     appEl.querySelectorAll("[data-unassign]").forEach((btn) => {
@@ -659,6 +702,17 @@
     const start = mStart.value;
     const end = mEnd.value;
     if (!name || !day || !start || !end) return;
+    // Adding someone who is already in the roster by hand is almost always a
+    // mistake — their hours are already fixed — so say so rather than silently
+    // creating a second entry with different times.
+    parseWarningEl.innerHTML = ""; // don't leave a previous person's warning standing
+    const clash = STATE.roster && STATE.roster.employees.find(
+      (e) => (e.name || "").trim().toLowerCase() === name.toLowerCase());
+    if (clash) {
+      parseWarningEl.innerHTML =
+        `<div class="warning-banner">⚠️ <b>${escapeHtml(name)}</b> is already in the roster with hours set by the PDF. ` +
+        `Added as a separate manual entry anyway — remove it with the × on its block if that wasn't what you wanted.</div>`;
+    }
     manualCounter++;
     STATE.manualEntries.push({ id: `m::${manualCounter}`, name, day, start, end });
     mName.value = "";
