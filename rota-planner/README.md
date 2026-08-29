@@ -45,7 +45,13 @@ position rows to build the rota. Rows are grouped under a named header per fitti
 (Lower Ground, 1st, 2nd, 3rd and 5th floor by default),
 with numbered positions beneath each. Every name is editable, rooms and positions can be
 added or removed, and deleting a room clears the placements on its rows rather than orphaning
-them. A row can hold more than one person across the day; if two placements overlap in time
+them.
+
+Each room's **+ Position** and **×** sit immediately after its name, not pushed to the right
+of the header: the header lives inside the horizontally-scrolling timeline, so right-aligned
+controls ended up around x=1066 and were off-screen on a phone. The delete crosses are also
+faintly visible at rest rather than appearing on hover, because a touch screen never hovers
+and hover-only controls are invisible there for good. A row can hold more than one person across the day; if two placements overlap in time
 they stack into separate lanes and turn red.
 
 Saves written before rooms existed are migrated on load: the flat position list becomes a
