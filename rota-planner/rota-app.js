@@ -446,14 +446,59 @@
 
   // ------------------------------- top bar actions -------------------------------
 
+  // The worker lives in vendor/ in the multi-file build, but is inlined into a
+  // <script type="text/plain"> block in the single-file build (see build-single-file.js).
+  // Resolving it at runtime keeps one source working for both.
+  let cachedWorkerSrc = null;
+  function resolveWorkerSrc() {
+    if (cachedWorkerSrc) return cachedWorkerSrc;
+    const inlined = document.getElementById("pdfjs-worker-src");
+    if (inlined && inlined.textContent.length > 1000) {
+      cachedWorkerSrc = URL.createObjectURL(
+        new Blob([inlined.textContent], { type: "application/javascript" })
+      );
+    } else {
+      cachedWorkerSrc = "vendor/pdf.worker.min.js";
+    }
+    return cachedWorkerSrc;
+  }
+
+  // Some browsers refuse to spawn a blob: Worker from a file:// page. pdf.js will
+  // skip the real worker and parse on the main thread if globalThis.pdfjsWorker is
+  // already defined, so running the inlined worker source here is a safe fallback
+  // (slower, but needs no blob URL at all). Only reached if the worker path failed.
+  function enableMainThreadWorker() {
+    if (globalThis.pdfjsWorker) return true;
+    const inlined = document.getElementById("pdfjs-worker-src");
+    if (!inlined || inlined.textContent.length < 1000) return false;
+    try {
+      new Function(inlined.textContent)(); // UMD wrapper assigns globalThis.pdfjsWorker
+      return !!globalThis.pdfjsWorker;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async function parsePdfResilient(buf) {
+    // pdf.js may transfer (and thus detach) the buffer it is given, so keep a
+    // pristine copy for the retry before the first attempt touches it.
+    const retryCopy = buf.slice(0);
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = resolveWorkerSrc();
+      return await parseRosterPdf(pdfjsLib, buf);
+    } catch (err) {
+      if (!enableMainThreadWorker()) throw err;
+      return await parseRosterPdf(pdfjsLib, retryCopy);
+    }
+  }
+
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
     if (!file) return;
     try {
       rosterStatusEl.innerHTML = `<span>Reading PDF…</span>`;
       const buf = await file.arrayBuffer();
-      pdfjsLib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
-      const { employees, dayLabels, weekDates } = await parseRosterPdf(pdfjsLib, buf);
+      const { employees, dayLabels, weekDates } = await parsePdfResilient(buf);
       if (!dayLabels.length) {
         parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Could not find the day columns in this PDF — the layout may differ from the expected export. Try a different file, or add people manually.</div>`;
       } else {

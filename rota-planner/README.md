@@ -1,12 +1,35 @@
 # Rota Planner
 
 A standalone tool for building a daily staff rota by hand, starting from a weekly roster
-export. Single `index.html` (HTML + CSS + JS, no build step), plus two plain JS files and a
-vendored copy of `pdf.js`. Unrelated to the dart scoreboard or FitTrack — no shared state,
-no service worker, not a PWA.
+export. Unrelated to the dart scoreboard or FitTrack — no shared state, no service worker,
+not a PWA.
 
-Lives at **`/rota-planner/`** on the same GitHub Pages site:
+## Two ways to run it
+
+**`rota-planner.html` — one self-contained file (the one to actually use).** Everything is
+inlined: pdf.js, its worker, the parser and the app. Copy it onto a USB stick, email it to
+yourself, put it on a desktop — double-click and it works, offline, with no server and no
+folder around it. This is the file to take to work.
+
+**`index.html` + `rota-parser.js` + `rota-app.js` + `vendor/`** — the same app as separate
+source files, which is what you edit. Also served on GitHub Pages at
 https://justinndefoer-oss.github.io/oche-dart-scorebord/rota-planner/
+
+After changing any source file, regenerate the single-file build:
+
+```
+node build-single-file.cjs
+```
+
+Both builds run from one source; `rota-app.js` picks the worker up from `vendor/` when the
+files are separate, and from the inlined block when they aren't. If a browser refuses to
+spawn a worker from a `file://` page, it falls back to parsing on the main thread (a ~660 KB,
+17-page roster takes well under a second either way).
+
+Two things to know if you touch `build-single-file.cjs`: the replacements must be passed as
+functions, because the app source legitimately contains `"\\$&"` and a string replacement
+would splice the matched tag into the code; and the build refuses to write a bundle where any
+source failed to survive intact, which is what catches that class of bug.
 
 ## What it does
 
