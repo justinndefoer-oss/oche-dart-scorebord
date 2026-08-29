@@ -340,8 +340,7 @@
         <div class="group-head">
           <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
                  title="Rename this fitting room">
-          <span style="flex:1"></span>
-          <button class="ghost" data-add-pos="${escapeHtml(g.id)}" style="padding:3px 8px;font-size:12px">+ Position</button>
+          <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
         </div>
         ${g.positions.map(rowHtml).join("")}
