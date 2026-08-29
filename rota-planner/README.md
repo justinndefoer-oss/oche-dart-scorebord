@@ -51,6 +51,29 @@ State (the parsed roster, position rows, and every placement) is kept in `localS
 a refresh doesn't lose your work. There's also a manual "+ Add person" form for anyone the
 PDF parser missed or garbled, and a Print button for a paper copy of the current day.
 
+## Import check
+
+A silent mis-parse is the real risk here: a dropped shift means somebody quietly never
+appears on the rota. So the import is checked against the PDF's own arithmetic rather than
+trusted.
+
+The export prints each person's weekly hours in its **Totaal** column, which is independent
+of the shift times themselves. Breaks are deducted from that figure — measured across the
+sample file, between 0 and 60 minutes per shift, never more — so a correct parse must satisfy
+
+```
+sum(shift lengths) - 60min × shifts  ≤  stated total  ≤  sum(shift lengths)
+```
+
+Anyone falling outside that band, having a total but no shifts at all, or ending up with an
+unreadable name, is listed by name after every import (and via the **Check import** button).
+
+On the 292-employee sample this gives **no false alarms** — all 292 reconcile. Against
+deliberately corrupted data it caught 20/20 dropped shifts, 10/10 people whose shifts were
+all lost, and 13/15 mangled end times; the two misses were mangles that happened to land
+inside the break band, which is the known limit of the method. It cannot detect an error that
+leaves the weekly total unchanged, such as two shifts swapped between days.
+
 ## PDF parsing
 
 `rota-parser.js` reads text positions per page via `pdf.js` (`getTextContent`), clusters

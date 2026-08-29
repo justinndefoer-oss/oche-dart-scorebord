@@ -9,6 +9,7 @@
   const PERSNR_RE = /^\d{5,9}$/;
   const COSTCENTER_RE = /^\d+\(\d+\)$/;
   const DATE_RE = /^\d{2}\/\d{2}\/\d{4}$/;
+  const DURATION_RE = /^\d{1,3}:\d{2}$/;
   const FOOTER_RE = /^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}$/;
   const GUILLEMET = "»"; // literal "»" — kept as an escape so byte/charset quirks can't break the match
   const NAME_COL_MAX_X0 = 150; // empirically: name text never starts past this x0 in the source template
@@ -84,6 +85,17 @@
       rows.sort((a, b) => a.top - b.top);
       for (const row of rows) row.items.sort((a, b) => a.x0 - b.x0);
 
+      // The "Totaal" column sits to the right of the last day column and holds the
+      // employee's weekly hours. It is an independent number the import check
+      // reconciles the parsed shifts against, so it is worth capturing.
+      const assignTotal = (emp, text, x0) => {
+        if (!dayBounds || emp.totaal != null) return false;
+        if (x0 <= dayBounds[dayBounds.length - 1]) return false;
+        if (!DURATION_RE.test(text)) return false;
+        emp.totaal = text;
+        return true;
+      };
+
       const assignShift = (emp, text, x0) => {
         const m = TIME_RANGE_RE.exec(text);
         if (!m || !dayBounds || !dayLabels) return false;
@@ -121,10 +133,13 @@
             persnr: first,
             name: nameParts.join(" "),
             dept: currentDept,
+            totaal: null,
             shifts: dayLabels ? Object.fromEntries(dayLabels.map((d) => [d, []])) : {},
           };
           employees.push(currentEmp);
-          for (const w of shiftItems) assignShift(currentEmp, w.text, w.x0);
+          for (const w of shiftItems) {
+            if (!assignShift(currentEmp, w.text, w.x0)) assignTotal(currentEmp, w.text, w.x0);
+          }
           continue;
         }
 
@@ -151,7 +166,9 @@
           if (nameExtra.length && !shiftItems.length) {
             currentEmp.name += " " + nameExtra.join(" ");
           } else if (shiftItems.length) {
-            for (const w of shiftItems) assignShift(currentEmp, w.text, w.x0);
+            for (const w of shiftItems) {
+              if (!assignShift(currentEmp, w.text, w.x0)) assignTotal(currentEmp, w.text, w.x0);
+            }
           }
           continue;
         }

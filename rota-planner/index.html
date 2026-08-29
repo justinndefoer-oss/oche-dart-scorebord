@@ -48,6 +48,8 @@
 
   .warning-banner{background:var(--warn-bg);border:1px solid var(--warn-border);border-radius:8px;
     padding:10px 14px;font-size:13px;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+  .ok-banner{background:#ecfdf5;border:1px solid #6ee7b7;color:#065f46;border-radius:8px;
+    padding:10px 14px;font-size:13px;margin-bottom:14px}
 
   .daytabs{display:flex;gap:4px;overflow-x:auto;padding-bottom:2px;margin-bottom:14px;
     border-bottom:1px solid var(--border)}
@@ -133,6 +135,7 @@
   <h1>🗓️ Rota Planner</h1>
   <div class="roster-status" id="rosterStatus"></div>
   <div class="spacer"></div>
+  <button class="ghost" id="btnCheck" title="Check the PDF imported completely">Check import</button>
   <button class="ghost" id="btnManual" title="Add a person by hand">+ Add person</button>
   <button id="btnPrint" title="Print current day">Print</button>
   <button class="primary" id="btnUpload">Upload PDF</button>
