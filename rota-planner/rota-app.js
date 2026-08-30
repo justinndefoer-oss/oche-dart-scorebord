@@ -341,7 +341,7 @@
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
           <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
         </div>
-        <div class="track" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
+        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
       </div>`;
     };
 
@@ -360,6 +360,7 @@
     // Printed pages break between rooms, and only the first page would carry the
     // scale at the top of the grid — leaving later pages as rows of blocks with no
     // way to read a time off them. Each room repeats it, on paper only.
+    const dDateForHead = (STATE.roster.weekDates && STATE.roster.weekDates[day]) || "";
     const rulerBlock = (cls) =>
       `<div class="ruler ${cls}"><div class="ruler-label"></div>` +
       `<div class="ruler-scale">${ticks.join("")}</div></div>`;
@@ -372,6 +373,7 @@
                  title="Rename this fitting room">
           <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
+          <span class="gh-date">${escapeHtml(day)}${dDateForHead ? " " + escapeHtml(dDateForHead) : ""}</span>
         </div>
         ${g.positions.map(rowHtml).join("")}
         ${coverageRowHtml("On duty", coverageCounts(placedIn(g.positions.map((p) => p.id))))}

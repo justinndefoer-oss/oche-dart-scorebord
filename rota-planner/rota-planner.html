@@ -152,6 +152,7 @@
   .group-head .del{flex:none;opacity:.45;font-size:17px;line-height:1;color:var(--text-dim);
     background:none;border:none;cursor:pointer;padding:2px 6px}
   .group-head .del:hover{opacity:1}
+  .group-head .gh-date{display:none}
 
   .manual-form{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
     padding:14px;margin-bottom:16px;display:none;gap:10px;flex-wrap:wrap;align-items:end}
@@ -176,9 +177,12 @@
     .print-only{display:block !important}
     .ruler.print-only{display:flex !important}
     .ruler.ruler-top{display:none !important}   /* the per-room copies replace it */
-    .ruler-repeat{height:22px;border-top:1px solid var(--border-strong)}
-    .ruler-repeat .tick.half{display:none}      /* hours only, to keep it compact */
-    .ruler-repeat .tick.hour{padding-top:5px}
+    /* Half hours must survive onto paper — 22:30 is one, and hiding them took the
+       close of the day off the printed scale entirely. */
+    .ruler-repeat{height:26px;border-top:1px solid var(--border-strong)}
+    .ruler-repeat .tick.hour{padding-top:1px}
+    .ruler-repeat .tick.half{padding-top:13px;font-size:7.5px;opacity:.85}
+    .group-head .gh-date{display:inline;margin-left:auto;font-size:10px;font-weight:500;color:#333}
     /* Gridlines are background gradients and block fills are background colours;
        without this the sheet prints as an empty frame. */
     body,.track,.block,.group-head,.row.cov,.cov-cell{
@@ -193,7 +197,14 @@
     .group,.row{break-inside:avoid;page-break-inside:avoid}
     /* An unfilled position row still needs to be visible to write on, but not at the
        height of one holding a block. Only rows with nobody in them are compacted. */
-    .track:empty{height:26px !important;min-height:26px}
+    .track:empty{height:24px !important;min-height:24px}
+    /* One block deep is the normal case; compacting it costs nothing and saves a page.
+       Rows with stacked lanes keep their height, or the blocks would collide. */
+    .track.lanes-1{height:34px !important;min-height:34px}
+    .track.lanes-1 .block{height:28px !important;top:3px !important;padding:2px 6px}
+    .track.lanes-1 .block,.track.lanes-1 .block .tm{line-height:1.25}
+    .track.lanes-1 .block{font-size:10px}
+    .track.lanes-1 .block .tm{font-size:9px}
     /* Shaving the chrome lets three rooms share a page instead of two. */
     .group-head{padding:3px 10px !important}
     .row.cov .cov-cell{padding:2px 0}
@@ -825,7 +836,7 @@
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
           <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
         </div>
-        <div class="track" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
+        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
       </div>`;
     };
 
@@ -844,6 +855,7 @@
     // Printed pages break between rooms, and only the first page would carry the
     // scale at the top of the grid — leaving later pages as rows of blocks with no
     // way to read a time off them. Each room repeats it, on paper only.
+    const dDateForHead = (STATE.roster.weekDates && STATE.roster.weekDates[day]) || "";
     const rulerBlock = (cls) =>
       `<div class="ruler ${cls}"><div class="ruler-label"></div>` +
       `<div class="ruler-scale">${ticks.join("")}</div></div>`;
@@ -856,6 +868,7 @@
                  title="Rename this fitting room">
           <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
+          <span class="gh-date">${escapeHtml(day)}${dDateForHead ? " " + escapeHtml(dDateForHead) : ""}</span>
         </div>
         ${g.positions.map(rowHtml).join("")}
         ${coverageRowHtml("On duty", coverageCounts(placedIn(g.positions.map((p) => p.id))))}

@@ -96,9 +96,18 @@ Three things a printed sheet needs that the screen does not:
   leaving later pages as rows of blocks with no way to read a time off them. Each room
   repeats a compact hours-only scale, shown on paper only.
 
-Empty position rows are compacted (`.track:empty`) and the print paddings trimmed, which is
-what gets three rooms onto a page instead of two — the sample day prints on two pages rather
-than three.
+Every room header also carries the day and date on paper, so a page that gets separated from
+page one still says which day it is for.
+
+Empty rows are compacted (`.track:empty`), single-lane rows are shortened
+(`.track.lanes-1` — rows with stacked lanes keep their height or the blocks would collide),
+and the print paddings are trimmed. That fits three rooms to a page instead of two: the
+sample day prints on two pages, three rooms then two.
+
+Note when testing this: do **not** call `page.emulateMedia({media:"screen"})` before
+`page.pdf()`. `page.pdf()` already renders with print CSS, and forcing screen media made a
+run come out screen-styled — buttons and all — which looked like a pagination bug in the app
+and was not.
 
 ## Hours are fixed, by construction
 
