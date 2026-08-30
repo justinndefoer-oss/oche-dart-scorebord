@@ -250,6 +250,12 @@
     const pool = dayShifts.filter((s) => !assigned.has(s.id));
 
     appEl.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "print-only print-title";
+    const dDate = STATE.roster.weekDates[day];
+    title.innerHTML = `Fitting Room Rota &mdash; <b>${escapeHtml(day)}</b>${dDate ? " " + escapeHtml(dDate) : ""}
+      <span class="pt-right">07:00 &ndash; 22:30</span>`;
+    appEl.appendChild(title);
     appEl.appendChild(renderDayTabs(dayLabels, allShifts));
     appEl.appendChild(renderPool(pool, day));
     appEl.appendChild(renderGrid(day, dayShifts));
@@ -339,8 +345,28 @@
       </div>`;
     };
 
+    const placedIn = (positionIds) => {
+      const out = [];
+      for (const pid of positionIds) {
+        const ids = (STATE.assignments[day] && STATE.assignments[day][pid]) || [];
+        for (const id of ids) {
+          const s = dayShifts.find((x) => x.id === id);
+          if (s) out.push(s);
+        }
+      }
+      return out;
+    };
+
+    // Printed pages break between rooms, and only the first page would carry the
+    // scale at the top of the grid — leaving later pages as rows of blocks with no
+    // way to read a time off them. Each room repeats it, on paper only.
+    const rulerBlock = (cls) =>
+      `<div class="ruler ${cls}"><div class="ruler-label"></div>` +
+      `<div class="ruler-scale">${ticks.join("")}</div></div>`;
+
     const rows = STATE.groups.map((g) => `
       <div class="group">
+        ${rulerBlock("print-only ruler-repeat")}
         <div class="group-head">
           <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
                  title="Rename this fitting room">
@@ -348,13 +374,17 @@
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
         </div>
         ${g.positions.map(rowHtml).join("")}
+        ${coverageRowHtml("On duty", coverageCounts(placedIn(g.positions.map((p) => p.id))))}
       </div>`).join("");
+
+    const everyPositionId = STATE.groups.reduce((a, g) => a.concat(g.positions.map((p) => p.id)), []);
+    const totalRow = coverageRowHtml("Total on duty", coverageCounts(placedIn(everyPositionId)), "total");
 
     wrap.innerHTML = `
       <div class="grid-scroll">
         <div class="grid-inner">
-          <div class="ruler"><div class="ruler-label"></div><div class="ruler-scale">${ticks.join("")}</div></div>
-          <div class="rows">${rows}</div>
+          ${rulerBlock("ruler-top")}
+          <div class="rows">${rows}${totalRow}</div>
           <div class="addrow"><button id="btnAddGroup">+ Add fitting room</button></div>
         </div>
       </div>`;
@@ -404,6 +434,36 @@
     let end = parseTime(s.end);
     if (end <= start) end += 1440; // shift crosses midnight
     return end;
+  }
+
+  // How many people are on at each half hour. A slot counts a placement if the two
+  // overlap at all, so somebody on 09:00-14:00 is counted in every slot they cover.
+  const SLOT_MINUTES = 30;
+  const SLOT_COUNT = SPAN / SLOT_MINUTES; // 31 half hours across 07:00-22:30
+
+  function coverageCounts(items) {
+    const counts = new Array(SLOT_COUNT).fill(0);
+    for (const s of items) {
+      const start = parseTime(s.start);
+      let end = parseTime(s.end);
+      if (end <= start) end = DAY_END; // overnight shift, clipped to the close
+      for (let i = 0; i < SLOT_COUNT; i++) {
+        const slotStart = DAY_START + i * SLOT_MINUTES;
+        if (start < slotStart + SLOT_MINUTES && end > slotStart) counts[i]++;
+      }
+    }
+    return counts;
+  }
+
+  function coverageRowHtml(label, counts, extraClass) {
+    const cells = counts.map((c, i) => {
+      const onHour = (DAY_START + i * SLOT_MINUTES) % 60 === 0;
+      return `<div class="cov-cell${c === 0 ? " zero" : ""}${onHour ? " onhour" : ""}">${c}</div>`;
+    }).join("");
+    return `<div class="row cov ${extraClass || ""}">
+      <div class="label-cell"><span class="cov-label">${escapeHtml(label)}</span></div>
+      <div class="cov-scale">${cells}</div>
+    </div>`;
   }
 
   // Greedy interval-scheduling lane assignment so overlapping blocks stack in

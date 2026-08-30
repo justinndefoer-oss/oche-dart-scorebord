@@ -120,6 +120,26 @@
   .block .x:hover{opacity:1}
   .addrow{padding:10px 12px}
 
+  /* Headcount strip: one cell per half hour, aligned to the timeline columns. */
+  .row.cov{background:#f6f8fb}
+  .row.cov .label-cell{justify-content:flex-start}
+  .cov-label{font-size:11px;font-weight:700;color:var(--text-dim);text-transform:uppercase;
+    letter-spacing:.03em;padding-left:6px}
+  .cov-scale{display:flex;flex:1;min-width:0}
+  .cov-cell{flex:1 1 0;min-width:0;text-align:center;padding:5px 0;font-size:10px;font-weight:700;
+    color:var(--text);border-left:1px solid var(--border);font-variant-numeric:tabular-nums}
+  .cov-cell.onhour{border-left-color:var(--border-strong)}
+  .cov-cell.zero{color:#b6bcc5;font-weight:500}
+  .row.cov.total{background:#e9eef6;border-top:2px solid var(--border-strong)}
+  .row.cov.total .cov-label{color:var(--text)}
+  .row.cov.total .cov-cell{font-size:11.5px}
+  .row.cov.total .cov-cell.zero{color:var(--danger);background:#fdeeee}
+
+  .print-only{display:none}
+  .print-title{font-size:15px;font-weight:700;margin:0 0 8px;
+    padding-bottom:6px;border-bottom:2px solid #333}
+  .print-title .pt-right{float:right;font-weight:500}
+
   /* One block per fitting room: a named header, then its numbered position rows. */
   .group-head{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#eaeef4;
     border-top:1px solid var(--border-strong);border-bottom:1px solid var(--border)}
@@ -147,15 +167,42 @@
     main{padding:10px}
   }
 
+  /* A 15.5-hour timeline needs the long edge of the paper. */
+  @page{size:A4 landscape;margin:9mm}
+
   @media print{
     header.top,.pool,.manual-form,footer.actions,.daytabs,.addrow,.del,.x,
     .group-head button{display:none !important}
-    .group-head{background:#eee !important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .print-only{display:block !important}
+    .ruler.print-only{display:flex !important}
+    .ruler.ruler-top{display:none !important}   /* the per-room copies replace it */
+    .ruler-repeat{height:22px;border-top:1px solid var(--border-strong)}
+    .ruler-repeat .tick.half{display:none}      /* hours only, to keep it compact */
+    .ruler-repeat .tick.hour{padding-top:5px}
+    /* Gridlines are background gradients and block fills are background colours;
+       without this the sheet prints as an empty frame. */
+    body,.track,.block,.group-head,.row.cov,.cov-cell{
+      -webkit-print-color-adjust:exact;print-color-adjust:exact}
+    /* Screen greys are too faint on paper. */
+    :root{--border:#a9afb8;--border-strong:#6f7680}
     body{padding:0;background:#fff}
     main{padding:0;max-width:none}
-    .grid-wrap{border:none}
+    .grid-wrap{border:1px solid var(--border-strong)}
     .grid-scroll{overflow:visible}
     .grid-inner{min-width:0}
+    .group,.row{break-inside:avoid;page-break-inside:avoid}
+    /* An unfilled position row still needs to be visible to write on, but not at the
+       height of one holding a block. Only rows with nobody in them are compacted. */
+    .track:empty{height:26px !important;min-height:26px}
+    /* Shaving the chrome lets three rooms share a page instead of two. */
+    .group-head{padding:3px 10px !important}
+    .row.cov .cov-cell{padding:2px 0}
+    .row .label-cell{padding:2px 8px}
+    .group-head{background:#dfe4ea !important}
+    .row.cov{background:#f0f3f7 !important}
+    .row.cov.total{background:#dfe4ea !important}
+    .block{background:#e8edfb !important;border-color:#1e3a8a !important}
+    .ruler{border-bottom:1px solid var(--border-strong)}
   }
 </style>
 </head>
@@ -687,6 +734,12 @@
     const pool = dayShifts.filter((s) => !assigned.has(s.id));
 
     appEl.innerHTML = "";
+    const title = document.createElement("div");
+    title.className = "print-only print-title";
+    const dDate = STATE.roster.weekDates[day];
+    title.innerHTML = `Fitting Room Rota &mdash; <b>${escapeHtml(day)}</b>${dDate ? " " + escapeHtml(dDate) : ""}
+      <span class="pt-right">07:00 &ndash; 22:30</span>`;
+    appEl.appendChild(title);
     appEl.appendChild(renderDayTabs(dayLabels, allShifts));
     appEl.appendChild(renderPool(pool, day));
     appEl.appendChild(renderGrid(day, dayShifts));
@@ -776,8 +829,28 @@
       </div>`;
     };
 
+    const placedIn = (positionIds) => {
+      const out = [];
+      for (const pid of positionIds) {
+        const ids = (STATE.assignments[day] && STATE.assignments[day][pid]) || [];
+        for (const id of ids) {
+          const s = dayShifts.find((x) => x.id === id);
+          if (s) out.push(s);
+        }
+      }
+      return out;
+    };
+
+    // Printed pages break between rooms, and only the first page would carry the
+    // scale at the top of the grid — leaving later pages as rows of blocks with no
+    // way to read a time off them. Each room repeats it, on paper only.
+    const rulerBlock = (cls) =>
+      `<div class="ruler ${cls}"><div class="ruler-label"></div>` +
+      `<div class="ruler-scale">${ticks.join("")}</div></div>`;
+
     const rows = STATE.groups.map((g) => `
       <div class="group">
+        ${rulerBlock("print-only ruler-repeat")}
         <div class="group-head">
           <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
                  title="Rename this fitting room">
@@ -785,13 +858,17 @@
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
         </div>
         ${g.positions.map(rowHtml).join("")}
+        ${coverageRowHtml("On duty", coverageCounts(placedIn(g.positions.map((p) => p.id))))}
       </div>`).join("");
+
+    const everyPositionId = STATE.groups.reduce((a, g) => a.concat(g.positions.map((p) => p.id)), []);
+    const totalRow = coverageRowHtml("Total on duty", coverageCounts(placedIn(everyPositionId)), "total");
 
     wrap.innerHTML = `
       <div class="grid-scroll">
         <div class="grid-inner">
-          <div class="ruler"><div class="ruler-label"></div><div class="ruler-scale">${ticks.join("")}</div></div>
-          <div class="rows">${rows}</div>
+          ${rulerBlock("ruler-top")}
+          <div class="rows">${rows}${totalRow}</div>
           <div class="addrow"><button id="btnAddGroup">+ Add fitting room</button></div>
         </div>
       </div>`;
@@ -841,6 +918,36 @@
     let end = parseTime(s.end);
     if (end <= start) end += 1440; // shift crosses midnight
     return end;
+  }
+
+  // How many people are on at each half hour. A slot counts a placement if the two
+  // overlap at all, so somebody on 09:00-14:00 is counted in every slot they cover.
+  const SLOT_MINUTES = 30;
+  const SLOT_COUNT = SPAN / SLOT_MINUTES; // 31 half hours across 07:00-22:30
+
+  function coverageCounts(items) {
+    const counts = new Array(SLOT_COUNT).fill(0);
+    for (const s of items) {
+      const start = parseTime(s.start);
+      let end = parseTime(s.end);
+      if (end <= start) end = DAY_END; // overnight shift, clipped to the close
+      for (let i = 0; i < SLOT_COUNT; i++) {
+        const slotStart = DAY_START + i * SLOT_MINUTES;
+        if (start < slotStart + SLOT_MINUTES && end > slotStart) counts[i]++;
+      }
+    }
+    return counts;
+  }
+
+  function coverageRowHtml(label, counts, extraClass) {
+    const cells = counts.map((c, i) => {
+      const onHour = (DAY_START + i * SLOT_MINUTES) % 60 === 0;
+      return `<div class="cov-cell${c === 0 ? " zero" : ""}${onHour ? " onhour" : ""}">${c}</div>`;
+    }).join("");
+    return `<div class="row cov ${extraClass || ""}">
+      <div class="label-cell"><span class="cov-label">${escapeHtml(label)}</span></div>
+      <div class="cov-scale">${cells}</div>
+    </div>`;
   }
 
   // Greedy interval-scheduling lane assignment so overlapping blocks stack in

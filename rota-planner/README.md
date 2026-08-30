@@ -68,7 +68,37 @@ second time. The version guard also means a room deleted after the top-up stays 
 
 State (the parsed roster, position rows, and every placement) is kept in `localStorage`, so
 a refresh doesn't lose your work. There's also a manual "+ Add person" form for anyone the
-PDF parser missed or garbled, and a Print button for a paper copy of the current day.
+PDF parser missed or garbled.
+
+## Headcount
+
+Each room carries an **On duty** strip beneath its positions, and the grid ends with a
+**Total on duty** row: one cell per half hour, counting the placements that overlap that
+slot, so somebody on 09:00–18:00 is counted in every slot they cover. A person finishing at
+18:00 and another starting at 17:30 both count in the 17:30–18:00 slot and not in the ones
+either side of their own shift. Zeros are greyed in a room's own strip and shown red in the
+total, where they mean nobody at all is on.
+
+## Printing
+
+`@page` asks for A4 landscape — a 15.5-hour timeline does not fit the short edge.
+
+Three things a printed sheet needs that the screen does not:
+
+- **The gridlines and block fills are backgrounds**, and browsers drop those when printing
+  unless `print-color-adjust: exact` is set, so the sheet came out as an empty frame. Screen
+  greys are also too faint on paper, so `--border` and `--border-strong` are darkened inside
+  the print block.
+- **A title**, because the day tabs are hidden in print and nothing else on the page said
+  which day it was. A print-only line carries the day, its date and the 07:00–22:30 window.
+- **The hour scale on every page.** Rooms are kept whole with `break-inside: avoid`, so the
+  grid breaks between them, and only the first page would have carried the scale at the top —
+  leaving later pages as rows of blocks with no way to read a time off them. Each room
+  repeats a compact hours-only scale, shown on paper only.
+
+Empty position rows are compacted (`.track:empty`) and the print paddings trimmed, which is
+what gets three rooms onto a page instead of two — the sample day prints on two pages rather
+than three.
 
 ## Hours are fixed, by construction
 
