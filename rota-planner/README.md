@@ -40,7 +40,9 @@ person+day+shift becomes a chip in that day's "available" pool. A person only ev
 on the day(s) and at the hours their contract row actually shows — there is no way to place
 someone on a day they don't work, or edit their hours, by design.
 
-For each day (a fixed 07:00–22:30 window) you drag — or tap, then tap a row — chips onto
+For each day (a fixed 07:00–22:30 window, marked every half hour — hours labelled on the top
+line of the ruler, half hours on the line below, so an hour label and the half hour after it
+never compete for the same space) you drag — or tap, then tap a row — chips onto
 position rows to build the rota. Rows are grouped under a named header per fitting room
 (Lower Ground, 1st, 2nd, 3rd and 5th floor by default),
 with numbered positions beneath each. Every name is editable, rooms and positions can be
