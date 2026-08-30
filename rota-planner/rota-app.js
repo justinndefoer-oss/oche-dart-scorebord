@@ -311,9 +311,13 @@
     wrap.className = "grid-wrap";
 
     const ticks = [];
-    for (let h = 7; h <= 22; h++) {
-      const pct = ((h * 60 - DAY_START) / SPAN) * 100;
-      ticks.push(`<div class="tick" style="left:${pct}%">${h}:00</div>`);
+    // Mark every half hour, right through to the 22:30 close, so a 17:30 start is
+    // readable off the ruler rather than guessed at between two hour marks.
+    for (let m = DAY_START; m <= DAY_END; m += 30) {
+      const pct = ((m - DAY_START) / SPAN) * 100;
+      const cls = "tick" + (m % 60 === 0 ? " hour" : " half") + (m === DAY_END ? " last" : "");
+      const label = `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+      ticks.push(`<div class="${cls}" style="left:${pct}%">${label}</div>`);
     }
 
     const rowHtml = (pos) => {

@@ -77,11 +77,18 @@
     overflow:hidden}
   .grid-scroll{overflow-x:auto}
   .grid-inner{min-width:1180px}
-  .ruler{display:flex;border-bottom:1px solid var(--border);height:26px}
+  .ruler{display:flex;border-bottom:1px solid var(--border);height:34px}
   .ruler-label{width:160px;flex:none;border-right:1px solid var(--border);background:#fafbfc}
   .ruler-scale{position:relative;flex:1}
-  .ruler .tick{position:absolute;top:0;bottom:0;font-size:10.5px;color:var(--text-dim);
-    border-left:1px solid var(--border);padding-left:4px;padding-top:5px;white-space:nowrap}
+  /* Hours label the top line, half hours the one below, so an hour label and the
+     half hour 30 minutes after it never compete for the same horizontal space. */
+  .ruler .tick{position:absolute;top:0;bottom:0;font-size:10px;color:var(--text-dim);
+    border-left:1px solid var(--border);padding-left:3px;white-space:nowrap}
+  .ruler .tick.hour{color:var(--text);font-weight:600;border-left-color:var(--border-strong);padding-top:3px}
+  .ruler .tick.half{font-size:9px;opacity:.7;padding-top:18px}
+  /* The closing mark sits on the right edge, so its label hangs to the left of the line. */
+  .ruler .tick.last{border-left:none;border-right:1px solid var(--border-strong);
+    padding-left:0;padding-right:3px;transform:translateX(-100%)}
   .rows{}
   .row{display:flex;border-bottom:1px solid var(--border)}
   .row:last-child{border-bottom:none}
@@ -94,7 +101,8 @@
     background:none;border:none;cursor:pointer;padding:2px 6px}
   .row:hover .del,.row .label-cell .del:hover{opacity:1}
   .track{position:relative;flex:1;min-height:52px;background:
-      repeating-linear-gradient(to right, transparent, transparent calc(100%/31 - 1px), var(--border) calc(100%/31 - 1px), var(--border) calc(100%/31));
+      repeating-linear-gradient(to right, transparent 0, transparent calc(200%/31 - 1px), var(--border-strong) calc(200%/31 - 1px), var(--border-strong) calc(200%/31)),
+      repeating-linear-gradient(to right, transparent 0, transparent calc(100%/31 - 1px), var(--border) calc(100%/31 - 1px), var(--border) calc(100%/31));
     }
   .track.dragover{background-color:var(--accent-dim)}
   /* Drop preview: shows the rostered hours the block will snap to, wherever you let go. */
@@ -740,9 +748,13 @@
     wrap.className = "grid-wrap";
 
     const ticks = [];
-    for (let h = 7; h <= 22; h++) {
-      const pct = ((h * 60 - DAY_START) / SPAN) * 100;
-      ticks.push(`<div class="tick" style="left:${pct}%">${h}:00</div>`);
+    // Mark every half hour, right through to the 22:30 close, so a 17:30 start is
+    // readable off the ruler rather than guessed at between two hour marks.
+    for (let m = DAY_START; m <= DAY_END; m += 30) {
+      const pct = ((m - DAY_START) / SPAN) * 100;
+      const cls = "tick" + (m % 60 === 0 ? " hour" : " half") + (m === DAY_END ? " last" : "");
+      const label = `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+      ticks.push(`<div class="${cls}" style="left:${pct}%">${label}</div>`);
     }
 
     const rowHtml = (pos) => {
