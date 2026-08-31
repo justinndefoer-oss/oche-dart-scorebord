@@ -10,7 +10,7 @@
     --text:#1c2026; --text-dim:#6b7280; --accent:#2563eb; --accent-dim:#dbe6fd;
     --chip:#eef2ff; --chip-border:#c7d2fe; --chip-text:#1e3a8a;
     --danger:#dc2626; --danger-bg:#fee2e2; --warn-bg:#fff7ed; --warn-border:#fdba74;
-    --radius:10px;
+    --radius:10px; --label-w:160px;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
@@ -78,7 +78,7 @@
   .grid-scroll{overflow-x:auto}
   .grid-inner{min-width:1180px}
   .ruler{display:flex;border-bottom:1px solid var(--border);height:34px}
-  .ruler-label{width:160px;flex:none;border-right:1px solid var(--border);background:#fafbfc}
+  .ruler-label{width:var(--label-w);flex:none;border-right:1px solid var(--border);background:#fafbfc}
   .ruler-scale{position:relative;flex:1}
   /* Hours label the top line, half hours the one below, so an hour label and the
      half hour 30 minutes after it never compete for the same horizontal space. */
@@ -92,7 +92,7 @@
   .rows{}
   .row{display:flex;border-bottom:1px solid var(--border)}
   .row:last-child{border-bottom:none}
-  .row .label-cell{width:160px;flex:none;display:flex;align-items:center;gap:4px;padding:6px 8px;
+  .row .label-cell{width:var(--label-w);flex:none;display:flex;align-items:center;gap:4px;padding:6px 8px;
     border-right:1px solid var(--border);background:#fafbfc}
   .row .label-cell input{border:1px solid transparent;background:transparent;font:inherit;font-size:12.5px;
     font-weight:600;color:var(--text);width:100%;padding:4px 6px;border-radius:6px}
@@ -100,10 +100,12 @@
   .row .label-cell .del{flex:none;opacity:.4;font-size:16px;line-height:1;color:var(--text-dim);
     background:none;border:none;cursor:pointer;padding:2px 6px}
   .row:hover .del,.row .label-cell .del:hover{opacity:1}
-  .track{position:relative;flex:1;min-height:52px;background:
-      repeating-linear-gradient(to right, transparent 0, transparent calc(200%/31 - 1px), var(--border-strong) calc(200%/31 - 1px), var(--border-strong) calc(200%/31)),
-      repeating-linear-gradient(to right, transparent 0, transparent calc(100%/31 - 1px), var(--border) calc(100%/31 - 1px), var(--border) calc(100%/31));
-    }
+  .track{position:relative;flex:1;min-height:52px}
+  /* One element per half hour rather than a repeating gradient: a gradient's 1px
+     stripes are rasterised away when the page is printed, and the rows came out of
+     the printer blank. See rota-app.js where these are built. */
+  .track .gl{position:absolute;top:0;bottom:0;width:0;border-left:1px solid var(--border);pointer-events:none}
+  .track .gl.h{border-left-color:var(--border-strong)}
   .track.dragover{background-color:var(--accent-dim)}
   /* Drop preview: shows the rostered hours the block will snap to, wherever you let go. */
   .drop-preview{position:absolute;top:4px;bottom:4px;border:2px dashed var(--accent);
@@ -179,37 +181,50 @@
     /* Half hours must survive onto paper — 22:30 is one, and hiding them took the
        close of the day off the printed scale entirely. */
     .ruler-repeat{height:26px;background:#f7f9fc;border-bottom:1px solid var(--border-strong)}
-    /* Space between rooms, so a room's scale cannot be read as part of the one above. */
-    .group{margin-top:12px}
-    .group:first-child{margin-top:0}
+    /* One fitting room per sheet. Break before each room except the first, so the
+       last room keeps the Total on duty row rather than pushing it onto a page alone. */
+    .group + .group{break-before:page;page-break-before:always}
+    .group{margin-top:0}
     .group-head{border-top:2px solid var(--border-strong) !important}
     .ruler-repeat .tick.hour{padding-top:1px}
     .ruler-repeat .tick.half{padding-top:13px;font-size:7.5px;opacity:.85}
     .group-head .gh-date{display:inline;margin-left:auto;font-size:10px;font-weight:500;color:#333}
-    /* Gridlines are background gradients and block fills are background colours;
-       without this the sheet prints as an empty frame. */
+    /* Block fills, the header shading and the On duty strip are background colours,
+       which browsers drop when printing unless this is set. */
     body,.track,.block,.group-head,.row.cov,.cov-cell{
       -webkit-print-color-adjust:exact;print-color-adjust:exact}
-    /* Screen greys are too faint on paper. */
-    :root{--border:#a9afb8;--border-strong:#6f7680}
-    body{padding:0;background:#fff}
+    /* Screen greys are too faint on paper. A narrower name column on paper leaves
+       more of the sheet for the timeline itself. */
+    :root{--border:#a9afb8;--border-strong:#6f7680;--label-w:104px}
+    .row .label-cell input{font-size:9.5px;padding:2px 3px}
+    .cov-label{font-size:8.5px;padding-left:3px;letter-spacing:0}
+    /* html, not just body: the canvas takes its colour from html when html has one,
+       so setting only body left the strip below the grid printed in the screen grey. */
+    html,body{padding:0;background:#fff}
     main{padding:0;max-width:none}
     .grid-wrap{border:1px solid var(--border-strong)}
     .grid-scroll{overflow:visible}
     .grid-inner{min-width:0}
     .group,.row{break-inside:avoid;page-break-inside:avoid}
-    /* An unfilled position row still needs to be visible to write on, but not at the
-       height of one holding a block. Only rows with nobody in them are compacted. */
-    .track:empty{height:24px !important;min-height:24px}
-    /* One block deep is the normal case; compacting it costs nothing and saves a page.
-       Rows with stacked lanes keep their height, or the blocks would collide. */
-    .track.lanes-1{height:34px !important;min-height:34px}
-    .track.lanes-1 .block{height:28px !important;top:3px !important;padding:2px 6px}
-    .track.lanes-1 .block,.track.lanes-1 .block .tm{line-height:1.25}
-    .track.lanes-1 .block{font-size:10px}
-    .track.lanes-1 .block .tm{font-size:9px}
-    /* Shaving the chrome lets three rooms share a page instead of two. */
-    .group-head{padding:3px 10px !important}
+    /* A room has a sheet to itself, so its rows share out the whole page instead of
+       being squeezed up at the top with half the paper left blank. min-height (not
+       height) is what makes that safe: extra space is handed to the rows, but a room
+       with more positions than fit keeps its natural height and simply runs on.
+       The value leaves room for the title on page one and the Total on duty row on
+       the last page, both of which share a sheet with a room. */
+    .group{min-height:160mm;display:flex;flex-direction:column}
+    /* Every sheet but the first is missing the title above the grid, so the rooms on
+       them are given that height back and all five sheets fill the paper alike. Both
+       values stay well inside the 192mm an A4 leaves at these margins, so a printer
+       set to wider margins than @page asks for still puts one room on one sheet. */
+    .group + .group{min-height:169mm}
+    .group > .row{flex:1 1 auto}
+    .group > .row.cov{flex:none}
+    .track{height:auto !important;min-height:0}
+    /* One person on a row: fill the row, so the block is a box you can write beside
+       rather than a thin bar floating at the top of a tall empty cell. */
+    .track.lanes-1 .block{top:4px !important;bottom:4px !important;height:auto !important}
+    .group-head{padding:4px 10px !important}
     .row.cov .cov-cell{padding:2px 0}
     .row .label-cell{padding:2px 8px}
     .group-head{background:#dfe4ea !important}
@@ -824,6 +839,18 @@
       ticks.push(`<div class="${cls}" style="left:${pct}%">${label}</div>`);
     }
 
+    // The half-hour gridlines inside every row. They used to be a repeating-linear-
+    // gradient on .track, which prints as nothing at all: the browser rasterises the
+    // gradient far too coarsely for 1px stripes, so the printed rows came out blank
+    // white with only the ruler and the On duty strip to read a time against. Real
+    // elements are vector-drawn, so every line survives onto paper.
+    const gridLines = [];
+    for (let m = DAY_START + 30; m <= DAY_END; m += 30) {
+      const pct = ((m - DAY_START) / SPAN) * 100;
+      gridLines.push(`<i class="gl${m % 60 === 0 ? " h" : ""}" style="left:${pct}%"></i>`);
+    }
+    const gridLinesHtml = gridLines.join("");
+
     const rowHtml = (pos) => {
       const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
       const items = ids.map((id) => dayShifts.find((s) => s.id === id)).filter(Boolean);
@@ -838,7 +865,7 @@
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
           <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
         </div>
-        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
+        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${gridLinesHtml}${blocks}</div>
       </div>`;
     };
 

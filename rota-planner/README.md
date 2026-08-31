@@ -85,16 +85,35 @@ total, where they mean nobody at all is on.
 
 `@page` asks for A4 landscape — a 15.5-hour timeline does not fit the short edge.
 
-Three things a printed sheet needs that the screen does not:
+**One fitting room per sheet**, and each room's rows share out the whole page. The rooms are
+separated by `break-before: page` on every group but the first, so the last room keeps the
+Total on duty row instead of pushing it onto a sheet of its own, and page one keeps its title.
+The rows fill the paper because each group is a flex column with a `min-height` and
+`flex: 1 1 auto` rows: spare height is handed to the rows, but a room with more positions than
+fit keeps its natural height and simply runs on rather than being squashed or clipped. The two
+min-heights (160mm for the first room, 169mm for the rest, which have no title above them)
+leave enough slack inside an A4's 192mm that a printer set to wider margins than `@page` asks
+for still puts one room on one sheet. On paper the name column also narrows to 104px with
+smaller position text, which is what buys the timeline the extra width.
 
-- **The gridlines and block fills are backgrounds**, and browsers drop those when printing
-  unless `print-color-adjust: exact` is set, so the sheet came out as an empty frame. Screen
-  greys are also too faint on paper, so `--border` and `--border-strong` are darkened inside
-  the print block.
+Four things a printed sheet needs that the screen does not:
+
+- **Block fills and the shaded header rows are backgrounds**, and browsers drop those when
+  printing unless `print-color-adjust: exact` is set, so the sheet came out as an empty frame.
+  Screen greys are also too faint on paper, so `--border` and `--border-strong` are darkened
+  inside the print block. `html` gets the white background too, not just `body` — the canvas
+  takes its colour from `html` when `html` has one, so setting only `body` left the strip
+  below the grid printed in the screen grey.
+- **The half-hour gridlines have to be real elements**, not a `repeating-linear-gradient` on
+  `.track`. The gradient looked right on screen and printed as *nothing*: 1px stripes at a
+  fractional period are rasterised away, so every row came out of the printer blank white with
+  only the ruler and the On duty strip to read a time against. `rota-app.js` emits one `<i
+  class="gl">` per half hour instead, which is vector-drawn and survives. Measured on a real
+  print PDF: 0 of the expected gridlines rendered before, all of them after.
 - **A title**, because the day tabs are hidden in print and nothing else on the page said
   which day it was. A print-only line carries the day, its date and the 07:00–22:30 window.
-- **The hour scale on every page.** Rooms are kept whole with `break-inside: avoid`, so the
-  grid breaks between them, and only the first page would have carried the scale at the top —
+- **The hour scale on every page.** Each room is a page of its own, and only the first page
+  would have carried the scale at the top —
   leaving later pages as rows of blocks with no way to read a time off them. Each room
   repeats the scale, on paper only, **directly under its own header**. Emitting it above the
   header instead put it between the previous room's On duty numbers and this room's name —
@@ -104,10 +123,9 @@ Three things a printed sheet needs that the screen does not:
 Every room header also carries the day and date on paper, so a page that gets separated from
 page one still says which day it is for.
 
-Empty rows are compacted (`.track:empty`), single-lane rows are shortened
-(`.track.lanes-1` — rows with stacked lanes keep their height or the blocks would collide),
-and the print paddings are trimmed. That fits three rooms to a page instead of two: the
-sample day prints on two pages, three rooms then two.
+A row holding one person lets that person's block fill the row top to bottom, so it reads as a
+box you can write beside rather than a thin bar floating at the top of a tall empty cell. Rows
+with stacked lanes keep the lane geometry they have on screen, or the blocks would collide.
 
 Note when testing this: do **not** call `page.emulateMedia({media:"screen"})` before
 `page.pdf()`. `page.pdf()` already renders with print CSS, and forcing screen media made a

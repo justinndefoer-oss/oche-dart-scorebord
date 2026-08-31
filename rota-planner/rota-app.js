@@ -326,6 +326,18 @@
       ticks.push(`<div class="${cls}" style="left:${pct}%">${label}</div>`);
     }
 
+    // The half-hour gridlines inside every row. They used to be a repeating-linear-
+    // gradient on .track, which prints as nothing at all: the browser rasterises the
+    // gradient far too coarsely for 1px stripes, so the printed rows came out blank
+    // white with only the ruler and the On duty strip to read a time against. Real
+    // elements are vector-drawn, so every line survives onto paper.
+    const gridLines = [];
+    for (let m = DAY_START + 30; m <= DAY_END; m += 30) {
+      const pct = ((m - DAY_START) / SPAN) * 100;
+      gridLines.push(`<i class="gl${m % 60 === 0 ? " h" : ""}" style="left:${pct}%"></i>`);
+    }
+    const gridLinesHtml = gridLines.join("");
+
     const rowHtml = (pos) => {
       const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
       const items = ids.map((id) => dayShifts.find((s) => s.id === id)).filter(Boolean);
@@ -340,7 +352,7 @@
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
           <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
         </div>
-        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${blocks}</div>
+        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${gridLinesHtml}${blocks}</div>
       </div>`;
     };
 
