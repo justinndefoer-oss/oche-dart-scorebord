@@ -179,7 +179,11 @@
     .ruler.ruler-top{display:none !important}   /* the per-room copies replace it */
     /* Half hours must survive onto paper — 22:30 is one, and hiding them took the
        close of the day off the printed scale entirely. */
-    .ruler-repeat{height:26px;border-top:1px solid var(--border-strong)}
+    .ruler-repeat{height:26px;background:#f7f9fc;border-bottom:1px solid var(--border-strong)}
+    /* Space between rooms, so a room's scale cannot be read as part of the one above. */
+    .group{margin-top:12px}
+    .group:first-child{margin-top:0}
+    .group-head{border-top:2px solid var(--border-strong) !important}
     .ruler-repeat .tick.hour{padding-top:1px}
     .ruler-repeat .tick.half{padding-top:13px;font-size:7.5px;opacity:.85}
     .group-head .gh-date{display:inline;margin-left:auto;font-size:10px;font-weight:500;color:#333}
