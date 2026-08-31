@@ -72,6 +72,11 @@
   .chip.armed{outline:2px solid var(--accent);outline-offset:1px;background:#dbe6fd}
   .chip.dragging{opacity:.4}
   .pool-empty{color:var(--text-dim);font-size:12.5px;font-style:italic}
+  /* Department picker. Long enough for a name the export clipped, and it has to be a real
+     <select> so a phone gets the native wheel rather than a 33-item dropdown to scroll. */
+  #deptFilter{font:inherit;font-size:12.5px;font-weight:600;padding:5px 9px;max-width:260px;
+    border:1px solid var(--border-strong);border-radius:6px;background:var(--panel);color:var(--text)}
+  #deptFilter:focus{outline:2px solid var(--accent);outline-offset:1px}
 
   .grid-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
     overflow:hidden}
@@ -533,6 +538,7 @@
     positions: [],          // [{ id, label }]
     assignments: {},        // { [day]: { [positionId]: [shiftId, ...] } }
     activeDay: null,
+    deptFilter: null,       // department the pool is narrowed to, or null for all
   };
 
   let armedChipId = null;   // click-to-place selection (not persisted)
@@ -778,7 +784,7 @@
       <span class="pt-right">07:00 &ndash; 22:30</span>`;
     appEl.appendChild(title);
     appEl.appendChild(renderDayTabs(dayLabels, allShifts));
-    appEl.appendChild(renderPool(pool, day));
+    appEl.appendChild(renderPool(pool, day, dayShifts));
     appEl.appendChild(renderGrid(day, dayShifts));
 
     wireDayTabEvents();
@@ -801,19 +807,83 @@
 
   let poolFilterText = "";
 
-  function renderPool(pool, day) {
+  // The export prints each department as NAME(costcentre) into a fixed-width column and
+  // CLIPS anything past it — 10 of the 33 in the sample file come out of the PDF already
+  // cut, e.g. "FITTING ROOMS 1ST FLOOR(33". The characters are not in the file, so nothing
+  // can recover them; what we can do is not show the mess. The cost centre is noise for a
+  // filter, so it goes; a name that is itself cut keeps an ellipsis so it reads as
+  // truncated rather than as a typo of ours.
+  const COSTCENTRE_TAIL = /\s*\([A-Za-z0-9]{0,8}\)?$/;   // "(201)", "(T3f)", or a cut-off "(33"
+  function prettyDept(raw) {
+    const dept = String(raw || "").trim();
+    if (!dept) return "";
+    const tail = COSTCENTRE_TAIL.exec(dept);
+    // A clipped name has no closing bracket. If what was cut is only the cost centre we
+    // still have the whole name; if there is no bracket at all, the name itself lost letters.
+    const nameClipped = !dept.endsWith(")") && !tail;
+    const base = tail ? dept.slice(0, tail.index) : dept;
+    return titleCase(base) + (nameClipped ? "\u2026" : "");
+  }
+  function titleCase(text) {
+    return text.toLowerCase().replace(/[^\s-]+/g, (word, at) => {
+      // An ampersand or a dot marks a real acronym (P&C), and those keep their capitals.
+      // Length alone does not: it kept MENS, AND and the clipped FLOO shouting.
+      const original = text.substr(at, word.length);
+      if (/[&.]/.test(original)) return original;
+      // Capitalise the first LETTER, not the first character — "(health" starts with a
+      // bracket, and upper-casing that left the word lower-case.
+      return word.replace(/[a-z]/, (c) => c.toUpperCase());
+    }).replace(/\b(\d+)(St|Nd|Rd|Th)\b/g, (m, n, suf) => n + suf.toLowerCase());
+  }
+
+  // Every department rostered on the day being built, with how many of its people are
+  // still unplaced. Built from everyone rostered rather than only the unplaced, so a
+  // department doesn't vanish out of the list the moment you place its last person —
+  // and the chosen one is kept even on a day it has nobody, so the control never
+  // silently forgets what you picked. Alphabetical: this is a list you look a known
+  // name up in, and an order that shifts as you work is worse than a ranked one.
+  function deptsForDay(dayShifts, pool) {
+    const rostered = new Map();
+    for (const s of dayShifts) {
+      const key = s.dept || "";
+      rostered.set(key, (rostered.get(key) || 0) + 1);
+    }
+    const unplaced = new Map();
+    for (const s of pool) {
+      const key = s.dept || "";
+      unplaced.set(key, (unplaced.get(key) || 0) + 1);
+    }
+    if (STATE.deptFilter != null && !rostered.has(STATE.deptFilter)) rostered.set(STATE.deptFilter, 0);
+    return [...rostered.keys()]
+      .map((dept) => ({ dept, left: unplaced.get(dept) || 0, label: prettyDept(dept) || "No department" }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
+
+  function renderPool(pool, day, dayShifts) {
     const section = document.createElement("section");
     section.className = "pool";
+    const depts = deptsForDay(dayShifts, pool);
+    // A department chosen from last week's roster may not be in this week's export at
+    // all. Falling back to everyone beats showing an empty pool with no explanation.
+    const chosen = depts.some((d) => d.dept === STATE.deptFilter) ? STATE.deptFilter : null;
+    const rosteredHere = chosen === null ? 0 : dayShifts.filter((s) => (s.dept || "") === chosen).length;
+    const byDept = chosen === null ? pool : pool.filter((s) => (s.dept || "") === chosen);
     const filtered = poolFilterText
-      ? pool.filter((s) => s.name.toLowerCase().includes(poolFilterText.toLowerCase()))
-      : pool;
-    const countLabel = poolFilterText ? `${filtered.length} of ${pool.length}` : `${pool.length}`;
+      ? byDept.filter((s) => s.name.toLowerCase().includes(poolFilterText.toLowerCase()))
+      : byDept;
+    const narrowed = poolFilterText || chosen !== null;
+    const countLabel = narrowed ? `${filtered.length} of ${pool.length}` : `${pool.length}`;
     section.innerHTML = `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <h3 style="margin:0">Available for ${escapeHtml(day)} (${countLabel})</h3>
         <span style="font-size:11.5px;color:var(--text-dim);font-weight:500">
           🔒 Hours are fixed by the roster — drop anywhere on a row, the person keeps their own times
         </span>
+        ${depts.length > 1 ? `<select id="deptFilter" title="Show only one department">
+            <option value="">All departments (${pool.length})</option>
+            ${depts.map((d) => `<option value="${escapeHtml(d.dept)}"${d.dept === chosen ? " selected" : ""}
+              >${escapeHtml(d.label)} (${d.left})</option>`).join("")}
+          </select>` : ""}
         ${pool.length > 8 ? `<input type="search" id="poolFilter" placeholder="Filter by name…" value="${escapeHtml(poolFilterText)}"
             style="font:inherit;font-size:12.5px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:6px;width:180px">` : ""}
       </div>
@@ -821,7 +891,11 @@
         ${pool.length === 0
           ? `<span class="pool-empty">Everyone scheduled this day has been placed.</span>`
           : filtered.length === 0
-          ? `<span class="pool-empty">No one matches "${escapeHtml(poolFilterText)}".</span>`
+          ? `<span class="pool-empty">${poolFilterText
+              ? `No one matches &quot;${escapeHtml(poolFilterText)}&quot;${chosen !== null ? " in this department" : ""}.`
+              : rosteredHere === 0
+              ? `Nobody from this department works ${escapeHtml(day)}.`
+              : "Everyone in this department has been placed."}</span>`
           : filtered.map(chipHtml).join("")}
       </div>`;
     return section;
@@ -1046,6 +1120,17 @@
   }
 
   function wirePoolEvents(day) {
+    const deptSelect = document.getElementById("deptFilter");
+    if (deptSelect) {
+      deptSelect.addEventListener("change", () => {
+        // Persisted: whoever runs the fitting rooms wants the same department every day,
+        // and re-picking it on every reload is exactly the tedium this is meant to remove.
+        STATE.deptFilter = deptSelect.value || null;
+        saveState();
+        render();
+      });
+    }
+
     const filterInput = document.getElementById("poolFilter");
     if (filterInput) {
       filterInput.addEventListener("input", () => {
