@@ -330,12 +330,11 @@
       const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
       const items = ids.map((id) => dayShifts.find((s) => s.id === id)).filter(Boolean);
       items.sort((a, b) => parseTime(a.start) - parseTime(b.start));
-      const overlapIds = findOverlaps(items);
       const lanes = assignLanes(items);
       const laneCount = Math.max(1, ...items.map((s) => lanes.get(s.id) + 1));
       const laneHeight = 44;
       const trackHeight = laneCount * laneHeight + 8;
-      const blocks = items.map((s) => blockHtml(s, overlapIds.has(s.id), lanes.get(s.id), laneHeight)).join("");
+      const blocks = items.map((s) => blockHtml(s, lanes.get(s.id), laneHeight)).join("");
       return `<div class="row" data-pos="${escapeHtml(pos.id)}">
         <div class="label-cell">
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
@@ -421,18 +420,6 @@
     track.appendChild(g);
   }
 
-  function findOverlaps(items) {
-    const bad = new Set();
-    for (let i = 0; i < items.length; i++) {
-      for (let j = i + 1; j < items.length; j++) {
-        const a = items[i], b = items[j];
-        const aStart = parseTime(a.start), aEnd = normEnd(a);
-        const bStart = parseTime(b.start), bEnd = normEnd(b);
-        if (aStart < bEnd && bStart < aEnd) { bad.add(a.id); bad.add(b.id); }
-      }
-    }
-    return bad;
-  }
   function normEnd(s) {
     const start = parseTime(s.start);
     let end = parseTime(s.end);
@@ -470,8 +457,9 @@
     </div>`;
   }
 
-  // Greedy interval-scheduling lane assignment so overlapping blocks stack in
-  // separate horizontal lanes instead of covering each other.
+  // Two people can legitimately cover the same position at overlapping times — a
+  // handover, or extra cover at a busy hour — so an overlap is not an error. Greedy
+  // interval scheduling puts them in separate lanes so both stay readable.
   function assignLanes(items) {
     const laneEnds = []; // end time (minutes) currently occupied in each lane
     const lanes = new Map();
@@ -486,7 +474,7 @@
     return lanes;
   }
 
-  function blockHtml(s, overlap, lane, laneHeight) {
+  function blockHtml(s, lane, laneHeight) {
     const startMin = parseTime(s.start);
     let endMin = parseTime(s.end);
     if (endMin <= startMin) endMin = DAY_END; // overnight shift: clip to close of window
@@ -494,7 +482,7 @@
     const rightRaw = clamp((endMin - DAY_START) / SPAN * 100, 0, 100);
     const width = Math.max(rightRaw - left, 1.4);
     const top = 4 + (lane || 0) * laneHeight;
-    return `<div class="block${overlap ? " overlap" : ""}" draggable="true" data-block-id="${escapeHtml(s.id)}"
+    return `<div class="block" draggable="true" data-block-id="${escapeHtml(s.id)}"
         style="left:${left}%;width:${width}%;top:${top}px;height:${laneHeight - 6}px" title="${escapeHtml(s.name)} · ${s.start}–${s.end}">
       <span class="x" data-unassign="${escapeHtml(s.id)}">&times;</span>
       <span class="nm">${escapeHtml(s.name)}</span>
