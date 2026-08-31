@@ -72,6 +72,35 @@ State (the parsed roster, position rows, and every placement) is kept in `localS
 a refresh doesn't lose your work. There's also a manual "+ Add person" form for anyone the
 PDF parser missed or garbled.
 
+## Filtering the pool by department
+
+The roster gives every person a department, so the pool can be narrowed to one instead of
+scrolling all 292 names. The picker lists every department **rostered that day** — built from
+everyone rostered, not just the unplaced, so a department doesn't vanish from the list the
+moment you place its last person — with the number still to place beside each. The choice is
+saved: whoever runs the fitting rooms wants the same department every day.
+
+A department kept across a day it has nobody on stays in the list at `(0)` and stays selected,
+rather than the control silently resetting itself to All; the pool then says nobody from it
+works that day, which is a different thing from everyone having been placed and reads
+differently. A department saved from a previous week that isn't in the new export at all does
+fall back to All, since there is nothing to select.
+
+**The export clips department names.** They print as `NAME(costcentre)` into a fixed-width
+column and anything past roughly 155pt is cut — in the sample file 10 of 33 arrive already
+truncated, e.g. `FITTING ROOMS 1ST FLOOR(33`. Those characters are not in the PDF, so no parser
+can recover them. `prettyDept` drops the cost centre (noise in a filter) and title-cases the
+rest; where the *name itself* lost letters — three of them, Lower Ground, Fourth Floor and
+Health and Beauty — it keeps an ellipsis so it reads as truncated rather than as a typo of ours.
+Two rules earn their place in `titleCase`: an ampersand or dot keeps a token's capitals, so
+`P&C` doesn't become `P&c`; and it capitalises the first *letter* rather than the first
+character, because `(HEALTH` starts with a bracket and upper-casing that did nothing. Length
+alone is not a test for an acronym — it left `MENS`, `AND` and the clipped `FLOO` shouting.
+
+The source spelling is left alone, typos included: `FITTIING ROOMS 5TH FLOOR` and
+`LADIES LINGERE` are what the export says, and quietly correcting data we were given would make
+the filter disagree with the roster.
+
 ## Headcount
 
 Each room carries an **On duty** strip beneath its positions, and the grid ends with a
