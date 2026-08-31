@@ -53,8 +53,10 @@ Each room's **+ Position** and **×** sit immediately after its name, not pushed
 of the header: the header lives inside the horizontally-scrolling timeline, so right-aligned
 controls ended up around x=1066 and were off-screen on a phone. The delete crosses are also
 faintly visible at rest rather than appearing on hover, because a touch screen never hovers
-and hover-only controls are invisible there for good. A row can hold more than one person across the day; if two placements overlap in time
-they stack into separate lanes and turn red.
+and hover-only controls are invisible there for good. A row can hold more than one person across the day, and two of them may overlap in time —
+a handover, or extra cover at a busy hour. That is normal, so it is not flagged: overlapping
+placements simply stack into separate lanes so both stay readable, and both are counted in
+the On duty strip for the slots they share.
 
 Saves written before rooms existed are migrated on load: the flat position list becomes a
 single "Fitting Room" group, keeping every row name, id and placement, and the migrated shape
