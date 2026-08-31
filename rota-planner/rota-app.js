@@ -344,15 +344,23 @@
       items.sort((a, b) => parseTime(a.start) - parseTime(b.start));
       const lanes = assignLanes(items);
       const laneCount = Math.max(1, ...items.map((s) => lanes.get(s.id) + 1));
-      const laneHeight = 44;
-      const trackHeight = laneCount * laneHeight + 8;
+      // Up to eight deep the lanes keep a comfortable height and the row grows. Past
+      // that they share a fixed budget instead: ten people stacked on one position at
+      // 44px a lane is taller than an A4, and the row ran onto a second sheet that
+      // carries neither the room name nor the hour scale.
+      const laneHeight = laneCount <= 8 ? 44 : Math.max(34, Math.round(360 / laneCount));
+      // min-height, not height: the lanes set the floor, but the row is free to grow
+      // taller (print gives each room a whole page and shares the spare height out
+      // among its rows). A fixed height there was overridden and the stacked lanes,
+      // which are positioned absolutely, spilled into the row below.
+      const trackMinHeight = laneCount * laneHeight + 8;
       const blocks = items.map((s) => blockHtml(s, lanes.get(s.id), laneHeight)).join("");
       return `<div class="row" data-pos="${escapeHtml(pos.id)}">
         <div class="label-cell">
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
           <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
         </div>
-        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${gridLinesHtml}${blocks}</div>
+        <div class="track lanes-${laneCount}${laneHeight < 44 ? " dense" : ""}" data-track="${escapeHtml(pos.id)}" style="min-height:${trackMinHeight}px">${gridLinesHtml}${blocks}</div>
       </div>`;
     };
 

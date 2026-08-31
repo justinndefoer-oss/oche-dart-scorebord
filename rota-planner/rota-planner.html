@@ -116,6 +116,9 @@
     border-radius:7px;padding:5px 8px;font-size:11.5px;font-weight:600;color:#1e3a8a;overflow:hidden;
     cursor:grab;display:flex;flex-direction:column;justify-content:center;line-height:1.25;min-width:26px}
   .block .tm{font-weight:500;opacity:.75;font-size:10.5px;font-variant-numeric:tabular-nums}
+  /* Lanes squeezed to share a fixed budget: trim the block so both lines still fit. */
+  .track.dense .block{padding:2px 7px;font-size:10.5px;line-height:1.2}
+  .track.dense .block .tm{font-size:9.5px}
   .block .x{position:absolute;top:2px;right:3px;font-size:12px;line-height:1;color:inherit;opacity:.55;
     cursor:pointer;padding:2px}
   .block .x:hover{opacity:1}
@@ -205,7 +208,11 @@
     .grid-wrap{border:1px solid var(--border-strong)}
     .grid-scroll{overflow:visible}
     .grid-inner{min-width:0}
-    .group,.row{break-inside:avoid;page-break-inside:avoid}
+    /* Rows never split across sheets. Rooms may: each already starts on a fresh
+       sheet, so keeping a room whole only mattered back when several shared one —
+       and a room too tall to fit (a dozen people stacked on one position) would
+       otherwise be pushed off, leaving the sheet before it blank. */
+    .row{break-inside:avoid;page-break-inside:avoid}
     /* A room has a sheet to itself, so its rows share out the whole page instead of
        being squeezed up at the top with half the paper left blank. min-height (not
        height) is what makes that safe: extra space is handed to the rows, but a room
@@ -220,9 +227,10 @@
     .group + .group{min-height:169mm}
     .group > .row{flex:1 1 auto}
     .group > .row.cov{flex:none}
-    .track{height:auto !important;min-height:0}
     /* One person on a row: fill the row, so the block is a box you can write beside
-       rather than a thin bar floating at the top of a tall empty cell. */
+       rather than a thin bar floating at the top of a tall empty cell. Rows with
+       stacked lanes are left alone — their blocks sit at fixed lane offsets, and
+       stretching them would put two people in the same place. */
     .track.lanes-1 .block{top:4px !important;bottom:4px !important;height:auto !important}
     .group-head{padding:4px 10px !important}
     .row.cov .cov-cell{padding:2px 0}
@@ -857,15 +865,23 @@
       items.sort((a, b) => parseTime(a.start) - parseTime(b.start));
       const lanes = assignLanes(items);
       const laneCount = Math.max(1, ...items.map((s) => lanes.get(s.id) + 1));
-      const laneHeight = 44;
-      const trackHeight = laneCount * laneHeight + 8;
+      // Up to eight deep the lanes keep a comfortable height and the row grows. Past
+      // that they share a fixed budget instead: ten people stacked on one position at
+      // 44px a lane is taller than an A4, and the row ran onto a second sheet that
+      // carries neither the room name nor the hour scale.
+      const laneHeight = laneCount <= 8 ? 44 : Math.max(34, Math.round(360 / laneCount));
+      // min-height, not height: the lanes set the floor, but the row is free to grow
+      // taller (print gives each room a whole page and shares the spare height out
+      // among its rows). A fixed height there was overridden and the stacked lanes,
+      // which are positioned absolutely, spilled into the row below.
+      const trackMinHeight = laneCount * laneHeight + 8;
       const blocks = items.map((s) => blockHtml(s, lanes.get(s.id), laneHeight)).join("");
       return `<div class="row" data-pos="${escapeHtml(pos.id)}">
         <div class="label-cell">
           <input type="text" value="${escapeHtml(pos.label)}" data-pos-label="${escapeHtml(pos.id)}">
           <button class="del" data-del-pos="${escapeHtml(pos.id)}" title="Remove row">&times;</button>
         </div>
-        <div class="track lanes-${laneCount}" data-track="${escapeHtml(pos.id)}" style="height:${trackHeight}px">${gridLinesHtml}${blocks}</div>
+        <div class="track lanes-${laneCount}${laneHeight < 44 ? " dense" : ""}" data-track="${escapeHtml(pos.id)}" style="min-height:${trackMinHeight}px">${gridLinesHtml}${blocks}</div>
       </div>`;
     };
 

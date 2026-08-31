@@ -127,6 +127,21 @@ A row holding one person lets that person's block fill the row top to bottom, so
 box you can write beside rather than a thin bar floating at the top of a tall empty cell. Rows
 with stacked lanes keep the lane geometry they have on screen, or the blocks would collide.
 
+The lane height a row needs is written as **`min-height`, not `height`**. That is what lets the
+print rules hand a row extra space without breaking it: the lanes set the floor and the row is
+free to grow. A fixed height was overridden by the flex sizing, the lanes are positioned
+absolutely against it, and ten people on one position printed as three — the other seven spilled
+invisibly into the row below. Past eight deep the lanes stop growing the row and share a fixed
+budget instead (`.track.dense` trims the block text to suit), because ten lanes at the screen's
+44px is taller than an A4.
+
+Rooms may break across sheets; rows may not. Keeping a room whole only mattered when several
+shared a page, and a room too tall to fit would otherwise be pushed off, leaving the sheet
+before it blank. **Known limit:** a room that does overflow continues on a sheet carrying
+neither its name nor the hour scale — repeating those needs the grid rebuilt as a `<table>` with
+a `<thead>`, which is the only reliable way to repeat a header in print. It takes roughly
+eighteen people in one room to hit that.
+
 Note when testing this: do **not** call `page.emulateMedia({media:"screen"})` before
 `page.pdf()`. `page.pdf()` already renders with print CSS, and forcing screen media made a
 run come out screen-styled — buttons and all — which looked like a pagination bug in the app
