@@ -359,7 +359,9 @@
 
     // Printed pages break between rooms, and only the first page would carry the
     // scale at the top of the grid — leaving later pages as rows of blocks with no
-    // way to read a time off them. Each room repeats it, on paper only.
+    // way to read a time off them. Each room repeats it, on paper only, directly
+    // UNDER its own header: above the header it reads as belonging to the room
+    // before it, sandwiched between that room's On duty numbers and this one's name.
     const dDateForHead = (STATE.roster.weekDates && STATE.roster.weekDates[day]) || "";
     const rulerBlock = (cls) =>
       `<div class="ruler ${cls}"><div class="ruler-label"></div>` +
@@ -367,7 +369,6 @@
 
     const rows = STATE.groups.map((g) => `
       <div class="group">
-        ${rulerBlock("print-only ruler-repeat")}
         <div class="group-head">
           <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
                  title="Rename this fitting room">
@@ -375,6 +376,7 @@
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
           <span class="gh-date">${escapeHtml(day)}${dDateForHead ? " " + escapeHtml(dDateForHead) : ""}</span>
         </div>
+        ${rulerBlock("print-only ruler-repeat")}
         ${g.positions.map(rowHtml).join("")}
         ${coverageRowHtml("On duty", coverageCounts(placedIn(g.positions.map((p) => p.id))))}
       </div>`).join("");

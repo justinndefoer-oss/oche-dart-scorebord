@@ -94,7 +94,10 @@ Three things a printed sheet needs that the screen does not:
 - **The hour scale on every page.** Rooms are kept whole with `break-inside: avoid`, so the
   grid breaks between them, and only the first page would have carried the scale at the top —
   leaving later pages as rows of blocks with no way to read a time off them. Each room
-  repeats a compact hours-only scale, shown on paper only.
+  repeats the scale, on paper only, **directly under its own header**. Emitting it above the
+  header instead put it between the previous room's On duty numbers and this room's name —
+  two rows of small figures back to back, reading as though the scale belonged to the room
+  above. It is shaded and the rooms are spaced apart so each one reads as a unit.
 
 Every room header also carries the day and date on paper, so a page that gets separated from
 page one still says which day it is for.
