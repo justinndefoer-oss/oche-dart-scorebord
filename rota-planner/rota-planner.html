@@ -72,11 +72,22 @@
   .chip.armed{outline:2px solid var(--accent);outline-offset:1px;background:#dbe6fd}
   .chip.dragging{opacity:.4}
   .pool-empty{color:var(--text-dim);font-size:12.5px;font-style:italic}
-  /* Department picker. Long enough for a name the export clipped, and it has to be a real
-     <select> so a phone gets the native wheel rather than a 33-item dropdown to scroll. */
-  #deptFilter{font:inherit;font-size:12.5px;font-weight:600;padding:5px 9px;max-width:260px;
-    border:1px solid var(--border-strong);border-radius:6px;background:var(--panel);color:var(--text)}
-  #deptFilter:focus{outline:2px solid var(--accent);outline-offset:1px}
+  /* Pool header and its controls. The controls sit on their own line: four of them beside
+     the heading wrapped into a ragged mess on anything narrower than a laptop. */
+  .pool-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .pool-head h3{margin:0}
+  .pool-lock{font-size:11.5px;color:var(--text-dim);font-weight:500}
+  .pool-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .pool-controls label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim)}
+  /* Real <select>s, so a phone gets its native wheel rather than a 33-item list to scroll. */
+  .pool-controls select,.pool-controls input[type="search"]{font:inherit;font-size:12.5px;
+    font-weight:600;padding:5px 9px;border:1px solid var(--border-strong);border-radius:6px;
+    background:var(--panel);color:var(--text);text-transform:none;letter-spacing:0}
+  .pool-controls #deptFilter{max-width:250px}
+  .pool-controls input[type="search"]{font-weight:400;width:170px}
+  .pool-controls select:focus,.pool-controls input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  #poolChips{margin-top:10px}
 
   .grid-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
     overflow:hidden}
@@ -539,6 +550,7 @@
     assignments: {},        // { [day]: { [positionId]: [shiftId, ...] } }
     activeDay: null,
     deptFilter: null,       // department the pool is narrowed to, or null for all
+    poolSort: "start",      // how the pool is ordered: start | name | roster
   };
 
   let armedChipId = null;   // click-to-place selection (not persisted)
@@ -836,6 +848,50 @@
     }).replace(/\b(\d+)(St|Nd|Rd|Th)\b/g, (m, n, suf) => n + suf.toLowerCase());
   }
 
+  // "Who can cover 14:00?" is the question you actually ask while building a rota, so the
+  // pool can be narrowed to the people on at one moment. Held in memory rather than saved:
+  // a department is who you are and a sort is a preference, but a time is a question you
+  // are asking right now, and finding it still applied tomorrow would just be baffling.
+  let poolAtMinutes = null;
+
+  // A shift covers a moment if it has started and has not yet ended. Ending exactly at
+  // 14:00 does not count as being on at 14:00 — that person is walking out of the door.
+  // Overnight shifts run past the end of the window and are clipped to it, the same way
+  // their block is drawn.
+  function hhmm(minute) {
+    return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+  }
+
+  function coversMinute(shift, minute) {
+    const start = parseTime(shift.start);
+    let end = parseTime(shift.end);
+    if (end <= start) end = DAY_END;
+    return start <= minute && minute < end;
+  }
+
+  const POOL_SORTS = {
+    start: { label: "Start time", cmp: (a, b) => parseTime(a.start) - parseTime(b.start)
+      || parseTime(a.end) - parseTime(b.end) || a.name.localeCompare(b.name) },
+    name: { label: "Name", cmp: (a, b) => a.name.localeCompare(b.name) },
+    roster: { label: "Roster order", cmp: null },
+  };
+  function sortPool(list, key) {
+    const cmp = (POOL_SORTS[key] || POOL_SORTS.start).cmp;
+    return cmp ? list.slice().sort(cmp) : list;
+  }
+
+  // Every half hour of the window, for the "on at" picker — the same grid the rota is
+  // drawn on, so there is no way to ask about a time the sheet cannot show.
+  function halfHours() {
+    const out = [];
+    for (let m = DAY_START; m <= DAY_END; m += 30) {
+      // Zero-padded here, unlike the ruler: the picker and the messages read as prose
+      // ("nobody is on at 07:00"), and the ruler drops the pad only to save width.
+      out.push({ m, label: hhmm(m) });
+    }
+    return out;
+  }
+
   // Every department rostered on the day being built, with how many of its people are
   // still unplaced. Built from everyone rostered rather than only the unplaced, so a
   // department doesn't vanish out of the list the moment you place its last person —
@@ -868,34 +924,53 @@
     const chosen = depts.some((d) => d.dept === STATE.deptFilter) ? STATE.deptFilter : null;
     const rosteredHere = chosen === null ? 0 : dayShifts.filter((s) => (s.dept || "") === chosen).length;
     const byDept = chosen === null ? pool : pool.filter((s) => (s.dept || "") === chosen);
-    const filtered = poolFilterText
-      ? byDept.filter((s) => s.name.toLowerCase().includes(poolFilterText.toLowerCase()))
-      : byDept;
-    const narrowed = poolFilterText || chosen !== null;
+    const byTime = poolAtMinutes === null ? byDept : byDept.filter((s) => coversMinute(s, poolAtMinutes));
+    const matched = poolFilterText
+      ? byTime.filter((s) => s.name.toLowerCase().includes(poolFilterText.toLowerCase()))
+      : byTime;
+    const sortKey = POOL_SORTS[STATE.poolSort] ? STATE.poolSort : "start";
+    const filtered = sortPool(matched, sortKey);
+    const narrowed = poolFilterText || chosen !== null || poolAtMinutes !== null;
     const countLabel = narrowed ? `${filtered.length} of ${pool.length}` : `${pool.length}`;
+    const atLabel = poolAtMinutes === null ? "" : hhmm(poolAtMinutes);
+    // Which narrowing emptied the pool decides what the message should say, so they are
+    // checked in the order they were applied.
+    const emptyBecause = pool.length === 0 ? `Everyone scheduled this day has been placed.`
+      : byDept.length === 0
+      ? (rosteredHere === 0 ? `Nobody from this department works ${escapeHtml(day)}.`
+                            : "Everyone in this department has been placed.")
+      : byTime.length === 0
+      ? `Nobody left to place is on at ${escapeHtml(atLabel)}${chosen !== null ? " in this department" : ""}.`
+      : `No one matches &quot;${escapeHtml(poolFilterText)}&quot;${
+          poolAtMinutes !== null ? ` at ${escapeHtml(atLabel)}` : ""}${chosen !== null ? " in this department" : ""}.`;
     section.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
-        <h3 style="margin:0">Available for ${escapeHtml(day)} (${countLabel})</h3>
-        <span style="font-size:11.5px;color:var(--text-dim);font-weight:500">
+      <div class="pool-head">
+        <h3>Available for ${escapeHtml(day)} (${countLabel})</h3>
+        <span class="pool-lock">
           🔒 Hours are fixed by the roster — drop anywhere on a row, the person keeps their own times
         </span>
-        ${depts.length > 1 ? `<select id="deptFilter" title="Show only one department">
-            <option value="">All departments (${pool.length})</option>
+      </div>
+      <div class="pool-controls">
+        ${depts.length > 1 ? `<label>Department<select id="deptFilter">
+            <option value="">All (${pool.length})</option>
             ${depts.map((d) => `<option value="${escapeHtml(d.dept)}"${d.dept === chosen ? " selected" : ""}
               >${escapeHtml(d.label)} (${d.left})</option>`).join("")}
-          </select>` : ""}
-        ${pool.length > 8 ? `<input type="search" id="poolFilter" placeholder="Filter by name…" value="${escapeHtml(poolFilterText)}"
-            style="font:inherit;font-size:12.5px;padding:5px 9px;border:1px solid var(--border-strong);border-radius:6px;width:180px">` : ""}
+          </select></label>` : ""}
+        <label>On at<select id="poolAt">
+            <option value="">Any time</option>
+            ${halfHours().map((h) => `<option value="${h.m}"${h.m === poolAtMinutes ? " selected" : ""}
+              >${h.label}</option>`).join("")}
+          </select></label>
+        <label>Sort by<select id="poolSort">
+            ${Object.keys(POOL_SORTS).map((k) => `<option value="${k}"${k === sortKey ? " selected" : ""}
+              >${POOL_SORTS[k].label}</option>`).join("")}
+          </select></label>
+        ${pool.length > 8 ? `<input type="search" id="poolFilter" placeholder="Filter by name…"
+            value="${escapeHtml(poolFilterText)}">` : ""}
       </div>
-      <div class="chips" id="poolChips" style="margin-top:10px">
-        ${pool.length === 0
-          ? `<span class="pool-empty">Everyone scheduled this day has been placed.</span>`
-          : filtered.length === 0
-          ? `<span class="pool-empty">${poolFilterText
-              ? `No one matches &quot;${escapeHtml(poolFilterText)}&quot;${chosen !== null ? " in this department" : ""}.`
-              : rosteredHere === 0
-              ? `Nobody from this department works ${escapeHtml(day)}.`
-              : "Everyone in this department has been placed."}</span>`
+      <div class="chips" id="poolChips">
+        ${filtered.length === 0
+          ? `<span class="pool-empty">${emptyBecause}</span>`
           : filtered.map(chipHtml).join("")}
       </div>`;
     return section;
@@ -1126,6 +1201,23 @@
         // Persisted: whoever runs the fitting rooms wants the same department every day,
         // and re-picking it on every reload is exactly the tedium this is meant to remove.
         STATE.deptFilter = deptSelect.value || null;
+        saveState();
+        render();
+      });
+    }
+
+    const atSelect = document.getElementById("poolAt");
+    if (atSelect) {
+      atSelect.addEventListener("change", () => {
+        poolAtMinutes = atSelect.value === "" ? null : parseInt(atSelect.value, 10);
+        render();
+      });
+    }
+
+    const sortSelect = document.getElementById("poolSort");
+    if (sortSelect) {
+      sortSelect.addEventListener("change", () => {
+        STATE.poolSort = sortSelect.value;
         saveState();
         render();
       });

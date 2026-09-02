@@ -101,6 +101,26 @@ The source spelling is left alone, typos included: `FITTIING ROOMS 5TH FLOOR` an
 `LADIES LINGERE` are what the export says, and quietly correcting data we were given would make
 the filter disagree with the roster.
 
+## Finding who can cover a time
+
+The question you actually ask while building a rota is not "where is Naima", it is "who can
+cover 14:00". So the pool is **ordered by start time** by default (then end time, then name),
+and an **On at** picker narrows it to the people on at one half hour of the day. A shift that
+ends exactly at 14:00 does not count as on at 14:00 — that person is walking out of the door —
+and an overnight shift is clipped to the close of the window, the same way its block is drawn.
+The picker only offers the half hours the sheet itself is drawn on, so there is no way to ask
+about a time the rota cannot show.
+
+**Sort by** also offers name and the roster's own order.
+
+What persists and what doesn't is a deliberate split: a department is who you are and a sort is
+a preference, so both are saved; a time is a question you are asking right now, so **On at**
+resets on reload. Finding yesterday's 14:00 still applied would just be baffling.
+
+The three narrowings stack, and the message for an empty pool names whichever one emptied it,
+checked in the order they were applied — department, then time, then name — so "nobody left to
+place is on at 07:00 in this department" is never confused with "everyone has been placed".
+
 ## Headcount
 
 Each room carries an **On duty** strip beneath its positions, and the grid ends with a
