@@ -72,11 +72,22 @@
   .chip.armed{outline:2px solid var(--accent);outline-offset:1px;background:#dbe6fd}
   .chip.dragging{opacity:.4}
   .pool-empty{color:var(--text-dim);font-size:12.5px;font-style:italic}
-  /* Department picker. Long enough for a name the export clipped, and it has to be a real
-     <select> so a phone gets the native wheel rather than a 33-item dropdown to scroll. */
-  #deptFilter{font:inherit;font-size:12.5px;font-weight:600;padding:5px 9px;max-width:260px;
-    border:1px solid var(--border-strong);border-radius:6px;background:var(--panel);color:var(--text)}
-  #deptFilter:focus{outline:2px solid var(--accent);outline-offset:1px}
+  /* Pool header and its controls. The controls sit on their own line: four of them beside
+     the heading wrapped into a ragged mess on anything narrower than a laptop. */
+  .pool-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .pool-head h3{margin:0}
+  .pool-lock{font-size:11.5px;color:var(--text-dim);font-weight:500}
+  .pool-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .pool-controls label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim)}
+  /* Real <select>s, so a phone gets its native wheel rather than a 33-item list to scroll. */
+  .pool-controls select,.pool-controls input[type="search"]{font:inherit;font-size:12.5px;
+    font-weight:600;padding:5px 9px;border:1px solid var(--border-strong);border-radius:6px;
+    background:var(--panel);color:var(--text);text-transform:none;letter-spacing:0}
+  .pool-controls #deptFilter{max-width:250px}
+  .pool-controls input[type="search"]{font-weight:400;width:170px}
+  .pool-controls select:focus,.pool-controls input:focus{outline:2px solid var(--accent);outline-offset:1px}
+  #poolChips{margin-top:10px}
 
   .grid-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
     overflow:hidden}
