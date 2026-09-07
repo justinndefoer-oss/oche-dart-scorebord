@@ -2062,6 +2062,7 @@
 
       const have = coverageCounts(shiftsPlacedIn(g, day, dayShifts));
       let candidates = pool.filter((sh) => (sh.dept || "") === dept && !assignedIdsForDay(day).has(sh.id));
+      const noneRostered = candidates.length === 0;
       let placed = 0;
       for (;;) {
         const shortNow = need.map((n, i) => Math.max(0, n - have[i]));
@@ -2085,8 +2086,12 @@
         placed++; placedTotal++;
       }
       const stillShort = need.reduce((n, want, i) => n + (want > have[i] ? 1 : 0), 0);
+      // "Nobody left" reads as though we used them all, which is wrong when the
+      // department had no one on this day to begin with. Those are different problems:
+      // one is a rota you cannot fill, the other a minimum set on the wrong room.
       report.push({ room: g.label, dept: prettyDept(dept), placed, stillShort,
-                    ranOut: stillShort > 0 && candidates.length === 0 });
+                    exhausted: stillShort > 0 && !noneRostered && candidates.length === 0,
+                    noneRostered: stillShort > 0 && noneRostered });
     }
     return { report, placedTotal };
   }
@@ -2107,7 +2112,8 @@
       : `<li><b>${escapeHtml(r.room)}</b> — ${r.placed} placed from ${escapeHtml(r.dept)}` +
         (r.stillShort
           ? `, still short in ${r.stillShort} half hour${r.stillShort === 1 ? "" : "s"}` +
-            (r.ranOut ? " (nobody left in that department)" : "")
+            (r.noneRostered ? " — nobody from that department works this day"
+             : r.exhausted ? " — everyone from that department is already placed" : "")
           : ", minimum met all day") + `.</li>`).join("");
     parseWarningEl.innerHTML =
       `<div class="${report.some((r) => r.stillShort || r.skipped) ? "warning-banner" : "ok-banner"}">
