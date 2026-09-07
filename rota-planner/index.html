@@ -226,6 +226,14 @@
   .manual-form{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);
     padding:14px;margin-bottom:16px;display:none;gap:10px;flex-wrap:wrap;align-items:end}
   .manual-form.open{display:flex}
+  /* The reset choices, spelled out with their counts rather than hidden behind one
+     confirm — "clear the rota" means three different things and the difference matters. */
+  .reset-panel{align-items:center;gap:10px}
+  .reset-intro{flex-basis:100%;font-size:12px;color:var(--text-dim);margin-bottom:2px}
+  .reset-panel button{font-size:13px;padding:7px 12px}
+  .reset-panel .danger{border-color:var(--danger);color:var(--danger)}
+  .reset-panel .danger:hover{background:var(--danger-bg)}
+  .reset-panel button:disabled{opacity:.4;cursor:not-allowed}
   .manual-form label{display:flex;flex-direction:column;gap:4px;font-size:11.5px;color:var(--text-dim);font-weight:600}
   .manual-form input,.manual-form select{font:inherit;font-size:13px;padding:7px 8px;border:1px solid var(--border-strong);
     border-radius:6px;background:#fff}
@@ -241,7 +249,7 @@
   @page{size:A4 landscape;margin:9mm}
 
   @media print{
-    header.top,.pool,.manual-form,footer.actions,.daytabs,.addrow,.del,.x,
+    header.top,.pool,.manual-form,.reset-panel,footer.actions,.daytabs,.addrow,.del,.x,
     .cover-editor,.group-head button{display:none !important}
     .print-only{display:block !important}
     .ruler.print-only{display:flex !important}
@@ -329,6 +337,7 @@
   <button class="ghost" id="btnCheck" title="Check the PDF imported completely">Check import</button>
   <button class="ghost" id="btnManual" title="Add a person by hand">+ Add person</button>
   <button class="ghost" id="btnAutoFill" title="Fill each room from its own department, up to the minimum it needs">Auto-fill day</button>
+  <button class="ghost" id="btnReset" title="Clear placements, or start again from nothing">Reset</button>
   <button id="btnPrint" title="Print current day">Print</button>
   <button class="primary" id="btnUpload">Upload PDF</button>
   <input type="file" id="fileInput" accept="application/pdf,.pdf">
@@ -336,6 +345,17 @@
 
 <main>
   <div id="parseWarning"></div>
+  <div id="resetPanel" class="manual-form reset-panel">
+    <div class="reset-intro">
+      What would you like to clear? Every one of these can be put back with <b>Undo</b> straight
+      afterwards, so nothing here is final.
+    </div>
+    <button class="ghost" id="btnClearDay"></button>
+    <button class="ghost" id="btnClearWeek"></button>
+    <button class="danger" id="btnClearAll"></button>
+    <button class="ghost" id="btnResetCancel">Cancel</button>
+  </div>
+
   <div id="manualForm" class="manual-form">
     <div style="flex-basis:100%;font-size:12px;color:var(--text-dim);margin-bottom:2px">
       Only for someone missing from the PDF. Everyone already imported has their hours fixed by the roster.

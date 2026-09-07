@@ -1526,6 +1526,84 @@
 
   document.getElementById("btnAutoFill").addEventListener("click", runAutoFill);
 
+  // ------------------------------------ reset ------------------------------------
+  // "Clear the rota" means three different things, and getting the wrong one back is a
+  // rebuilt week. So the choices are spelled out with their counts instead of hidden
+  // behind one confirm — and each is stashed first, so Undo puts it straight back.
+  const resetPanel = document.getElementById("resetPanel");
+  const btnClearDay = document.getElementById("btnClearDay");
+  const btnClearWeek = document.getElementById("btnClearWeek");
+  const btnClearAll = document.getElementById("btnClearAll");
+
+  function placementsOnDay(day) {
+    const byPos = STATE.assignments[day] || {};
+    return Object.keys(byPos).reduce((n, id) => n + byPos[id].length, 0);
+  }
+
+  function openResetPanel() {
+    const day = STATE.activeDay;
+    const onDay = day ? placementsOnDay(day) : 0;
+    const all = countPlacements(STATE);
+    btnClearDay.textContent = `Clear ${day || "this day"} — ${onDay} placement${onDay === 1 ? "" : "s"}`;
+    btnClearDay.disabled = onDay === 0;
+    btnClearWeek.textContent = `Clear every day — ${all} placement${all === 1 ? "" : "s"}`;
+    btnClearWeek.disabled = all === 0;
+    // ensureDefaultPositions re-seeds the default rooms on an empty state, so this is
+    // "back to the defaults", not "no rooms at all". Say that rather than the shorter lie.
+    btnClearAll.textContent = "Start over — drop the roster, rooms back to the defaults";
+    resetPanel.classList.add("open");
+  }
+  function closeResetPanel() { resetPanel.classList.remove("open"); }
+
+  function afterReset(label, what) {
+    saveState();
+    render();
+    closeResetPanel();
+    parseWarningEl.innerHTML = `<div class="ok-banner">${escapeHtml(what)} ` +
+      `<button class="ghost undo-import" id="btnUndoImport">Undo ${escapeHtml(label)}</button></div>`;
+  }
+
+  document.getElementById("btnReset").addEventListener("click", () => {
+    manualForm.classList.remove("open");
+    if (resetPanel.classList.contains("open")) closeResetPanel(); else openResetPanel();
+  });
+  document.getElementById("btnResetCancel").addEventListener("click", closeResetPanel);
+
+  btnClearDay.addEventListener("click", () => {
+    const day = STATE.activeDay;
+    const n = placementsOnDay(day);
+    stashUndoPoint("clear", true);
+    STATE.assignments[day] = {};
+    afterReset("clear", `Cleared ${n} placement${n === 1 ? "" : "s"} from ${day}.`);
+  });
+
+  btnClearWeek.addEventListener("click", () => {
+    const n = countPlacements(STATE);
+    stashUndoPoint("clear", true);
+    STATE.assignments = {};
+    afterReset("clear", `Cleared ${n} placement${n === 1 ? "" : "s"} from every day.`);
+  });
+
+  btnClearAll.addEventListener("click", () => {
+    // The only one that throws away the import as well, so it asks — the roster took a
+    // PDF and a check to get in, and Undo is one deep.
+    if (!window.confirm(
+        "Start over?\n\nThis drops the roster and every placement, and puts the rooms and " +
+        "positions back to the defaults — the app as it was before any PDF was loaded. " +
+        "Undo can put it back once.\n\nContinue?")) return;
+    stashUndoPoint("starting over", true);
+    STATE = {
+      roster: null, manualEntries: [], positions: [], assignments: {}, activeDay: null,
+      deptFilter: null, poolSort: "start",
+    };
+    poolFilterText = "";
+    poolAtMinutes = null;
+    posCounter = 0; groupCounter = 0; manualCounter = 0;
+    ensureDefaultPositions();
+    afterReset("starting over", "Started over — no roster, no placements, rooms back to the defaults.");
+  });
+
+
   const FILE_FORMAT = "where-i-am-today-rota";
   const FILE_VERSION = 1;
 
