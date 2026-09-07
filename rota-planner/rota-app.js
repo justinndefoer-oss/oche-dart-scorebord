@@ -256,12 +256,13 @@
     title.className = "print-only print-title";
     const dDate = STATE.roster.weekDates[day];
     title.innerHTML = `Fitting Room Rota &mdash; <b>${escapeHtml(day)}</b>${dDate ? " " + escapeHtml(dDate) : ""}
-      <span class="pt-right">07:00 &ndash; 22:30</span>`;
+      <span class="pt-right">07:00 &ndash; 22:30 &middot; <span class="print-stamp">${escapeHtml(printStamp())}</span></span>`;
     appEl.appendChild(title);
     appEl.appendChild(renderDayTabs(dayLabels, allShifts));
     appEl.appendChild(renderPool(pool, day, dayShifts));
     appEl.appendChild(renderGrid(day, dayShifts));
 
+    refreshPrintStamps();
     wireDayTabEvents();
     wirePoolEvents(day);
     wireGridEvents(day, dayShifts);
@@ -321,6 +322,19 @@
   // 14:00 does not count as being on at 14:00 — that person is walking out of the door.
   // Overnight shifts run past the end of the window and are clipped to it, the same way
   // their block is drawn.
+  // Two versions of the same day end up pinned on the same wall and nobody can tell
+  // which is current. The stamp is written at render AND refreshed on beforeprint, so
+  // a page left open for an hour still prints the time it was actually printed.
+  function printStamp() {
+    const now = new Date();
+    return `printed ${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  }
+  function refreshPrintStamps() {
+    const text = printStamp();
+    document.querySelectorAll(".print-stamp").forEach((el) => { el.textContent = text; });
+  }
+  window.addEventListener("beforeprint", refreshPrintStamps);
+
   function hhmm(minute) {
     return `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
   }
@@ -477,11 +491,7 @@
       items.sort((a, b) => parseTime(a.start) - parseTime(b.start));
       const lanes = assignLanes(items);
       const laneCount = Math.max(1, ...items.map((s) => lanes.get(s.id) + 1));
-      // Up to eight deep the lanes keep a comfortable height and the row grows. Past
-      // that they share a fixed budget instead: ten people stacked on one position at
-      // 44px a lane is taller than an A4, and the row ran onto a second sheet that
-      // carries neither the room name nor the hour scale.
-      const laneHeight = laneCount <= 8 ? 44 : Math.max(34, Math.round(360 / laneCount));
+      const laneHeight = laneHeightFor(laneCount);
       // min-height, not height: the lanes set the floor, but the row is free to grow
       // taller (print gives each room a whole page and shares the spare height out
       // among its rows). A fixed height there was overridden and the stacked lanes,
@@ -519,25 +529,79 @@
       `<div class="ruler ${cls}"><div class="ruler-label"></div>` +
       `<div class="ruler-scale">${ticks.join("")}</div></div>`;
 
-    const rows = STATE.groups.map((g) => `
-      <div class="group">
-        <div class="group-head">
-          <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
-                 title="Rename this fitting room">
-          <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
-          <button class="ghost addpos" data-cover-toggle="${escapeHtml(g.id)}"
-                  title="Set how many people this room needs">Cover</button>
-          <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
-          <span class="gh-date">${escapeHtml(day)}${dDateForHead ? " " + escapeHtml(dDateForHead) : ""}</span>
-        </div>
-        ${coverEditorHtml(g)}
+    const dateBit = `${escapeHtml(day)}${dDateForHead ? " " + escapeHtml(dDateForHead) : ""}
+            &middot; <span class="print-stamp">${escapeHtml(printStamp())}</span>`;
+
+    // A room taller than an A4 has to break somewhere. Left to the browser it breaks
+    // wherever it runs out of paper and the second sheet arrives with no room name and
+    // no hour scale on it — rows of blocks with no way to read a time off them. So the
+    // break is chosen here instead and each piece is given its own heading and scale.
+    //
+    // The alternative was rebuilding the grid as a <table> so a <thead> repeats itself,
+    // which is the only thing browsers do reliably in print — but that means redoing the
+    // ruler alignment, the absolutely-positioned blocks and the page-fill sizing, all of
+    // which took a while to get right. This keeps the DOM we have.
+    //
+    // Splitting is a paper concern only: on screen the extra headings and scales are
+    // hidden, so a room still reads as one continuous list of rows.
+    const chunksFor = (g, isFirstOnPage) => {
+      const heights = g.positions.map((pos) => {
+        const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
+        const items = ids.map((id) => dayShifts.find((sh) => sh.id === id)).filter(Boolean);
+        const lanes = assignLanes(items);
+        const laneCount = Math.max(1, ...items.map((sh) => lanes.get(sh.id) + 1));
+        return laneCount * laneHeightFor(laneCount) + 8;
+      });
+      const budget = (isFirstOnPage ? PRINT_ROWS_FIRST : PRINT_ROWS_BUDGET);
+      const chunks = [];
+      let current = [], used = 0;
+      g.positions.forEach((pos, i) => {
+        // A single row taller than a sheet cannot be helped; it gets one of its own.
+        if (current.length && used + heights[i] > budget) { chunks.push(current); current = []; used = 0; }
+        current.push(pos);
+        used += heights[i];
+      });
+      if (current.length || !chunks.length) chunks.push(current);
+      return chunks;
+    };
+
+    let groupIndex = 0;
+    const rows = STATE.groups.map((g) => {
+      const counts = coverageCounts(placedIn(g.positions.map((p) => p.id)));
+      const need = requiredPerSlot(g);
+      const chunks = chunksFor(g, groupIndex === 0);
+      groupIndex++;
+      return chunks.map((chunk, ci) => {
+        const last = ci === chunks.length - 1;
+        const sheet = chunks.length > 1 ? ` <span class="gh-sheet">(sheet ${ci + 1} of ${chunks.length})</span>` : "";
+        const head = ci === 0
+          ? `<div class="group-head">
+               <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
+                      title="Rename this fitting room">
+               <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
+               <button class="ghost addpos" data-cover-toggle="${escapeHtml(g.id)}"
+                       title="Set how many people this room needs">Cover</button>
+               <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
+               <span class="gh-date">${dateBit}${sheet}</span>
+             </div>
+             ${coverEditorHtml(g)}`
+          : `<div class="group-head print-only">
+               <span class="gh-name">${escapeHtml(g.label)}${sheet}</span>
+               <span class="gh-date">${dateBit}</span>
+             </div>`;
+        // Every sheet carries the room's On duty strip and its cover rule, so a sheet
+        // that gets separated still stands on its own. The screen shows it once.
+        const foot = coverageRowHtml("On duty", counts, last ? "" : "print-only", need)
+          + coverNoteHtml(g, counts, !last);
+        return `
+      <div class="group${ci ? " group-cont" : ""}">
+        ${head}
         ${rulerBlock("print-only ruler-repeat")}
-        ${g.positions.map(rowHtml).join("")}
-        ${(() => {
-          const counts = coverageCounts(placedIn(g.positions.map((p) => p.id)));
-          return coverageRowHtml("On duty", counts, "", requiredPerSlot(g)) + coverNoteHtml(g, counts);
-        })()}
-      </div>`).join("");
+        ${chunk.map(rowHtml).join("")}
+        ${foot}
+      </div>`;
+      }).join("");
+    }).join("");
 
     const everyPositionId = STATE.groups.reduce((a, g) => a.concat(g.positions.map((p) => p.id)), []);
     const totalRow = coverageRowHtml("Total on duty", coverageCounts(placedIn(everyPositionId)), "total");
@@ -590,6 +654,19 @@
   // overlap at all, so somebody on 09:00-14:00 is counted in every slot they cover.
   const SLOT_MINUTES = 30;
   const SLOT_COUNT = SPAN / SLOT_MINUTES; // 31 half hours across 07:00-22:30
+
+  // Up to eight deep the lanes keep a comfortable height and the row grows. Past that
+  // they share a fixed budget instead: ten people stacked on one position at 44px a lane
+  // is taller than an A4.
+  function laneHeightFor(laneCount) {
+    return laneCount <= 8 ? 44 : Math.max(34, Math.round(360 / laneCount));
+  }
+
+  // What a sheet has room for below the room heading and its scale, in the same px the
+  // row heights are measured in. The first room on the page also carries the title.
+  // Measured against real print PDFs, not derived from the stylesheet.
+  const PRINT_ROWS_BUDGET = 600;
+  const PRINT_ROWS_FIRST = 566;
 
   function coverageCounts(items) {
     const counts = new Array(SLOT_COUNT).fill(0);
@@ -649,7 +726,7 @@
 
   // Says the rule in words under the room, so the printed sheet carries what it is
   // being measured against rather than just some red cells.
-  function coverNoteHtml(group, counts) {
+  function coverNoteHtml(group, counts, printOnly) {
     const rules = coverRules(group);
     if (!rules.length) return "";
     const need = requiredPerSlot(group);
@@ -658,7 +735,7 @@
       .sort((a, b) => a.from - b.from)
       .map((b) => `${b.min} from ${hhmm(b.from)} to ${hhmm(b.to)}`)
       .join(", ");
-    return `<div class="cover-note${shortSlots ? " short" : ""}">
+    return `<div class="cover-note${shortSlots ? " short" : ""}${printOnly ? " print-only" : ""}">
       <span class="cn-rule">Needs ${escapeHtml(bands)}</span>
       <span class="cn-state">${shortSlots
         ? `Short in ${shortSlots} half hour${shortSlots === 1 ? "" : "s"}`
