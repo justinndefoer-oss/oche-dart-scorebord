@@ -68,7 +68,7 @@ Name a room-and-position arrangement ("Standard Saturday", "Sale week") and drop
 
 ### F10 · Suggest a fill — DONE, merged 7 Sep
 Built tighter than this entry described, because the owner specified it better: **Auto-fill day**
-fills each room from **its own department only** (guessed from the room name, changeable in Setup)
+fills each room from **its own department only** (guessed from the room name, changeable in the Minimum panel)
 and stops at the **minimum from F3** rather than filling every empty row. Greedy set cover — take
 whoever closes the most half hours still short. It never places someone who only overfills, says by
 name where a department ran out, adds to existing placements rather than replacing them, and the
