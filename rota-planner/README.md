@@ -251,7 +251,18 @@ the browser's own `[hidden]` rule and the panel starts open otherwise.
 **Auto-fill day** fills every room from its own department, up to the minimum that room was told
 to need, and no further.
 
-Each room has a **Staff from** department, set in the same Minimum panel. It is guessed from the room's
+Each room has a **Staff from** list, set in the same Minimum panel — a room can draw on more than
+one department, because a fitting room is often covered by the floor's own people as well as its
+own. Departments show as removable chips beside an **+ Add department** picker; auto-fill takes
+anyone in any of them.
+
+An **absent** list means "never chosen, so guess"; an **empty** one means "chosen: none", and the
+two must not be confused or a room deliberately left open would start guessing again. Names that
+no longer exist are dropped, but if that empties the list it falls back to the guess — a list
+empty only because its contents rotted is not a choice. Legacy single-department saves read as a
+list of one.
+
+The guess itself is unchanged. It is guessed from the room's
 name the first time — but on words rather than on the whole string, because the names describe the
 same floors differently: *Fitting Room 1st Floor* against `FITTING ROOMS 1ST FLOOR(33`. Two words
 count as the same when one is a prefix of the other, which carries the departments the export

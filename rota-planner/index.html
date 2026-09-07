@@ -202,6 +202,19 @@
   .cover-row .ghost{opacity:.55;font-size:16px;line-height:1;padding:2px 8px}
   .cover-row .ghost:hover{opacity:1}
   .cover-empty{margin:0;font-size:12px;color:var(--text-dim);font-style:italic}
+  /* Departments a room draws from, as removable chips beside an add picker. A room is
+     often covered by the floor's own people as well as its own, so this is a list. */
+  .sf-label{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;
+    color:var(--text-dim)}
+  .dept-chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .dept-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;
+    padding:3px 4px 3px 9px;border:1px solid var(--chip-border);background:var(--chip);
+    color:var(--chip-text);border-radius:999px}
+  .dept-chip button{border:none;background:none;cursor:pointer;color:inherit;opacity:.6;
+    font-size:15px;line-height:1;padding:0 4px}
+  .dept-chip button:hover{opacity:1}
+  .dept-chip button:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:50%}
+  .cover-row select[data-dept-add]{max-width:210px}
   .addrow{padding:10px 12px}
 
   /* Headcount strip: one cell per half hour, aligned to the timeline columns. */
