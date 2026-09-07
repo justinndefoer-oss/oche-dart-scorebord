@@ -40,6 +40,14 @@
 
   .roster-status{font-size:13px;color:var(--text-dim);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
   .roster-status b{color:var(--text)}
+  /* Saving is otherwise invisible, so there is no telling a working tool from a broken
+     one until you reload and find out. Quiet when it is fine, loud when it is not. */
+  .save-state{font-size:11.5px;color:var(--text-dim);font-variant-numeric:tabular-nums;
+    white-space:nowrap}
+  .save-state.failed{color:var(--danger);font-weight:700;white-space:normal;
+    background:var(--danger-bg);border:1px solid var(--danger);border-radius:6px;padding:3px 8px}
+  .undo-import{margin-left:8px;border:1px solid currentColor !important;border-radius:6px;
+    padding:2px 9px;font-size:12px;font-weight:650}
 
   .empty-state{background:var(--panel);border:1px dashed var(--border-strong);border-radius:var(--radius);
     padding:48px 24px;text-align:center;color:var(--text-dim);margin-top:24px}
@@ -311,6 +319,7 @@
 <header class="top">
   <h1>🗓️ Rota Planner</h1>
   <div class="roster-status" id="rosterStatus"></div>
+  <span class="save-state" id="saveState"></span>
   <div class="spacer"></div>
   <button class="ghost" id="btnSaveFile" title="Save the roster and the whole rota to a file">Save to file</button>
   <button class="ghost" id="btnOpenFile" title="Open a rota saved earlier">Open file</button>
