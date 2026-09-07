@@ -882,8 +882,14 @@
     return bestScore >= Math.max(2, Math.ceil(want.length / 2)) ? best : null;
   }
   // undefined means "never chosen, so guess"; null means "chosen: none".
+  // A stored name that no longer exists falls back to the guess rather than sticking:
+  // a room saved against "FLOOR(110)" from the days when wrapped names were split in
+  // two would otherwise keep filtering to a department nobody is in, and quietly place
+  // nobody, with the picker showing the wrong thing selected.
   function roomDept(group, departments) {
-    return group.dept !== undefined ? group.dept : guessDeptFor(group.label, departments);
+    if (group.dept === null) return null;
+    if (group.dept !== undefined && departments.includes(group.dept)) return group.dept;
+    return guessDeptFor(group.label, departments);
   }
   function allDepartments() {
     const set = new Set();
