@@ -46,6 +46,8 @@
     white-space:nowrap}
   .save-state.failed{color:var(--danger);font-weight:700;white-space:normal;
     background:var(--danger-bg);border:1px solid var(--danger);border-radius:6px;padding:3px 8px}
+  .fill-report{margin:7px 0 9px;padding-left:18px;font-size:12.5px;line-height:1.5}
+  .fill-report li{margin:1px 0}
   .undo-import{margin-left:8px;border:1px solid currentColor !important;border-radius:6px;
     padding:2px 9px;font-size:12px;font-weight:650}
 
@@ -326,6 +328,7 @@
   <input type="file" id="stateInput" accept="application/json,.json">
   <button class="ghost" id="btnCheck" title="Check the PDF imported completely">Check import</button>
   <button class="ghost" id="btnManual" title="Add a person by hand">+ Add person</button>
+  <button class="ghost" id="btnAutoFill" title="Fill each room from its own department, up to the minimum it needs">Auto-fill day</button>
   <button id="btnPrint" title="Print current day">Print</button>
   <button class="primary" id="btnUpload">Upload PDF</button>
   <input type="file" id="fileInput" accept="application/pdf,.pdf">
