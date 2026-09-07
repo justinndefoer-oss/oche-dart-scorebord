@@ -18,7 +18,11 @@ Unrelated apps, deployed from the same GitHub Pages site:
    day. The owner's actual deliverable is `rota-planner/rota-planner.html`, a single
    self-contained file (pdf.js + worker + app all inlined) that runs offline from `file://`
    on a work PC — regenerate it with `node build-single-file.cjs` after editing any source
-   file, or the two will drift. See `rota-planner/README.md`.
+   file, or the two will drift. See `rota-planner/README.md` for how it works and every trap
+   already hit, and `rota-planner/BACKLOG.md` for the agreed feature list (F1–F28, with what is
+   done and what was deliberately ruled out). **Those two files are the handover**: a fresh
+   session, or a different Claude account, needs nothing from any previous conversation — read
+   them and carry on. The app is branded "Where I am Today" for a Primark store's fitting rooms.
 
 # The dart scoreboard
 
