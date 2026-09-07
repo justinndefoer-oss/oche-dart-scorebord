@@ -881,15 +881,35 @@
     // fitting room there is.
     return bestScore >= Math.max(2, Math.ceil(want.length / 2)) ? best : null;
   }
-  // undefined means "never chosen, so guess"; null means "chosen: none".
-  // A stored name that no longer exists falls back to the guess rather than sticking:
-  // a room saved against "FLOOR(110)" from the days when wrapped names were split in
-  // two would otherwise keep filtering to a department nobody is in, and quietly place
-  // nobody, with the picker showing the wrong thing selected.
-  function roomDept(group, departments) {
-    if (group.dept === null) return null;
-    if (group.dept !== undefined && departments.includes(group.dept)) return group.dept;
-    return guessDeptFor(group.label, departments);
+  // A room can be staffed from more than one department — a fitting room is often
+  // covered by the floor's own people as well as its own. Stored as a list.
+  //
+  // An absent list means "never chosen, so guess"; an empty one means "chosen: none",
+  // and the two must not be confused or a room deliberately left open would start
+  // guessing at it. Legacy single-department saves are read as a list of one.
+  //
+  // Names that no longer exist are dropped rather than kept: a room saved against
+  // "FLOOR(110)", from the days when wrapped names were split in two, would otherwise
+  // filter to a department nobody is in and quietly place nobody, with the picker
+  // showing the wrong thing selected. If that leaves nothing at all, the guess is used,
+  // because a list that is empty only because its contents rotted is not a choice.
+  function roomDepts(group, departments) {
+    const stored = Array.isArray(group.depts) ? group.depts
+      : group.dept === null ? []
+      : typeof group.dept === "string" ? [group.dept]
+      : null;
+    if (stored === null) {
+      const guess = guessDeptFor(group.label, departments);
+      return guess ? [guess] : [];
+    }
+    const live = stored.filter((d) => departments.includes(d));
+    if (live.length || stored.length === 0) return live;
+    const guess = guessDeptFor(group.label, departments);
+    return guess ? [guess] : [];
+  }
+  function setRoomDepts(group, list) {
+    group.depts = list;
+    delete group.dept;                 // migrated; the single form is never written again
   }
   function allDepartments() {
     const set = new Set();
@@ -902,8 +922,9 @@
   // asked for from/to bands, which meant translating the answer before you could give it.
   function coverEditorHtml(group) {
     const departments = allDepartments();
-    const chosen = roomDept(group, departments);
-    const guessed = group.dept === undefined && chosen !== null;
+    const chosen = roomDepts(group, departments);
+    const guessed = group.depts === undefined && group.dept === undefined && chosen.length > 0;
+    const spare = departments.filter((d) => !chosen.includes(d));
     const need = needFor(group);
     const cells = need.map((n, i) => {
       const onHour = (DAY_START + i * SLOT_MINUTES) % 60 === 0;
@@ -913,12 +934,17 @@
     }).join("");
     return `<div class="cover-editor" data-cover-editor="${escapeHtml(group.id)}" hidden>
       <div class="cover-row">
-        <label>Staff from<select data-room-dept="${escapeHtml(group.id)}">
-          <option value=""${chosen === null ? " selected" : ""}>Any department</option>
-          ${departments.map((d) => `<option value="${escapeHtml(d)}"${d === chosen ? " selected" : ""}
-            >${escapeHtml(prettyDept(d))}</option>`).join("")}
-        </select></label>
-        ${guessed ? `<span class="cover-empty">matched from the room name — change it if that is wrong</span>` : ""}
+        <span class="sf-label">Staff from</span>
+        <span class="dept-chips">${chosen.length
+          ? chosen.map((d) => `<span class="dept-chip">${escapeHtml(prettyDept(d))}<button type="button"
+              data-dept-remove="${escapeHtml(group.id)}" data-dept="${escapeHtml(d)}"
+              title="Stop taking people from this department">&times;</button></span>`).join("")
+          : `<span class="cover-empty">any department</span>`}</span>
+        ${spare.length ? `<select data-dept-add="${escapeHtml(group.id)}">
+          <option value="">+ Add department…</option>
+          ${spare.map((d) => `<option value="${escapeHtml(d)}">${escapeHtml(prettyDept(d))}</option>`).join("")}
+        </select>` : ""}
+        ${guessed ? `<span class="cover-empty">matched from the room name — add or remove as you need</span>` : ""}
         <label>Set every half hour to<input type="number" min="0" max="99" inputmode="numeric"
           data-need-all="${escapeHtml(group.id)}" placeholder="—"></label>
         <button class="ghost" data-need-clear="${escapeHtml(group.id)}">Clear all</button>
@@ -1128,16 +1154,32 @@
     // ---- minimum cover rules ----
     const findGroup = (id) => (STATE.groups || []).find((g) => g.id === id);
 
-    appEl.querySelectorAll("[data-room-dept]").forEach((el) => {
+    const keepPanelOpen = (id) => {
+      const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(id)}"]`);
+      if (panel) panel.hidden = false;
+    };
+
+    appEl.querySelectorAll("[data-dept-add]").forEach((el) => {
       el.addEventListener("change", () => {
-        const g = findGroup(el.dataset.roomDept);
-        if (!g) return;
-        // "" is a real choice — any department — and must not fall back to the guess.
-        g.dept = el.value === "" ? null : el.value;
+        const g = findGroup(el.dataset.deptAdd);
+        if (!g || !el.value) return;
+        setRoomDepts(g, roomDepts(g, allDepartments()).concat([el.value]));
         saveState();
         render();
-        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(g.id)}"]`);
-        if (panel) panel.hidden = false;
+        keepPanelOpen(g.id);
+      });
+    });
+
+    appEl.querySelectorAll("[data-dept-remove]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = findGroup(btn.dataset.deptRemove);
+        if (!g) return;
+        // Removing the last one is a real choice — any department — so it is written as
+        // an empty list rather than left to fall back to the guess.
+        setRoomDepts(g, roomDepts(g, allDepartments()).filter((d) => d !== btn.dataset.dept));
+        saveState();
+        render();
+        keepPanelOpen(g.id);
       });
     });
 
@@ -1532,11 +1574,11 @@
       if (!g.positions.length) { report.push({ room: g.label, skipped: "it has no position rows" }); continue; }
       const need = requiredPerSlot(g);
       if (!need.some((n) => n > 0)) { report.push({ room: g.label, skipped: "no minimum is set for it" }); continue; }
-      const dept = roomDept(g, departments);
-      if (dept === null) { report.push({ room: g.label, skipped: "no department is set for it" }); continue; }
+      const depts = roomDepts(g, departments);
+      if (!depts.length) { report.push({ room: g.label, skipped: "no department is set for it" }); continue; }
 
       const have = coverageCounts(shiftsPlacedIn(g, day, dayShifts));
-      let candidates = pool.filter((sh) => (sh.dept || "") === dept && !assignedIdsForDay(day).has(sh.id));
+      let candidates = pool.filter((sh) => depts.includes(sh.dept || "") && !assignedIdsForDay(day).has(sh.id));
       const noneRostered = candidates.length === 0;
       let placed = 0;
       for (;;) {
@@ -1564,9 +1606,9 @@
       // "Nobody left" reads as though we used them all, which is wrong when the
       // department had no one on this day to begin with. Those are different problems:
       // one is a rota you cannot fill, the other a minimum set on the wrong room.
-      report.push({ room: g.label, dept: prettyDept(dept), placed, stillShort,
+      report.push({ room: g.label, dept: depts.map(prettyDept).join(", "), placed, stillShort,
                     exhausted: stillShort > 0 && !noneRostered && candidates.length === 0,
-                    noneRostered: stillShort > 0 && noneRostered });
+                    noneRostered: stillShort > 0 && noneRostered, multi: depts.length > 1 });
     }
     return { report, placedTotal };
   }
@@ -1587,8 +1629,8 @@
       : `<li><b>${escapeHtml(r.room)}</b> — ${r.placed} placed from ${escapeHtml(r.dept)}` +
         (r.stillShort
           ? `, still short in ${r.stillShort} half hour${r.stillShort === 1 ? "" : "s"}` +
-            (r.noneRostered ? " — nobody from that department works this day"
-             : r.exhausted ? " — everyone from that department is already placed" : "")
+            (r.noneRostered ? ` — nobody from that department${r.multi ? "s set" : ""} works this day`
+             : r.exhausted ? ` — everyone from that department${r.multi ? "s set" : ""} is already placed` : "")
           : ", minimum met all day") + `.</li>`).join("");
     parseWarningEl.innerHTML =
       `<div class="${report.some((r) => r.stillShort || r.skipped) ? "warning-banner" : "ok-banner"}">
