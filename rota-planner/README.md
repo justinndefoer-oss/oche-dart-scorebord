@@ -440,5 +440,23 @@ wrapped names and split shifts on the same day are handled by carrying the "curr
 employee" forward across continuation rows. Validated against a real 17-page, 292-employee
 export with zero mismatches against a from-scratch reference parse.
 
+**A department name too long for its column is handled two different ways by this export,
+depending on the options it was run with.** The week 36 file CLIPS it — `FITTING ROOMS LOWER GROU`
+— and those characters are simply gone. The week 37 file WRAPS it onto a second line instead:
+`FITTING ROOMS LOWER` / `GROUND(202)`. Left alone the wrapped form produced a department called
+`GROUND(202)` and lost the real name completely, which took out three of the four fitting rooms.
+
+Two heading rows are treated as one wrapped name only when they are **immediately adjacent** —
+9.7pt apart in the sample, against 11.5pt for a row of employees — and the first has **no closing
+bracket**, since the cost centre ends a complete name. Any other row in between clears the
+candidate, so a heading that merely follows a block of employees can never be glued to the one
+before it. The clipped form is untouched: there is no second line to join, and nothing can recover
+characters the export never wrote.
+
+A room's saved department also heals itself. One saved as `FLOOR(110)` back when wrapped names
+were split in two would otherwise keep filtering to a department nobody is in — placing nobody,
+with the picker showing the wrong thing selected. A stored name that no longer exists falls back
+to the guess.
+
 If a future export doesn't match this structure, the day columns won't be found and the app
 shows a warning — names can still be added by hand.

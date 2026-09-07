@@ -10,6 +10,7 @@
   const COSTCENTER_RE = /^\d+\(\d+\)$/;
   const DATE_RE = /^\d{2}\/\d{2}\/\d{4}$/;
   const DURATION_RE = /^\d{1,3}:\d{2}$/;
+  const CLOSED_NAME_RE = /\)\s*$/;   // a complete department name ends in its cost centre
   const FOOTER_RE = /^\d{2}\/\d{2}\/\d{4}\s+\d{2}:\d{2}$/;
   const GUILLEMET = "»"; // literal "»" — kept as an escape so byte/charset quirks can't break the match
   const NAME_COL_MAX_X0 = 150; // empirically: name text never starts past this x0 in the source template
@@ -108,11 +109,15 @@
         return true;
       };
 
+      let lastHeading = null;   // the previous row, when it was a department heading
       for (const row of rows) {
         const texts = row.items.map((w) => w.text);
         const first = texts[0];
         const x0First = row.items[0].x0;
         const joined = texts.join(" ");
+
+        // Anything that is not a heading ends the chance of a wrap.
+        if (!(x0First < 30 && texts.length === 1)) lastHeading = null;
 
         if (FURNITURE_EXACT.has(joined)) continue;
         if (texts.some((t) => FURNITURE_EXACT.has(t))) continue;
@@ -149,7 +154,22 @@
           : 0;
         const hasTime = texts.some((t) => TIME_RANGE_RE.test(t));
         if (upperRatio > 0.8 && x0First < 30 && !hasTime) {
-          currentDept = joined;
+          // A department name too long for its column is handled two different ways by
+          // this export depending on the options it was run with: one file CLIPS it
+          // ("FITTING ROOMS LOWER GROU"), another WRAPS it onto a second line
+          // ("FITTING ROOMS LOWER" / "GROUND(202)"). Left alone, the wrapped form gives
+          // a department called "GROUND(202)" and loses the real name entirely.
+          //
+          // Two heading rows are one wrapped name only when they are immediately
+          // adjacent — measured at 9.7pt apart in the sample, against 11.5pt for a row
+          // of employees — and the first has no closing bracket, since the cost centre
+          // ends a complete name. lastHeading is cleared by any other row, so a heading
+          // that merely follows employees can never be glued to the one before it.
+          const wrapped = lastHeading
+            && !CLOSED_NAME_RE.test(lastHeading.text)
+            && row.top - lastHeading.top < 14;
+          currentDept = wrapped ? `${lastHeading.text} ${joined}` : joined;
+          lastHeading = { top: row.top, text: currentDept };
           currentEmp = null;
           continue;
         }
