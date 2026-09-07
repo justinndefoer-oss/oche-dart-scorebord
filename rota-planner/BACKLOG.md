@@ -9,7 +9,7 @@ testing on a real print. Big or risky changes something load-bearing, and wants 
 **Free data** marks the ones that need no new input at all: the roster PDF already gives us
 breaks, departments, exact hours and every name.
 
-**Done so far:** F11, F12.
+**Done so far:** F11, F12, F23.
 
 ---
 
@@ -123,10 +123,9 @@ and the ruler alignment.
 
 Everything built lives in one browser's storage on one machine.
 
-### F23 · Save a day, or a week, to a file — Small
-Export and import a small `.json`. A backup against a cleared cache, and how the day travels: open
-the file from the USB stick on a different PC today and the work simply isn't there. For a tool
-whose whole point is running from a stick, this is the missing half.
+### F23 · Save a day, or a week, to a file — DONE
+Save to file / Open file in the header. The roster travels with the rota, so the file works on a
+PC that never saw the PDF.
 
 ### F24 · Say when it last saved — Small
 A quiet "saved 14:02", and a restore point from before the last import. Storage can also fail

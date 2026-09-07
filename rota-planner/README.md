@@ -121,6 +121,30 @@ The three narrowings stack, and the message for an empty pool names whichever on
 checked in the order they were applied — department, then time, then name — so "nobody left to
 place is on at 07:00 in this department" is never confused with "everyone has been placed".
 
+## Saving a rota to a file
+
+Placements live in `localStorage`, which is one browser on one machine — so without this the
+day cannot travel, and a cleared cache loses an afternoon. **Save to file** writes the whole
+state (roster, rooms, positions, every placement, the filters) as a small `.json` named for the
+week, e.g. `where-i-am-today-2026-08-30.json`; **Open file** loads it back. About 73 KB for a
+292-person week.
+
+The roster travels with it deliberately: the PC you open the file on may never have seen the
+PDF. That also means the file contains every colleague's name and hours, so it deserves the
+same care as the roster export itself.
+
+Opening replaces everything on screen, so it asks first — but only when there is something to
+lose, since nagging about an empty rota is just noise. A file is refused whole rather than
+loaded half-way: it must carry the `where-i-am-today-rota` marker, a version no newer than the
+app understands, and a roster with employees and day labels. Each failure says which check it
+was, because "couldn't open that file" on its own tells you nothing about what to do next.
+
+On load the id counters are re-derived from the file's own ids. Without that the next room or
+row added would collide with one already in it.
+
+Note for the download: the object URL is revoked on a timer, not immediately — revoking it in
+the same tick cancels the download in some browsers.
+
 ## Headcount
 
 Each room carries an **On duty** strip beneath its positions, and the grid ends with a
