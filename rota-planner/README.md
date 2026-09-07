@@ -164,6 +164,25 @@ it must not end up inside a saved `.json`. It is stashed only when there is some
 consumed when used, and a failure to stash never blocks the import — no undo point is better than
 no import.
 
+## Reset
+
+"Clear the rota" means three different things and getting the wrong one back is a rebuilt week, so
+**Reset** opens a panel that spells them out with their counts rather than hiding them behind one
+confirm:
+
+- **Clear <day>** — that day's placements only.
+- **Clear every day** — all placements, keeping the roster, the rooms and the cover rules.
+- **Start over** — drops the roster too and puts rooms and positions back to the defaults. The
+  only one that asks, because the roster took a PDF and a check to get in.
+
+Each stashes an undo point first, so **Undo** in the banner afterwards puts it straight back —
+including the roster after Start over. The two clear buttons disable themselves at zero, so the
+panel never offers to clear nothing.
+
+Note the label on Start over says *rooms back to the defaults*, not *no rooms*:
+`ensureDefaultPositions` re-seeds the default five on an empty state, and the shorter phrasing
+would have been a lie.
+
 ## Headcount
 
 Each room carries an **On duty** strip beneath its positions, and the grid ends with a
