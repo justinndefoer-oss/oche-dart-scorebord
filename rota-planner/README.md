@@ -195,8 +195,19 @@ total, where they mean nobody at all is on.
 ## How much cover a room needs
 
 Each room can carry minimum-cover rules — *at least 2, from 12:00 to 17:00* — set from the
-**Cover** button in its header. Half hours below the minimum turn red in that room's On duty
+**Minimum** button in its header. Half hours below the minimum turn red in that room's On duty
 strip, and the room ends with a line saying the rule in words and how many half hours are short.
+
+**That line is the way in, not just a readout.** On screen it is a button, because it is where you
+are already looking when you decide the rule is wrong. A room with *no* minimum shows the line too
+— *"No minimum set for this room · Set one"* — where before it showed nothing at all, so there was
+no hint the setting existed unless you already knew it lived behind a button in the header. The
+button was called Cover, then Setup, and the owner still had to ask where minimums were set; the
+always-visible line is the actual fix, and the rename to Minimum is the smaller half of it.
+
+Both are screen-only. `button.cover-note` is hidden in print, or the rule printed twice (once as
+the button, once as the plain line beside it) and a room with no minimum printed *"No minimum set
+for this room"*, which is not a rota's business.
 
 Details that matter:
 
@@ -222,7 +233,7 @@ the browser's own `[hidden]` rule and the panel starts open otherwise.
 **Auto-fill day** fills every room from its own department, up to the minimum that room was told
 to need, and no further.
 
-Each room has a **Staff from** department, set in its Setup panel. It is guessed from the room's
+Each room has a **Staff from** department, set in the same Minimum panel. It is guessed from the room's
 name the first time — but on words rather than on the whole string, because the names describe the
 same floors differently: *Fitting Room 1st Floor* against `FITTING ROOMS 1ST FLOOR(33`. Two words
 count as the same when one is a prefix of the other, which carries the departments the export

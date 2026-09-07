@@ -609,7 +609,8 @@
                       title="Rename this fitting room">
                <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
                <button class="ghost addpos" data-cover-toggle="${escapeHtml(g.id)}"
-                       title="Which department staffs this room, and how many it needs">Setup</button>
+                       title="Which department staffs this room, and how many people it needs"
+                       >Minimum</button>
                <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
                <span class="gh-date">${dateBit}${sheet}</span>
              </div>
@@ -757,18 +758,41 @@
   // being measured against rather than just some red cells.
   function coverNoteHtml(group, counts, printOnly) {
     const rules = coverRules(group);
-    if (!rules.length) return "";
+    // A room with no minimum used to show nothing at all, so there was no hint the
+    // setting existed — you had to already know it lived behind a button. The line is
+    // always there on screen now, and it is the way in. On paper it only appears when
+    // there is a rule, since "no minimum set" is not something a printed rota needs.
+    if (!rules.length) {
+      return printOnly ? "" : `<button type="button" class="cover-note unset"
+        data-cover-toggle="${escapeHtml(group.id)}">
+        <span class="cn-rule">No minimum set for this room</span>
+        <span class="cn-state">Set one</span>
+      </button>`;
+    }
     const need = requiredPerSlot(group);
     const shortSlots = counts.reduce((n, c, i) => n + (need[i] > 0 && c < need[i] ? 1 : 0), 0);
     const bands = rules.slice()
       .sort((a, b) => a.from - b.from)
       .map((b) => `${b.min} from ${hhmm(b.from)} to ${hhmm(b.to)}`)
       .join(", ");
-    return `<div class="cover-note${shortSlots ? " short" : ""}${printOnly ? " print-only" : ""}">
+    const state = shortSlots
+      ? `Short in ${shortSlots} half hour${shortSlots === 1 ? "" : "s"}`
+      : "Covered all day";
+    // On paper it is a plain line; on screen the same line is the way to change the rule,
+    // because that is where you are already looking when you decide it is wrong.
+    if (printOnly) {
+      return `<div class="cover-note${shortSlots ? " short" : ""} print-only">
+        <span class="cn-rule">Needs ${escapeHtml(bands)}</span>
+        <span class="cn-state">${state}</span></div>`;
+    }
+    return `<button type="button" class="cover-note${shortSlots ? " short" : ""}"
+            data-cover-toggle="${escapeHtml(group.id)}" title="Change this room's minimum">
       <span class="cn-rule">Needs ${escapeHtml(bands)}</span>
-      <span class="cn-state">${shortSlots
-        ? `Short in ${shortSlots} half hour${shortSlots === 1 ? "" : "s"}`
-        : "Covered all day"}</span>
+      <span class="cn-state">${state}</span>
+    </button>
+    <div class="cover-note${shortSlots ? " short" : ""} print-only">
+      <span class="cn-rule">Needs ${escapeHtml(bands)}</span>
+      <span class="cn-state">${state}</span>
     </div>`;
   }
 
