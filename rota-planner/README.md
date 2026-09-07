@@ -218,8 +218,31 @@ Four things a printed sheet needs that the screen does not:
   two rows of small figures back to back, reading as though the scale belonged to the room
   above. It is shaded and the rooms are spaced apart so each one reads as a unit.
 
-Every room header also carries the day and date on paper, so a page that gets separated from
-page one still says which day it is for.
+Every room header also carries the day, the date and **the time it was printed**, so a page that
+gets separated from page one still says which day it is for and which of two versions on the wall
+is the newer. The stamp is written at render and rewritten on `beforeprint`, because a page left
+open for an hour would otherwise print the time it was opened.
+
+**A room too tall for one sheet is split here, not by the browser.** Left to it, the break lands
+wherever the paper runs out and the next sheet arrives with no room name and no hour scale — rows
+of blocks with no way to read a time off them. So the split is chosen in `chunksFor`, which adds
+up each row's lane-driven height against what a sheet holds (`PRINT_ROWS_BUDGET`, and a smaller
+`PRINT_ROWS_FIRST` for the room that shares its sheet with the title) and gives every piece its own
+heading, scale, On duty strip and cover note. Headings say *(sheet 2 of 3)* so nobody thinks they
+have the whole room. Both budgets are measured against real print PDFs rather than derived from
+the stylesheet, and the check that matters is the one in the tests: no printed sheet may carry
+rows without also carrying a room name and a scale.
+
+The alternative was rebuilding the grid as a `<table>` so a `<thead>` repeats itself, which is the
+only header repetition browsers do reliably. That means redoing the ruler alignment, the
+absolutely-positioned blocks and the page-fill sizing — all of which took several rounds to get
+right — so it was not worth it for a case that needs about fourteen positions in one room to reach.
+
+Splitting is a paper concern only. On screen the continuation headings and the repeated On duty
+strips are `print-only`, so a room still reads as one unbroken list of rows. Note the trap that
+caught this: `.print-only` is a single class, so a component rule of equal specificity that sets
+its own `display` (`.group-head`, `.row`, `.cover-note`) simply wins and the element appears on
+screen anyway. Those need saying again, one class heavier.
 
 A row holding one person lets that person's block fill the row top to bottom, so it reads as a
 box you can write beside rather than a thin bar floating at the top of a tall empty cell. Rows

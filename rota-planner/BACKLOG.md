@@ -9,7 +9,7 @@ testing on a real print. Big or risky changes something load-bearing, and wants 
 **Free data** marks the ones that need no new input at all: the roster PDF already gives us
 breaks, departments, exact hours and every name.
 
-**Done so far:** F3, F11, F12, F23. **Keep this file updated as each one lands** — mark it DONE with
+**Done so far:** F3, F11, F12, F21, F22, F23. **Keep this file updated as each one lands** — mark it DONE with
 what actually shipped, and update the count above. It is the handover, so a stale one is worse
 than none. The same list is published as a page for reading on a phone; update both together.
 
@@ -116,14 +116,16 @@ The example the owner first showed was a spreadsheet, so somebody upstream still
 Confirmed on a real print: "Perera, Wickramasingh Arach" cut off mid-word in a 21:00–22:30 slot.
 Fall back to surname, then surname plus initial.
 
-### F21 · Repeat the room header on a continuation sheet — Big or risky
-A known limit: roughly eighteen people in one room overflows an A4, and the continuation page has
-no name and no times. The honest fix is rebuilding the grid as a `<table>` with a `<thead>`, the
-only way a browser reliably repeats a header in print — real regression risk to the drag-and-drop
-and the ruler alignment.
+### F21 · Repeat the room header on a continuation sheet — DONE, merged 7 Sep
+Solved by choosing the break instead of rebuilding the grid as a table: `chunksFor` adds up the row
+heights against what a sheet holds and splits an oversized room into pieces, each with its own
+heading, hour scale, On duty strip and cover note, headed *(sheet 2 of 3)*. Screen is untouched —
+the continuation chrome is print-only, so a room still reads as one list of rows.
 
-### F22 · Stamp the printout — Small
-"Printed 09:14, Sunday 30/08" in the corner. Two versions of the same day end up on the same wall.
+### F22 · Stamp the printout — DONE, merged 7 Sep
+Every room header carries the day, date and the time it was printed, so it is on every sheet rather
+than only the first. Written at render and rewritten on `beforeprint`, or a page left open would
+print the time it was opened.
 
 ---
 
