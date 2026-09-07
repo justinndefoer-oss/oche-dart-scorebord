@@ -44,8 +44,37 @@
     } catch (e) { return null; }
   }
 
+  // Saving used to swallow its own failure, so a full or blocked localStorage looked
+  // exactly like a working one until you reloaded and found the day gone. It now
+  // reports, and the header says when it last succeeded.
+  let lastSavedAt = null;
+  let saveFailure = null;
   function saveState() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); } catch (e) { /* storage full/unavailable */ }
+    try {
+      localStorage.setItem(STORE_KEY, JSON.stringify(STATE));
+      lastSavedAt = new Date();
+      saveFailure = null;
+    } catch (e) {
+      saveFailure = e && e.name === "QuotaExceededError"
+        ? "this browser's storage is full"
+        : "this browser isn't letting the page save";
+    }
+    renderSaveState();
+    return !saveFailure;
+  }
+
+  function renderSaveState() {
+    const el = document.getElementById("saveState");
+    if (!el) return;
+    if (saveFailure) {
+      el.className = "save-state failed";
+      el.textContent = `Not saving — ${saveFailure}. Use Save to file.`;
+      el.title = "Your work is only in this page. Save it to a file before closing the tab.";
+      return;
+    }
+    el.className = "save-state";
+    el.textContent = lastSavedAt ? `saved ${hhmm(lastSavedAt.getHours() * 60 + lastSavedAt.getMinutes())}` : "";
+    el.title = lastSavedAt ? `Last saved to this browser at ${lastSavedAt.toLocaleTimeString()}` : "";
   }
 
   function parseTime(t) {
@@ -1197,6 +1226,18 @@
   document.addEventListener("click", (e) => {
     if (e.target.closest("#btnUpload, [data-upload]")) {
       e.preventDefault();
+      // Uploading the wrong week's export is a one-click mistake whose recovery is
+      // rebuilding the day from memory. The warning says what actually happens —
+      // placements survive only where the same person still works the same day at the
+      // same hours, because they are matched on exactly that.
+      const placed = countPlacements(STATE);
+      if (placed > 0 && !window.confirm(
+          `You have ${placed} placement${placed === 1 ? "" : "s"} on this rota.\n\n` +
+          `A new roster keeps a placement only where that person still works the same day ` +
+          `at the same hours. Anything else is dropped.\n\n` +
+          `Load a new roster anyway?`)) {
+        return;
+      }
       fileInput.click();
     }
   });
@@ -1224,6 +1265,8 @@
       if (dayLabels.length && totalShifts === 0) {
         parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Found ${employees.length} names but no shift times — double check the PDF is the "Node Weekrooster" schedule export.</div>`;
       }
+      const placedBefore = countPlacements(STATE);
+      stashBeforeImport();
       STATE.roster = { employees, dayLabels, weekDates };
       STATE.activeDay = dayLabels[0] || null;
       pruneStaleAssignments();
@@ -1232,12 +1275,29 @@
       render();
       // Always report on the import, so a silent mis-parse can't go unnoticed.
       if (dayLabels.length && totalShifts > 0) renderCheckReport();
+      // Say plainly what the import cost, and offer the way back while it is still
+      // fresh — a count that dropped is the thing you want to react to immediately.
+      const placedAfter = countPlacements(STATE);
+      if (placedBefore > 0) {
+        const lost = placedBefore - placedAfter;
+        parseWarningEl.insertAdjacentHTML("afterbegin",
+          `<div class="${lost > 0 ? "warning-banner" : "ok-banner"}">` +
+          (lost > 0
+            ? `⚠️ ${lost} of your ${placedBefore} placement${placedBefore === 1 ? "" : "s"} ` +
+              `did not survive this import — those people no longer work those hours.`
+            : `All ${placedBefore} placements survived this import.`) +
+          ` <button class="ghost undo-import" id="btnUndoImport">Undo this import</button></div>`);
+      }
     } catch (err) {
       parseWarningEl.innerHTML = `<div class="warning-banner">⚠️ Couldn't read that PDF (${escapeHtml(err.message || String(err))}). Make sure it's the weekly roster export.</div>`;
       renderRosterStatus();
     } finally {
       fileInput.value = "";
     }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#btnUndoImport")) undoImport();
   });
 
   btnPrint.addEventListener("click", () => window.print());
@@ -1247,6 +1307,34 @@
   // point is running from a USB stick — so without this the day cannot travel, and a
   // cleared cache loses an afternoon. The file carries the roster too: the PC you open
   // it on may never have seen the PDF.
+  // The state as it was before the last roster import, so an import you regret is one
+  // click away from being undone. Kept in its own key: it must survive the write that
+  // replaces the live state, and it must not be part of what gets saved to a file.
+  const UNDO_KEY = STORE_KEY + "-before-import";
+  function stashBeforeImport() {
+    try {
+      if (!STATE.roster || countPlacements(STATE) === 0) { localStorage.removeItem(UNDO_KEY); return; }
+      localStorage.setItem(UNDO_KEY, JSON.stringify({ savedAt: new Date().toISOString(), state: STATE }));
+    } catch (e) { /* no undo point is better than blocking the import */ }
+  }
+  function readUndoPoint() {
+    try {
+      const raw = localStorage.getItem(UNDO_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function undoImport() {
+    const point = readUndoPoint();
+    if (!point || !point.state) return;
+    STATE = point.state;
+    try { localStorage.removeItem(UNDO_KEY); } catch (e) { /* nothing to clean up */ }
+    saveState();
+    render();
+    parseWarningEl.innerHTML =
+      `<div class="ok-banner">Put back the rota from before that import — ` +
+      `${STATE.roster.employees.length} people, ${countPlacements(STATE)} placed.</div>`;
+  }
+
   const FILE_FORMAT = "where-i-am-today-rota";
   const FILE_VERSION = 1;
 

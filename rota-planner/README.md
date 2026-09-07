@@ -145,6 +145,25 @@ row added would collide with one already in it.
 Note for the download: the object URL is revoked on a timer, not immediately — revoking it in
 the same tick cancels the download in some browsers.
 
+## Knowing the work is safe
+
+Saving used to swallow its own failure — a full or blocked `localStorage` looked exactly like a
+working one until you reloaded and found the day gone. `saveState` now reports, and the header
+carries a quiet **saved 14:02**. When it can't save it says so loudly, in red, and names the way
+out: *"Not saving — this browser's storage is full. Use Save to file."*
+
+Loading a new roster asks first, but only when there are placements to lose. The wording says what
+actually happens rather than "this replaces everything": placements are matched on person, day and
+hours, so **a placement survives only where that person still works the same day at the same
+hours**, and anything else is dropped by `pruneStaleAssignments`.
+
+After an import the banner says what it cost — *"3 of your 43 placements did not survive"*, or that
+all of them did — and carries **Undo this import**. The state from before the import is stashed
+under its own key, `…-before-import`: it has to survive the write that replaces the live state, and
+it must not end up inside a saved `.json`. It is stashed only when there is something to lose,
+consumed when used, and a failure to stash never blocks the import — no undo point is better than
+no import.
+
 ## Headcount
 
 Each room carries an **On duty** strip beneath its positions, and the grid ends with a

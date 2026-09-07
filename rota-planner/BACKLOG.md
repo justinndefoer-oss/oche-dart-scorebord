@@ -9,7 +9,7 @@ testing on a real print. Big or risky changes something load-bearing, and wants 
 **Free data** marks the ones that need no new input at all: the roster PDF already gives us
 breaks, departments, exact hours and every name.
 
-**Done so far:** F3, F11, F12, F21, F22, F23. **Keep this file updated as each one lands** — mark it DONE with
+**Done so far:** F3, F11, F12, F21, F22, F23, F24, F25. **Keep this file updated as each one lands** — mark it DONE with
 what actually shipped, and update the count above. It is the handover, so a stale one is worse
 than none. The same list is published as a page for reading on a phone; update both together.
 
@@ -138,12 +138,15 @@ Everything built lives in one browser's storage on one machine.
 for the week. The roster travels inside the file, so it opens on a PC that never saw the PDF. A bad
 file is refused whole and says which check it failed.
 
-### F24 · Say when it last saved — Small
-A quiet "saved 14:02", and a restore point from before the last import. Storage can also fail
-silently when it's full.
+### F24 · Say when it last saved — DONE, merged 7 Sep
+A quiet **saved 14:02** in the header, turning red and naming the fix when storage is full or
+blocked — it used to fail silently. Plus a restore point taken before each import, offered as
+**Undo this import**.
 
-### F25 · Warn before an import replaces a built rota — Small
-Uploading the wrong week's export is a one-click mistake with a rebuild-from-memory recovery.
+### F25 · Warn before an import replaces a built rota — DONE, merged 7 Sep
+Asks before the picker opens, and only when there are placements to lose. The wording says what
+actually happens: a placement survives only where that person still works the same day at the same
+hours. Afterwards the banner says how many did not survive, with the undo beside it.
 
 ---
 
