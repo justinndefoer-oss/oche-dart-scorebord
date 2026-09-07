@@ -22,7 +22,9 @@ Unrelated apps, deployed from the same GitHub Pages site:
    already hit, and `rota-planner/BACKLOG.md` for the agreed feature list (F1–F28, with what is
    done and what was deliberately ruled out). **Those two files are the handover**: a fresh
    session, or a different Claude account, needs nothing from any previous conversation — read
-   them and carry on. The app is branded "Where I am Today" for a Primark store's fitting rooms.
+   them and carry on. **Update `BACKLOG.md` as each item lands** — mark it DONE with what actually
+   shipped and correct the count at the top; a stale handover is worse than none. The app is
+   branded "Where I am Today" for a Primark store's fitting rooms.
 
 # The dart scoreboard
 

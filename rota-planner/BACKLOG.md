@@ -9,7 +9,9 @@ testing on a real print. Big or risky changes something load-bearing, and wants 
 **Free data** marks the ones that need no new input at all: the roster PDF already gives us
 breaks, departments, exact hours and every name.
 
-**Done so far:** F11, F12, F23.
+**Done so far:** F11, F12, F23. **Keep this file updated as each one lands** — mark it DONE with
+what actually shipped, and update the count above. It is the handover, so a stale one is worse
+than none. The same list is published as a page for reading on a phone; update both together.
 
 ---
 
@@ -67,11 +69,15 @@ One button that puts a plausible person on every empty row, for you to correct r
 from blank. Should land as an obviously provisional state you have to accept, or a bad suggestion
 gets printed unchecked.
 
-### F11 · Filter the pool by department — DONE
-The parser already read this and the app already stored it, then never used it.
+### F11 · Filter the pool by department — DONE, merged 31 Aug
+A **Department** picker beside the name search, listing every department rostered that day with
+the number left to place. Ten of the 33 names arrive clipped by the export itself; the cost centre
+is dropped and a name that lost letters keeps an ellipsis rather than pretending to be whole.
 
-### F12 · Find the person who's free at 14:00 — DONE
-Sort the pool by start time, or filter it to "on at" a time you pick.
+### F12 · Find the person who's free at 14:00 — DONE, merged 2 Sep
+The pool is ordered by **start time** by default, with an **On at** picker for any half hour of the
+day and a **Sort by** for name or the roster's own order. A shift ending exactly at 14:00 does not
+count as on at 14:00.
 
 ### F13 · Place several people at once — Medium
 Tick three names, tap a row, all three land on it. Four people on one position at identical hours
@@ -123,9 +129,10 @@ and the ruler alignment.
 
 Everything built lives in one browser's storage on one machine.
 
-### F23 · Save a day, or a week, to a file — DONE
-Save to file / Open file in the header. The roster travels with the rota, so the file works on a
-PC that never saw the PDF.
+### F23 · Save a day, or a week, to a file — DONE, merged 7 Sep
+**Save to file** and **Open file** in the header, writing the whole state as a ~73 KB `.json` named
+for the week. The roster travels inside the file, so it opens on a PC that never saw the PDF. A bad
+file is refused whole and says which check it failed.
 
 ### F24 · Say when it last saved — Small
 A quiet "saved 14:02", and a restore point from before the last import. Storage can also fail
