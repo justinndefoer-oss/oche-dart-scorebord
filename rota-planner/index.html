@@ -170,8 +170,24 @@
   .cover-note .cn-rule{font-weight:600;color:var(--text)}
   .cover-note .cn-state{margin-left:auto;font-weight:700;color:#047857}
   .cover-note.short .cn-state{color:var(--danger)}
-  .cover-editor{padding:9px 12px;border-top:1px solid var(--border);background:#fbfcfd;
-    display:flex;flex-direction:column;gap:8px;align-items:flex-start;max-width:calc(100vw - 24px)}
+  .cover-editor{border-top:1px solid var(--border);background:#fbfcfd}
+  .cover-editor .cover-row{padding:9px 12px;max-width:calc(100vw - 24px)}
+  /* The Needed strip is the On duty strip with inputs in it, so it borrows the same
+     shape — label cell of --label-w, then 31 equal columns — and lines up column for
+     column with the numbers underneath it. */
+  .need-row{background:#eef6fb;border-top:1px solid var(--border)}
+  .need-row .label-cell{background:transparent}
+  .need-row .cov-label{color:var(--accent-ink,#0a4a61)}
+  .need-cell{flex:1 1 0;min-width:0;border-left:1px solid var(--border)}
+  .need-cell.onhour{border-left-color:var(--border-strong)}
+  .need-cell input{width:100%;border:none;background:transparent;text-align:center;
+    font:inherit;font-size:11px;font-weight:700;padding:4px 0;color:var(--accent-ink,#0a4a61);
+    -moz-appearance:textfield}
+  .need-cell input::-webkit-outer-spin-button,
+  .need-cell input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .need-cell input::placeholder{color:transparent}
+  .need-cell input:focus{outline:2px solid var(--accent);outline-offset:-2px;background:#fff}
+  .need-cell input:hover{background:#fff}
   /* An author display: rule beats the browser's own [hidden]{display:none}, so the
      panel has to be told to stay shut explicitly or it is open from the first render. */
   .cover-editor[hidden]{display:none}
@@ -258,7 +274,7 @@
 
   @media print{
     header.top,.pool,.manual-form,.reset-panel,footer.actions,.daytabs,.addrow,.del,.x,
-    .cover-editor,.group-head button{display:none !important}
+    .cover-editor,.need-row,.group-head button{display:none !important}
     .print-only{display:block !important}
     .ruler.print-only{display:flex !important}
     .ruler.ruler-top{display:none !important}   /* the per-room copies replace it */

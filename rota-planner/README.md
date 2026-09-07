@@ -194,8 +194,26 @@ total, where they mean nobody at all is on.
 
 ## How much cover a room needs
 
-Each room can carry minimum-cover rules — *at least 2, from 12:00 to 17:00* — set from the
-**Minimum** button in its header. Half hours below the minimum turn red in that room's On duty
+Each room can say how many people it needs **in every half hour**, typed straight into a
+**Needed** strip that sits directly above that room's On duty strip and shares its columns
+exactly — what you want over what you have. Open it from the **Minimum** button in the room
+header, or from the summary line.
+
+It began as a list of from/to bands, which meant translating "we need three over lunch" into an
+abstraction before you could type it. The strip is the same shape as the answer. Consecutive half
+hours wanting the same number are folded back into bands for the summary line, so it still reads
+as *Needs 2 from 09:00 to 18:00, 1 from 18:00 to 22:30* — 31 numbers is how you edit it, a
+sentence is how you read it. Past three runs the sentence gives up and says the range instead,
+because the strip says it better.
+
+**Set every half hour to** fills the row in one go, and **Clear all** empties it. Old band-shaped
+saves are expanded into the strip on read; the band form is never written again.
+
+Typing does not re-render — a full render would rebuild the inputs and throw away the caret
+mid-number. The model is updated in place and only what depends on it is repainted: the red On
+duty cells and the summary line. That is also why the toggle is a delegated click rather than a
+listener bound per element: the summary line is one of the things that opens the panel, and it is
+replaced on every keystroke. Half hours below the minimum turn red in that room's On duty
 strip, and the room ends with a line saying the rule in words and how many half hours are short.
 
 **That line is the way in, not just a readout.** On screen it is a button, because it is where you
