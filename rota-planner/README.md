@@ -233,6 +233,26 @@ it can use one more person than the perfect answer would.
 A room is skipped, and told to you, when it has no positions, no minimum, or no department. And
 the whole fill is one undo: **Undo auto-fill** in the report puts the rota back exactly as it was.
 
+When a room ends up short, the report distinguishes **"nobody from that department works this
+day"** from **"everyone from that department is already placed"**. They are different problems — a
+minimum set on the wrong room versus a rota that cannot be filled — and the first phrasing used to
+cover both, which read as though people had been used up when there had never been any.
+
+### What the stress run showed
+
+Random minimums of 1–3 per room, auto-filled across all seven days, twice (a full 07:00–22:30
+window and a 09:00–20:00 one). Every safety property held: **no placement in the wrong department,
+nobody placed twice, nobody placed outside their own hours, never more than two on one row, no
+page errors, and a second run always places nobody.** Crucially, **not one usable person was left
+behind** — after each fill there was nobody remaining in a room's department who could still have
+closed a short half hour, so the algorithm never quits early.
+
+What it also showed is that a full-day minimum is a much bigger ask than it looks, and this is
+arithmetic rather than a fault in the fill: a shift is about eight hours and the window is 15.5, so
+holding a minimum of *n* across the whole day needs roughly **2n people rostered in that
+department**. Minimums of 2–3 across 07:00–22:30 left most rooms short simply because 0–2 people
+from those departments were rostered on any given day. Narrow the band or lower the number.
+
 ## Printing
 
 `@page` asks for A4 landscape — a 15.5-hour timeline does not fit the short edge.
