@@ -198,6 +198,41 @@ the viewport or the delete cross ends up somewhere you have to scroll to find. A
 `.cover-editor[hidden]` needs an explicit `display:none`, because the author `display:flex` beats
 the browser's own `[hidden]` rule and the panel starts open otherwise.
 
+## Auto-fill
+
+**Auto-fill day** fills every room from its own department, up to the minimum that room was told
+to need, and no further.
+
+Each room has a **Staff from** department, set in its Setup panel. It is guessed from the room's
+name the first time — but on words rather than on the whole string, because the names describe the
+same floors differently: *Fitting Room 1st Floor* against `FITTING ROOMS 1ST FLOOR(33`. Two words
+count as the same when one is a prefix of the other, which carries the departments the export
+clipped (`grou` for `ground`), and the match is *scored* rather than required in full, which is
+what survives the export's own typo, `FITTIING ROOMS 5TH FLOOR`. On the sample roster all five
+rooms match correctly. A guess is never written to the save; choosing one is, and "Any department"
+is a real choice rather than a fallback to the guess.
+
+The fill is greedy set cover: it repeatedly takes whoever closes **the most half hours that are
+still short**, tie-breaking on the fewest hours wasted outside the gap. Taking people in start
+order instead leaves the middle of the day thin and then has nobody left for it.
+
+Three properties this gives, in the order they matter:
+
+- **It never places someone who only overfills.** A candidate is taken only if they cover a half
+  hour that is currently below the minimum, so the fill stops at the target rather than emptying
+  the pool onto the rota. Running it twice places nobody the second time.
+- **It cannot underfill silently.** Where the department has nobody left, the report says so by
+  name and the red cells stay.
+- **It adds, it does not replace.** Hand-place the people who have to be somewhere specific, then
+  fill the rest. Existing placements are counted as cover already met.
+
+Some overshoot is unavoidable and not a bug: a person is a block of hours, so covering a gap at
+13:00 may also add to a 15:00 that was already satisfied. Greedy set cover is also not optimal —
+it can use one more person than the perfect answer would.
+
+A room is skipped, and told to you, when it has no positions, no minimum, or no department. And
+the whole fill is one undo: **Undo auto-fill** in the report puts the rota back exactly as it was.
+
 ## Printing
 
 `@page` asks for A4 landscape — a 15.5-hour timeline does not fit the short edge.

@@ -609,7 +609,7 @@
                       title="Rename this fitting room">
                <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
                <button class="ghost addpos" data-cover-toggle="${escapeHtml(g.id)}"
-                       title="Set how many people this room needs">Cover</button>
+                       title="Which department staffs this room, and how many it needs">Setup</button>
                <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
                <span class="gh-date">${dateBit}${sheet}</span>
              </div>
@@ -772,7 +772,47 @@
     </div>`;
   }
 
-  // The editor for those bands, folded away until the room's Cover button is pressed.
+  // ------------------------- which department staffs a room -------------------------
+  // Room names and department names describe the same floors in slightly different
+  // words — "Fitting Room 1st Floor" against "FITTING ROOMS 1ST FLOOR(33" — so the
+  // match is scored on words rather than done on the whole string. Two words count as
+  // the same when one is a prefix of the other, which is what carries the departments
+  // the export clipped ("grou" for "ground"), and scoring rather than requiring every
+  // word survives the export's own typo (FITTIING ROOMS 5TH FLOOR).
+  function deptWords(text) {
+    return String(text || "").toLowerCase().replace(/\(.*$/, "")
+      .split(/[^a-z0-9]+/).filter((w) => w && w !== "the")
+      .map((w) => (w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w));
+  }
+  function wordsAgree(a, b) {
+    if (a === b) return true;
+    const short = a.length < b.length ? a : b, long = a.length < b.length ? b : a;
+    return short.length >= 3 && long.startsWith(short);
+  }
+  function guessDeptFor(label, departments) {
+    const want = deptWords(label);
+    if (!want.length) return null;
+    let best = null, bestScore = 0;
+    for (const dept of departments) {
+      const have = deptWords(dept);
+      const score = want.filter((w) => have.some((h) => wordsAgree(w, h))).length;
+      if (score > bestScore) { bestScore = score; best = dept; }
+    }
+    // Half the room's words, and never on a single word alone — "Fitting" matches every
+    // fitting room there is.
+    return bestScore >= Math.max(2, Math.ceil(want.length / 2)) ? best : null;
+  }
+  // undefined means "never chosen, so guess"; null means "chosen: none".
+  function roomDept(group, departments) {
+    return group.dept !== undefined ? group.dept : guessDeptFor(group.label, departments);
+  }
+  function allDepartments() {
+    const set = new Set();
+    for (const e of ((STATE.roster && STATE.roster.employees) || [])) if (e.dept) set.add(e.dept);
+    return [...set].sort((a, b) => prettyDept(a).localeCompare(prettyDept(b)));
+  }
+
+  // The editor for those bands, folded away until the room's Setup button is pressed.
   function coverEditorHtml(group) {
     const opts = (selected) => halfHours()
       .map((h) => `<option value="${h.m}"${h.m === Number(selected) ? " selected" : ""}>${h.label}</option>`)
@@ -785,8 +825,19 @@
         <label>to<select data-cover-to="${escapeHtml(group.id)}" data-i="${i}">${opts(b.to)}</select></label>
         <button class="ghost" data-cover-del="${escapeHtml(group.id)}" data-i="${i}" title="Remove this rule">&times;</button>
       </div>`).join("");
+    const departments = allDepartments();
+    const chosen = roomDept(group, departments);
+    const guessed = group.dept === undefined && chosen !== null;
     return `<div class="cover-editor" data-cover-editor="${escapeHtml(group.id)}" hidden>
-      ${rows || `<p class="cover-empty">No minimum set — this room is never marked short.</p>`}
+      <div class="cover-row">
+        <label>Staff from<select data-room-dept="${escapeHtml(group.id)}">
+          <option value=""${chosen === null ? " selected" : ""}>Any department</option>
+          ${departments.map((d) => `<option value="${escapeHtml(d)}"${d === chosen ? " selected" : ""}
+            >${escapeHtml(prettyDept(d))}</option>`).join("")}
+        </select></label>
+        ${guessed ? `<span class="cover-empty">matched from the room name — change it if that is wrong</span>` : ""}
+      </div>
+      ${rows || `<p class="cover-empty">No minimum set — this room is never marked short, and Auto-fill has nothing to aim at.</p>`}
       <button class="ghost" data-cover-add="${escapeHtml(group.id)}">+ Add a rule</button>
     </div>`;
   }
@@ -993,6 +1044,19 @@
       btn.addEventListener("click", () => {
         const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(btn.dataset.coverToggle)}"]`);
         if (panel) panel.hidden = !panel.hidden;
+      });
+    });
+
+    appEl.querySelectorAll("[data-room-dept]").forEach((el) => {
+      el.addEventListener("change", () => {
+        const g = findGroup(el.dataset.roomDept);
+        if (!g) return;
+        // "" is a real choice — any department — and must not fall back to the guess.
+        g.dept = el.value === "" ? null : el.value;
+        saveState();
+        render();
+        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(g.id)}"]`);
+        if (panel) panel.hidden = false;
       });
     });
 
@@ -1311,12 +1375,13 @@
   // click away from being undone. Kept in its own key: it must survive the write that
   // replaces the live state, and it must not be part of what gets saved to a file.
   const UNDO_KEY = STORE_KEY + "-before-import";
-  function stashBeforeImport() {
+  function stashUndoPoint(label, force) {
     try {
-      if (!STATE.roster || countPlacements(STATE) === 0) { localStorage.removeItem(UNDO_KEY); return; }
-      localStorage.setItem(UNDO_KEY, JSON.stringify({ savedAt: new Date().toISOString(), state: STATE }));
-    } catch (e) { /* no undo point is better than blocking the import */ }
+      if (!STATE.roster || (!force && countPlacements(STATE) === 0)) { localStorage.removeItem(UNDO_KEY); return; }
+      localStorage.setItem(UNDO_KEY, JSON.stringify({ savedAt: new Date().toISOString(), label, state: STATE }));
+    } catch (e) { /* no undo point is better than blocking the thing being undone */ }
   }
+  function stashBeforeImport() { stashUndoPoint("import"); }
   function readUndoPoint() {
     try {
       const raw = localStorage.getItem(UNDO_KEY);
@@ -1331,9 +1396,129 @@
     saveState();
     render();
     parseWarningEl.innerHTML =
-      `<div class="ok-banner">Put back the rota from before that import — ` +
+      `<div class="ok-banner">Put back the rota from before that ${escapeHtml(point.label || "import")} — ` +
       `${STATE.roster.employees.length} people, ${countPlacements(STATE)} placed.</div>`;
   }
+
+  // ------------------------------- auto-fill a day -------------------------------
+  // Fills each room from its own department only, up to the minimum it was told to
+  // need — no further. Somebody is taken only if they cover a half hour that is still
+  // short, so the fill stops at the target instead of emptying the pool into the rota.
+  //
+  // Greedy set cover: repeatedly take whoever closes the most short half hours. That
+  // beats taking people in start order, which leaves the middle of the day thin and
+  // then has nobody left for it.
+  // The renderer has its own placedIn closed over the day it is drawing; this is the
+  // same question asked from outside it.
+  function shiftsPlacedIn(group, day, dayShifts) {
+    const out = [];
+    for (const pos of group.positions)
+      for (const id of ((STATE.assignments[day] && STATE.assignments[day][pos.id]) || [])) {
+        const sh = dayShifts.find((x) => x.id === id);
+        if (sh) out.push(sh);
+      }
+    return out;
+  }
+
+  function slotsOf(shift) {
+    const start = parseTime(shift.start);
+    let end = parseTime(shift.end);
+    if (end <= start) end = DAY_END;
+    const out = [];
+    for (let i = 0; i < SLOT_COUNT; i++) {
+      const slotStart = DAY_START + i * SLOT_MINUTES;
+      if (start < slotStart + SLOT_MINUTES && end > slotStart) out.push(i);
+    }
+    return out;
+  }
+
+  // Prefer a row where this person does not overlap anyone already on it: one person
+  // per row at a time stays readable, and stacked lanes are for real handovers.
+  function bestRowFor(group, shift, day, dayShifts) {
+    const start = parseTime(shift.start), end = normEnd(shift);
+    let fallback = null, fallbackCount = Infinity;
+    for (const pos of group.positions) {
+      const ids = (STATE.assignments[day] && STATE.assignments[day][pos.id]) || [];
+      const items = ids.map((id) => dayShifts.find((x) => x.id === id)).filter(Boolean);
+      const clashes = items.some((o) => parseTime(o.start) < end && normEnd(o) > start);
+      if (!clashes) return pos.id;
+      if (items.length < fallbackCount) { fallbackCount = items.length; fallback = pos.id; }
+    }
+    return fallback;
+  }
+
+  function autoFillDay(day, dayShifts) {
+    const departments = allDepartments();
+    const assigned = assignedIdsForDay(day);
+    const pool = dayShifts.filter((sh) => !assigned.has(sh.id));
+    const report = [];
+    let placedTotal = 0;
+
+    for (const g of STATE.groups) {
+      if (!g.positions.length) { report.push({ room: g.label, skipped: "it has no position rows" }); continue; }
+      const need = requiredPerSlot(g);
+      if (!need.some((n) => n > 0)) { report.push({ room: g.label, skipped: "no minimum is set for it" }); continue; }
+      const dept = roomDept(g, departments);
+      if (dept === null) { report.push({ room: g.label, skipped: "no department is set for it" }); continue; }
+
+      const have = coverageCounts(shiftsPlacedIn(g, day, dayShifts));
+      let candidates = pool.filter((sh) => (sh.dept || "") === dept && !assignedIdsForDay(day).has(sh.id));
+      let placed = 0;
+      for (;;) {
+        const shortNow = need.map((n, i) => Math.max(0, n - have[i]));
+        if (!shortNow.some((n) => n > 0)) break;
+        let pick = null, pickGain = 0, pickWaste = 0, pickSlots = null;
+        for (const sh of candidates) {
+          const slots = slotsOf(sh);
+          const gain = slots.reduce((n, i) => n + (shortNow[i] > 0 ? 1 : 0), 0);
+          if (gain === 0) continue;                       // would only overfill
+          const waste = slots.length - gain;
+          if (gain > pickGain || (gain === pickGain && waste < pickWaste)) {
+            pick = sh; pickGain = gain; pickWaste = waste; pickSlots = slots;
+          }
+        }
+        if (!pick) break;                                  // nobody left who helps
+        const row = bestRowFor(g, pick, day, dayShifts);
+        if (!row) break;
+        assignShift(day, row, pick.id);
+        for (const i of pickSlots) have[i]++;
+        candidates = candidates.filter((sh) => sh.id !== pick.id);
+        placed++; placedTotal++;
+      }
+      const stillShort = need.reduce((n, want, i) => n + (want > have[i] ? 1 : 0), 0);
+      report.push({ room: g.label, dept: prettyDept(dept), placed, stillShort,
+                    ranOut: stillShort > 0 && candidates.length === 0 });
+    }
+    return { report, placedTotal };
+  }
+
+  function runAutoFill() {
+    if (!STATE.roster) {
+      parseWarningEl.innerHTML = `<div class="warning-banner">Upload a roster PDF first.</div>`;
+      return;
+    }
+    const day = STATE.activeDay;
+    const dayShifts = buildShiftInstances().filter((sh) => sh.day === day);
+    stashUndoPoint("auto-fill", true);
+    const { report, placedTotal } = autoFillDay(day, dayShifts);
+    saveState();
+    render();
+    const lines = report.map((r) => r.skipped
+      ? `<li><b>${escapeHtml(r.room)}</b> — skipped, ${escapeHtml(r.skipped)}.</li>`
+      : `<li><b>${escapeHtml(r.room)}</b> — ${r.placed} placed from ${escapeHtml(r.dept)}` +
+        (r.stillShort
+          ? `, still short in ${r.stillShort} half hour${r.stillShort === 1 ? "" : "s"}` +
+            (r.ranOut ? " (nobody left in that department)" : "")
+          : ", minimum met all day") + `.</li>`).join("");
+    parseWarningEl.innerHTML =
+      `<div class="${report.some((r) => r.stillShort || r.skipped) ? "warning-banner" : "ok-banner"}">
+        <b>Auto-fill placed ${placedTotal} ${placedTotal === 1 ? "person" : "people"} on ${escapeHtml(day)}.</b>
+        <ul class="fill-report">${lines}</ul>
+        <button class="ghost undo-import" id="btnUndoImport">Undo auto-fill</button>
+      </div>`;
+  }
+
+  document.getElementById("btnAutoFill").addEventListener("click", runAutoFill);
 
   const FILE_FORMAT = "where-i-am-today-rota";
   const FILE_VERSION = 1;

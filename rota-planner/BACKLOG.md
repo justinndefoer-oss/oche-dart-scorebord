@@ -9,7 +9,7 @@ testing on a real print. Big or risky changes something load-bearing, and wants 
 **Free data** marks the ones that need no new input at all: the roster PDF already gives us
 breaks, departments, exact hours and every name.
 
-**Done so far:** F3, F11, F12, F21, F22, F23, F24, F25. **Keep this file updated as each one lands** — mark it DONE with
+**Done so far:** F3, F10, F11, F12, F21, F22, F23, F24, F25. **Keep this file updated as each one lands** — mark it DONE with
 what actually shipped, and update the count above. It is the handover, so a stale one is worse
 than none. The same list is published as a page for reading on a phone; update both together.
 
@@ -66,10 +66,13 @@ Same rooms, same positions, same people where their hours allow it, skipped wher
 ### F9 · Saved layouts — Medium
 Name a room-and-position arrangement ("Standard Saturday", "Sale week") and drop it onto any day.
 
-### F10 · Suggest a fill — Big or risky
-One button that puts a plausible person on every empty row, for you to correct rather than start
-from blank. Should land as an obviously provisional state you have to accept, or a bad suggestion
-gets printed unchecked.
+### F10 · Suggest a fill — DONE, merged 7 Sep
+Built tighter than this entry described, because the owner specified it better: **Auto-fill day**
+fills each room from **its own department only** (guessed from the room name, changeable in Setup)
+and stops at the **minimum from F3** rather than filling every empty row. Greedy set cover — take
+whoever closes the most half hours still short. It never places someone who only overfills, says by
+name where a department ran out, adds to existing placements rather than replacing them, and the
+whole run is one **Undo auto-fill**.
 
 ### F11 · Filter the pool by department — DONE, merged 31 Aug
 A **Department** picker beside the name search, listing every department rostered that day with
