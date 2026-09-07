@@ -525,12 +525,18 @@
           <input type="text" value="${escapeHtml(g.label)}" data-group-label="${escapeHtml(g.id)}"
                  title="Rename this fitting room">
           <button class="ghost addpos" data-add-pos="${escapeHtml(g.id)}">+ Position</button>
+          <button class="ghost addpos" data-cover-toggle="${escapeHtml(g.id)}"
+                  title="Set how many people this room needs">Cover</button>
           <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
           <span class="gh-date">${escapeHtml(day)}${dDateForHead ? " " + escapeHtml(dDateForHead) : ""}</span>
         </div>
+        ${coverEditorHtml(g)}
         ${rulerBlock("print-only ruler-repeat")}
         ${g.positions.map(rowHtml).join("")}
-        ${coverageRowHtml("On duty", coverageCounts(placedIn(g.positions.map((p) => p.id))))}
+        ${(() => {
+          const counts = coverageCounts(placedIn(g.positions.map((p) => p.id)));
+          return coverageRowHtml("On duty", counts, "", requiredPerSlot(g)) + coverNoteHtml(g, counts);
+        })()}
       </div>`).join("");
 
     const everyPositionId = STATE.groups.reduce((a, g) => a.concat(g.positions.map((p) => p.id)), []);
@@ -599,14 +605,83 @@
     return counts;
   }
 
-  function coverageRowHtml(label, counts, extraClass) {
+  // How many people a room needs, per time band: [{ from, to, min }] in minutes.
+  // Absent means no rule, which is not the same as needing nobody — a room with no
+  // rule set is never marked short.
+  function coverRules(group) {
+    return Array.isArray(group.cover) ? group.cover : [];
+  }
+
+  // The requirement for each half-hour slot. Overlapping bands take the highest of
+  // them: two rules covering one moment both have to be satisfied, so the larger is
+  // the real requirement.
+  function requiredPerSlot(group) {
+    const need = new Array(SLOT_COUNT).fill(0);
+    for (const band of coverRules(group)) {
+      const from = Number(band.from), to = Number(band.to), min = Number(band.min);
+      if (!isFinite(from) || !isFinite(to) || !isFinite(min) || to <= from) continue;
+      for (let i = 0; i < SLOT_COUNT; i++) {
+        const slotStart = DAY_START + i * SLOT_MINUTES;
+        if (slotStart >= from && slotStart < to) need[i] = Math.max(need[i], min);
+      }
+    }
+    return need;
+  }
+
+  function coverageRowHtml(label, counts, extraClass, required) {
+    const need = required || [];
     const cells = counts.map((c, i) => {
       const onHour = (DAY_START + i * SLOT_MINUTES) % 60 === 0;
-      return `<div class="cov-cell${c === 0 ? " zero" : ""}${onHour ? " onhour" : ""}">${c}</div>`;
+      const want = need[i] || 0;
+      const short = want > 0 && c < want;
+      const at = hhmm(DAY_START + i * SLOT_MINUTES);
+      // The shortfall is spelled out in the title, because a red cell tells you
+      // something is wrong without saying what would fix it.
+      const title = short ? ` title="${c} on duty at ${at}, ${want} needed"` : "";
+      return `<div class="cov-cell${c === 0 ? " zero" : ""}${onHour ? " onhour" : ""}` +
+        `${short ? " under" : ""}"${title}>${c}</div>`;
     }).join("");
     return `<div class="row cov ${extraClass || ""}">
       <div class="label-cell"><span class="cov-label">${escapeHtml(label)}</span></div>
       <div class="cov-scale">${cells}</div>
+    </div>`;
+  }
+
+  // Says the rule in words under the room, so the printed sheet carries what it is
+  // being measured against rather than just some red cells.
+  function coverNoteHtml(group, counts) {
+    const rules = coverRules(group);
+    if (!rules.length) return "";
+    const need = requiredPerSlot(group);
+    const shortSlots = counts.reduce((n, c, i) => n + (need[i] > 0 && c < need[i] ? 1 : 0), 0);
+    const bands = rules.slice()
+      .sort((a, b) => a.from - b.from)
+      .map((b) => `${b.min} from ${hhmm(b.from)} to ${hhmm(b.to)}`)
+      .join(", ");
+    return `<div class="cover-note${shortSlots ? " short" : ""}">
+      <span class="cn-rule">Needs ${escapeHtml(bands)}</span>
+      <span class="cn-state">${shortSlots
+        ? `Short in ${shortSlots} half hour${shortSlots === 1 ? "" : "s"}`
+        : "Covered all day"}</span>
+    </div>`;
+  }
+
+  // The editor for those bands, folded away until the room's Cover button is pressed.
+  function coverEditorHtml(group) {
+    const opts = (selected) => halfHours()
+      .map((h) => `<option value="${h.m}"${h.m === Number(selected) ? " selected" : ""}>${h.label}</option>`)
+      .join("");
+    const rows = coverRules(group).map((b, i) => `
+      <div class="cover-row" data-cover-row="${i}">
+        <label>At least<input type="number" min="1" max="99" value="${escapeHtml(String(b.min))}"
+          data-cover-min="${escapeHtml(group.id)}" data-i="${i}"></label>
+        <label>from<select data-cover-from="${escapeHtml(group.id)}" data-i="${i}">${opts(b.from)}</select></label>
+        <label>to<select data-cover-to="${escapeHtml(group.id)}" data-i="${i}">${opts(b.to)}</select></label>
+        <button class="ghost" data-cover-del="${escapeHtml(group.id)}" data-i="${i}" title="Remove this rule">&times;</button>
+      </div>`).join("");
+    return `<div class="cover-editor" data-cover-editor="${escapeHtml(group.id)}" hidden>
+      ${rows || `<p class="cover-empty">No minimum set — this room is never marked short.</p>`}
+      <button class="ghost" data-cover-add="${escapeHtml(group.id)}">+ Add a rule</button>
     </div>`;
   }
 
@@ -803,6 +878,70 @@
         saveState();
         render();
       });
+    });
+
+    // ---- minimum cover rules ----
+    const findGroup = (id) => (STATE.groups || []).find((g) => g.id === id);
+
+    appEl.querySelectorAll("[data-cover-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(btn.dataset.coverToggle)}"]`);
+        if (panel) panel.hidden = !panel.hidden;
+      });
+    });
+
+    appEl.querySelectorAll("[data-cover-add]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = findGroup(btn.dataset.coverAdd);
+        if (!g) return;
+        g.cover = coverRules(g).concat([{ from: 12 * 60, to: 17 * 60, min: 2 }]);
+        saveState();
+        render();
+        // The panel is rebuilt by render(), so re-open the one being edited.
+        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(g.id)}"]`);
+        if (panel) panel.hidden = false;
+      });
+    });
+
+    appEl.querySelectorAll("[data-cover-del]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = findGroup(btn.dataset.coverDel);
+        if (!g) return;
+        g.cover = coverRules(g).filter((_, i) => i !== Number(btn.dataset.i));
+        saveState();
+        render();
+        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(g.id)}"]`);
+        if (panel) panel.hidden = false;
+      });
+    });
+
+    const editCover = (el, groupId, index, field, raw) => {
+      const g = findGroup(groupId);
+      if (!g) return;
+      const band = coverRules(g)[index];
+      if (!band) return;
+      let value = Number(raw);
+      if (!isFinite(value)) return;
+      if (field === "min") value = Math.max(1, Math.min(99, Math.round(value)));
+      band[field] = value;
+      // A band that ends before it starts silently matches nothing, which looks like
+      // the rule was ignored. Nudge the other end along instead.
+      if (field === "from" && band.to <= band.from) band.to = Math.min(DAY_END, band.from + 30);
+      if (field === "to" && band.to <= band.from) band.from = Math.max(DAY_START, band.to - 30);
+      saveState();
+      render();
+      const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(groupId)}"]`);
+      if (panel) panel.hidden = false;
+    };
+
+    appEl.querySelectorAll("[data-cover-min]").forEach((el) => {
+      el.addEventListener("change", () => editCover(el, el.dataset.coverMin, Number(el.dataset.i), "min", el.value));
+    });
+    appEl.querySelectorAll("[data-cover-from]").forEach((el) => {
+      el.addEventListener("change", () => editCover(el, el.dataset.coverFrom, Number(el.dataset.i), "from", el.value));
+    });
+    appEl.querySelectorAll("[data-cover-to]").forEach((el) => {
+      el.addEventListener("change", () => editCover(el, el.dataset.coverTo, Number(el.dataset.i), "to", el.value));
     });
 
     appEl.querySelectorAll("[data-del-group]").forEach((btn) => {

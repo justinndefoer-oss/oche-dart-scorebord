@@ -154,6 +154,31 @@ slot, so somebody on 09:00–18:00 is counted in every slot they cover. A person
 either side of their own shift. Zeros are greyed in a room's own strip and shown red in the
 total, where they mean nobody at all is on.
 
+## How much cover a room needs
+
+Each room can carry minimum-cover rules — *at least 2, from 12:00 to 17:00* — set from the
+**Cover** button in its header. Half hours below the minimum turn red in that room's On duty
+strip, and the room ends with a line saying the rule in words and how many half hours are short.
+
+Details that matter:
+
+- **No rule is not the same as needing nobody.** A room without rules is never marked short.
+- **Overlapping bands take the highest minimum.** Two rules covering one moment both have to be
+  satisfied, so the larger one is the real requirement.
+- **A band that would end before it starts is nudged, not ignored.** Setting `from` past `to`
+  silently matches no slots at all, which looks like the rule was dropped; the other end moves
+  along by half an hour instead.
+- **The rule is printed, not just the red cells.** A red cell says something is wrong without
+  saying what would fix it, so the note goes on paper (the editor doesn't) and every cell carries
+  the shortfall in its tooltip on screen.
+- Red alone would be lost on a mono printer, so an under-cover cell also gets a heavy underline.
+
+Two layout traps, both the same one already hit with the room controls: the note and the editor
+live inside the grid, which is at least 1180px wide and scrolls sideways, so both are capped to
+the viewport or the delete cross ends up somewhere you have to scroll to find. And
+`.cover-editor[hidden]` needs an explicit `display:none`, because the author `display:flex` beats
+the browser's own `[hidden]` rule and the panel starts open otherwise.
+
 ## Printing
 
 `@page` asks for A4 landscape — a 15.5-hour timeline does not fit the short edge.
