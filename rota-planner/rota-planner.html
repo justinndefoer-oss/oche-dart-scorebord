@@ -170,8 +170,24 @@
   .cover-note .cn-rule{font-weight:600;color:var(--text)}
   .cover-note .cn-state{margin-left:auto;font-weight:700;color:#047857}
   .cover-note.short .cn-state{color:var(--danger)}
-  .cover-editor{padding:9px 12px;border-top:1px solid var(--border);background:#fbfcfd;
-    display:flex;flex-direction:column;gap:8px;align-items:flex-start;max-width:calc(100vw - 24px)}
+  .cover-editor{border-top:1px solid var(--border);background:#fbfcfd}
+  .cover-editor .cover-row{padding:9px 12px;max-width:calc(100vw - 24px)}
+  /* The Needed strip is the On duty strip with inputs in it, so it borrows the same
+     shape — label cell of --label-w, then 31 equal columns — and lines up column for
+     column with the numbers underneath it. */
+  .need-row{background:#eef6fb;border-top:1px solid var(--border)}
+  .need-row .label-cell{background:transparent}
+  .need-row .cov-label{color:var(--accent-ink,#0a4a61)}
+  .need-cell{flex:1 1 0;min-width:0;border-left:1px solid var(--border)}
+  .need-cell.onhour{border-left-color:var(--border-strong)}
+  .need-cell input{width:100%;border:none;background:transparent;text-align:center;
+    font:inherit;font-size:11px;font-weight:700;padding:4px 0;color:var(--accent-ink,#0a4a61);
+    -moz-appearance:textfield}
+  .need-cell input::-webkit-outer-spin-button,
+  .need-cell input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .need-cell input::placeholder{color:transparent}
+  .need-cell input:focus{outline:2px solid var(--accent);outline-offset:-2px;background:#fff}
+  .need-cell input:hover{background:#fff}
   /* An author display: rule beats the browser's own [hidden]{display:none}, so the
      panel has to be told to stay shut explicitly or it is open from the first render. */
   .cover-editor[hidden]{display:none}
@@ -258,7 +274,7 @@
 
   @media print{
     header.top,.pool,.manual-form,.reset-panel,footer.actions,.daytabs,.addrow,.del,.x,
-    .cover-editor,.group-head button{display:none !important}
+    .cover-editor,.need-row,.group-head button{display:none !important}
     .print-only{display:block !important}
     .ruler.print-only{display:flex !important}
     .ruler.ruler-top{display:none !important}   /* the per-room copies replace it */
@@ -1244,8 +1260,7 @@
                        >Minimum</button>
                <button class="del" data-del-group="${escapeHtml(g.id)}" title="Remove this fitting room">&times;</button>
                <span class="gh-date">${dateBit}${sheet}</span>
-             </div>
-             ${coverEditorHtml(g)}`
+             </div>`
           : `<div class="group-head print-only">
                <span class="gh-name">${escapeHtml(g.label)}${sheet}</span>
                <span class="gh-date">${dateBit}</span>
@@ -1255,10 +1270,11 @@
         const foot = coverageRowHtml("On duty", counts, last ? "" : "print-only", need)
           + coverNoteHtml(g, counts, !last);
         return `
-      <div class="group${ci ? " group-cont" : ""}">
+      <div class="group${ci ? " group-cont" : ""}" data-group-box="${escapeHtml(g.id)}">
         ${head}
         ${rulerBlock("print-only ruler-repeat")}
         ${chunk.map(rowHtml).join("")}
+        ${last ? coverEditorHtml(g) : ""}
         ${foot}
       </div>`;
       }).join("");
@@ -1346,25 +1362,53 @@
   // How many people a room needs, per time band: [{ from, to, min }] in minutes.
   // Absent means no rule, which is not the same as needing nobody — a room with no
   // rule set is never marked short.
-  function coverRules(group) {
-    return Array.isArray(group.cover) ? group.cover : [];
+  // The requirement is one number per half hour, in the same 31 slots the On duty strip
+  // uses — because that is how it gets read and how it gets decided. It started as a
+  // list of from/to bands, which meant translating "we need three over lunch" into an
+  // abstraction before you could type it. Old saves are still band-shaped, so they are
+  // expanded on read; the band form is never written again.
+  function needFor(group) {
+    if (Array.isArray(group.need) && group.need.length === SLOT_COUNT) return group.need;
+    const need = new Array(SLOT_COUNT).fill(0);
+    for (const band of (Array.isArray(group.cover) ? group.cover : [])) {
+      const from = Number(band.from), to = Number(band.to), min = Number(band.min);
+      if (!isFinite(from) || !isFinite(to) || !isFinite(min) || to <= from) continue;
+      for (let i = 0; i < SLOT_COUNT; i++) {
+        const t = DAY_START + i * SLOT_MINUTES;
+        if (t >= from && t < to) need[i] = Math.max(need[i], min);
+      }
+    }
+    return need;
+  }
+  function setNeed(group, slot, value) {
+    const need = needFor(group).slice();
+    need[slot] = Math.max(0, Math.min(99, Math.round(Number(value) || 0)));
+    group.need = need;
+    delete group.cover;                       // migrated; never written in band form again
+  }
+  function hasNeed(group) { return needFor(group).some((n) => n > 0); }
+
+  // Consecutive half hours wanting the same number are one band again for the summary
+  // line — 31 numbers is how you edit it, "2 from 09:00 to 18:00" is how you read it.
+  function needBands(group) {
+    const need = needFor(group);
+    const out = [];
+    let i = 0;
+    while (i < SLOT_COUNT) {
+      if (!need[i]) { i++; continue; }
+      let j = i;
+      while (j + 1 < SLOT_COUNT && need[j + 1] === need[i]) j++;
+      out.push({ min: need[i], from: DAY_START + i * SLOT_MINUTES,
+                 to: DAY_START + (j + 1) * SLOT_MINUTES });
+      i = j + 1;
+    }
+    return out;
   }
 
   // The requirement for each half-hour slot. Overlapping bands take the highest of
   // them: two rules covering one moment both have to be satisfied, so the larger is
   // the real requirement.
-  function requiredPerSlot(group) {
-    const need = new Array(SLOT_COUNT).fill(0);
-    for (const band of coverRules(group)) {
-      const from = Number(band.from), to = Number(band.to), min = Number(band.min);
-      if (!isFinite(from) || !isFinite(to) || !isFinite(min) || to <= from) continue;
-      for (let i = 0; i < SLOT_COUNT; i++) {
-        const slotStart = DAY_START + i * SLOT_MINUTES;
-        if (slotStart >= from && slotStart < to) need[i] = Math.max(need[i], min);
-      }
-    }
-    return need;
-  }
+  function requiredPerSlot(group) { return needFor(group); }
 
   function coverageRowHtml(label, counts, extraClass, required) {
     const need = required || [];
@@ -1387,8 +1431,34 @@
 
   // Says the rule in words under the room, so the printed sheet carries what it is
   // being measured against rather than just some red cells.
+  // Repaints just the parts that depend on the minimum, so the number being typed keeps
+  // its caret. Everything here is derived — nothing is stored twice.
+  function refreshCoverFeedback(group) {
+    const host = appEl.querySelector(`[data-group-box="${cssEscape(group.id)}"]`);
+    if (!host) return;
+    const need = needFor(group);
+    const strip = host.querySelector(".row.cov:not(.need-row)");
+    if (strip) {
+      [...strip.querySelectorAll(".cov-cell")].forEach((cell, i) => {
+        const have = Number(cell.textContent.trim()) || 0;
+        const want = need[i] || 0;
+        const short = want > 0 && have < want;
+        cell.classList.toggle("under", short);
+        if (short) cell.title = `${have} on duty at ${hhmm(DAY_START + i * SLOT_MINUTES)}, ${want} needed`;
+        else cell.removeAttribute("title");
+      });
+      const counts = [...strip.querySelectorAll(".cov-cell")].map((c) => Number(c.textContent.trim()) || 0);
+      const note = host.querySelector(".cover-note:not(.print-only)");
+      if (note) note.outerHTML = coverNoteHtml(group, counts, false)
+        .replace(/<div class="cover-note[^"]*print-only"[\s\S]*$/, "");
+      const printNote = host.querySelector(".cover-note.print-only");
+      const fresh = coverNoteHtml(group, counts, true);
+      if (printNote) { if (fresh) printNote.outerHTML = fresh; else printNote.remove(); }
+    }
+  }
+
   function coverNoteHtml(group, counts, printOnly) {
-    const rules = coverRules(group);
+    const rules = needBands(group);
     // A room with no minimum used to show nothing at all, so there was no hint the
     // setting existed — you had to already know it lived behind a button. The line is
     // always there on screen now, and it is the way in. On paper it only appears when
@@ -1402,10 +1472,11 @@
     }
     const need = requiredPerSlot(group);
     const shortSlots = counts.reduce((n, c, i) => n + (need[i] > 0 && c < need[i] ? 1 : 0), 0);
-    const bands = rules.slice()
-      .sort((a, b) => a.from - b.from)
-      .map((b) => `${b.min} from ${hhmm(b.from)} to ${hhmm(b.to)}`)
-      .join(", ");
+    // More than three runs reads as noise in a sentence; the strip above says it better.
+    const bands = rules.length <= 3
+      ? rules.map((b) => `${b.min} from ${hhmm(b.from)} to ${hhmm(b.to)}`).join(", ")
+      : `${Math.min(...rules.map((b) => b.min))}\u2013${Math.max(...rules.map((b) => b.min))} ` +
+        `across ${rules.length} parts of the day`;
     const state = shortSlots
       ? `Short in ${shortSlots} half hour${shortSlots === 1 ? "" : "s"}`
       : "Covered all day";
@@ -1467,22 +1538,20 @@
     return [...set].sort((a, b) => prettyDept(a).localeCompare(prettyDept(b)));
   }
 
-  // The editor for those bands, folded away until the room's Setup button is pressed.
+  // The minimum, typed straight into the same 31 columns the On duty strip uses and
+  // sitting directly above it — "what I need" over "what I have". The previous editor
+  // asked for from/to bands, which meant translating the answer before you could give it.
   function coverEditorHtml(group) {
-    const opts = (selected) => halfHours()
-      .map((h) => `<option value="${h.m}"${h.m === Number(selected) ? " selected" : ""}>${h.label}</option>`)
-      .join("");
-    const rows = coverRules(group).map((b, i) => `
-      <div class="cover-row" data-cover-row="${i}">
-        <label>At least<input type="number" min="1" max="99" value="${escapeHtml(String(b.min))}"
-          data-cover-min="${escapeHtml(group.id)}" data-i="${i}"></label>
-        <label>from<select data-cover-from="${escapeHtml(group.id)}" data-i="${i}">${opts(b.from)}</select></label>
-        <label>to<select data-cover-to="${escapeHtml(group.id)}" data-i="${i}">${opts(b.to)}</select></label>
-        <button class="ghost" data-cover-del="${escapeHtml(group.id)}" data-i="${i}" title="Remove this rule">&times;</button>
-      </div>`).join("");
     const departments = allDepartments();
     const chosen = roomDept(group, departments);
     const guessed = group.dept === undefined && chosen !== null;
+    const need = needFor(group);
+    const cells = need.map((n, i) => {
+      const onHour = (DAY_START + i * SLOT_MINUTES) % 60 === 0;
+      return `<div class="need-cell${onHour ? " onhour" : ""}">
+        <input type="number" min="0" max="99" inputmode="numeric" aria-label="People needed at ${hhmm(DAY_START + i * SLOT_MINUTES)}"
+               value="${n || ""}" data-need="${escapeHtml(group.id)}" data-slot="${i}"></div>`;
+    }).join("");
     return `<div class="cover-editor" data-cover-editor="${escapeHtml(group.id)}" hidden>
       <div class="cover-row">
         <label>Staff from<select data-room-dept="${escapeHtml(group.id)}">
@@ -1491,9 +1560,14 @@
             >${escapeHtml(prettyDept(d))}</option>`).join("")}
         </select></label>
         ${guessed ? `<span class="cover-empty">matched from the room name — change it if that is wrong</span>` : ""}
+        <label>Set every half hour to<input type="number" min="0" max="99" inputmode="numeric"
+          data-need-all="${escapeHtml(group.id)}" placeholder="—"></label>
+        <button class="ghost" data-need-clear="${escapeHtml(group.id)}">Clear all</button>
       </div>
-      ${rows || `<p class="cover-empty">No minimum set — this room is never marked short, and Auto-fill has nothing to aim at.</p>`}
-      <button class="ghost" data-cover-add="${escapeHtml(group.id)}">+ Add a rule</button>
+      <div class="row need-row">
+        <div class="label-cell"><span class="cov-label">Needed</span></div>
+        <div class="cov-scale">${cells}</div>
+      </div>
     </div>`;
   }
 
@@ -1695,13 +1769,6 @@
     // ---- minimum cover rules ----
     const findGroup = (id) => (STATE.groups || []).find((g) => g.id === id);
 
-    appEl.querySelectorAll("[data-cover-toggle]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(btn.dataset.coverToggle)}"]`);
-        if (panel) panel.hidden = !panel.hidden;
-      });
-    });
-
     appEl.querySelectorAll("[data-room-dept]").forEach((el) => {
       el.addEventListener("change", () => {
         const g = findGroup(el.dataset.roomDept);
@@ -1715,58 +1782,44 @@
       });
     });
 
-    appEl.querySelectorAll("[data-cover-add]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const g = findGroup(btn.dataset.coverAdd);
+    // Typing must not re-render: a full render would rebuild the inputs and throw away
+    // the caret mid-number. The model is updated in place and only the feedback that
+    // depends on it — the On duty colouring and the summary line — is patched.
+    const needInputs = appEl.querySelectorAll("[data-need]");
+    needInputs.forEach((el) => {
+      el.addEventListener("input", () => {
+        const g = findGroup(el.dataset.need);
         if (!g) return;
-        g.cover = coverRules(g).concat([{ from: 12 * 60, to: 17 * 60, min: 2 }]);
+        setNeed(g, Number(el.dataset.slot), el.value);
         saveState();
-        render();
-        // The panel is rebuilt by render(), so re-open the one being edited.
-        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(g.id)}"]`);
-        if (panel) panel.hidden = false;
+        refreshCoverFeedback(g);
       });
     });
 
-    appEl.querySelectorAll("[data-cover-del]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const g = findGroup(btn.dataset.coverDel);
-        if (!g) return;
-        g.cover = coverRules(g).filter((_, i) => i !== Number(btn.dataset.i));
+    appEl.querySelectorAll("[data-need-all]").forEach((el) => {
+      el.addEventListener("input", () => {
+        const g = findGroup(el.dataset.needAll);
+        if (!g || el.value === "") return;
+        for (let i = 0; i < SLOT_COUNT; i++) setNeed(g, i, el.value);
         saveState();
-        render();
-        const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(g.id)}"]`);
-        if (panel) panel.hidden = false;
+        appEl.querySelectorAll(`[data-need="${cssEscape(g.id)}"]`).forEach((cell) => {
+          cell.value = Number(el.value) > 0 ? String(Math.round(Number(el.value))) : "";
+        });
+        refreshCoverFeedback(g);
       });
     });
 
-    const editCover = (el, groupId, index, field, raw) => {
-      const g = findGroup(groupId);
-      if (!g) return;
-      const band = coverRules(g)[index];
-      if (!band) return;
-      let value = Number(raw);
-      if (!isFinite(value)) return;
-      if (field === "min") value = Math.max(1, Math.min(99, Math.round(value)));
-      band[field] = value;
-      // A band that ends before it starts silently matches nothing, which looks like
-      // the rule was ignored. Nudge the other end along instead.
-      if (field === "from" && band.to <= band.from) band.to = Math.min(DAY_END, band.from + 30);
-      if (field === "to" && band.to <= band.from) band.from = Math.max(DAY_START, band.to - 30);
-      saveState();
-      render();
-      const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(groupId)}"]`);
-      if (panel) panel.hidden = false;
-    };
-
-    appEl.querySelectorAll("[data-cover-min]").forEach((el) => {
-      el.addEventListener("change", () => editCover(el, el.dataset.coverMin, Number(el.dataset.i), "min", el.value));
-    });
-    appEl.querySelectorAll("[data-cover-from]").forEach((el) => {
-      el.addEventListener("change", () => editCover(el, el.dataset.coverFrom, Number(el.dataset.i), "from", el.value));
-    });
-    appEl.querySelectorAll("[data-cover-to]").forEach((el) => {
-      el.addEventListener("change", () => editCover(el, el.dataset.coverTo, Number(el.dataset.i), "to", el.value));
+    appEl.querySelectorAll("[data-need-clear]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const g = findGroup(btn.dataset.needClear);
+        if (!g) return;
+        for (let i = 0; i < SLOT_COUNT; i++) setNeed(g, i, 0);
+        saveState();
+        appEl.querySelectorAll(`[data-need="${cssEscape(g.id)}"]`).forEach((cell) => { cell.value = ""; });
+        const all = appEl.querySelector(`[data-need-all="${cssEscape(g.id)}"]`);
+        if (all) all.value = "";
+        refreshCoverFeedback(g);
+      });
     });
 
     appEl.querySelectorAll("[data-del-group]").forEach((btn) => {
@@ -2017,6 +2070,13 @@
 
   document.addEventListener("click", (e) => {
     if (e.target.closest("#btnUndoImport")) undoImport();
+    // Delegated, not bound per element: the summary line is one of the things that
+    // opens this panel, and it gets replaced whenever a number is typed.
+    const toggle = e.target.closest("[data-cover-toggle]");
+    if (toggle) {
+      const panel = appEl.querySelector(`[data-cover-editor="${cssEscape(toggle.dataset.coverToggle)}"]`);
+      if (panel) panel.hidden = !panel.hidden;
+    }
   });
 
   btnPrint.addEventListener("click", () => window.print());

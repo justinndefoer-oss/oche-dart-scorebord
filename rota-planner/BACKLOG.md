@@ -33,7 +33,8 @@ person, same rostered hours, two positions. Nobody should stand on Check in out 
 and today the only way to rotate someone is to remember it in your head.
 
 ### F3 · Say how much cover a room needs — DONE, merged 7 Sep
-A **Cover** button per room sets minimum-cover rules by time band; half hours below the minimum
+A **Minimum** button per room opens a **Needed** strip — one number per half hour, in the same
+columns as On duty, directly above it; half hours below the minimum
 turn red in that room's On duty strip, and the room ends with a line stating the rule and how many
 half hours are short. Overlapping bands take the highest minimum. The rule prints alongside the
 red cells, because a red cell says something is wrong without saying what would fix it.
