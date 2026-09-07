@@ -1026,6 +1026,132 @@
 
   btnPrint.addEventListener("click", () => window.print());
 
+  // ---------------------------- save / open a rota file ----------------------------
+  // The placements live in one browser's storage on one machine, and this tool's whole
+  // point is running from a USB stick — so without this the day cannot travel, and a
+  // cleared cache loses an afternoon. The file carries the roster too: the PC you open
+  // it on may never have seen the PDF.
+  const FILE_FORMAT = "where-i-am-today-rota";
+  const FILE_VERSION = 1;
+
+  function safeFilePart(text) {
+    return String(text || "").replace(/[^A-Za-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+
+  function rotaFileName() {
+    const dates = (STATE.roster && STATE.roster.weekDates) || {};
+    const first = Object.values(dates)[0];                    // dd/mm/yyyy
+    const week = first ? safeFilePart(first.split("/").reverse().join("-")) : "";
+    return `where-i-am-today${week ? "-" + week : ""}.json`;
+  }
+
+  function countPlacements(state) {
+    let n = 0;
+    for (const day in state.assignments || {}) {
+      for (const pos in state.assignments[day]) n += state.assignments[day][pos].length;
+    }
+    return n;
+  }
+
+  function saveRotaFile() {
+    if (!STATE.roster) {
+      parseWarningEl.innerHTML =
+        `<div class="warning-banner">Nothing to save yet — upload a roster PDF first.</div>`;
+      return;
+    }
+    const payload = {
+      format: FILE_FORMAT,
+      version: FILE_VERSION,
+      savedAt: new Date().toISOString(),
+      state: STATE,
+    };
+    const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = rotaFileName();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    // Revoking immediately can cancel the download in some browsers; a tick is enough.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+    parseWarningEl.innerHTML = `<div class="ok-banner">Saved <b>${escapeHtml(a.download)}</b> — ` +
+      `${STATE.roster.employees.length} people, ${countPlacements(STATE)} placed. ` +
+      `Keep it somewhere you can reach from the other PC.</div>`;
+  }
+
+  // A file that isn't one of ours, or is from a newer version, must not be loaded
+  // half-way and leave the app in a state nothing can explain.
+  function readRotaFile(text) {
+    let data;
+    try { data = JSON.parse(text); }
+    catch (e) { throw new Error("that file isn't readable — it may not be a saved rota"); }
+    if (!data || data.format !== FILE_FORMAT) {
+      throw new Error("that isn't a rota file saved by this app");
+    }
+    if (typeof data.version !== "number" || data.version > FILE_VERSION) {
+      throw new Error(`that file was saved by a newer version of the app (v${data.version})`);
+    }
+    const state = data.state;
+    if (!state || typeof state !== "object") throw new Error("that rota file has no rota in it");
+    const roster = state.roster;
+    if (!roster || !Array.isArray(roster.employees) || !Array.isArray(roster.dayLabels)) {
+      throw new Error("that rota file has no roster in it");
+    }
+    return { state, savedAt: data.savedAt };
+  }
+
+  function openRotaFile(text) {
+    const { state, savedAt } = readRotaFile(text);
+    STATE = state;
+    STATE.manualEntries = STATE.manualEntries || [];
+    STATE.assignments = STATE.assignments || {};
+    const dayLabels = getDayLabels();
+    if (!dayLabels.includes(STATE.activeDay)) STATE.activeDay = dayLabels[0] || null;
+    // Counters are derived from the loaded ids, or the next room added would collide
+    // with one already in the file.
+    posCounter = allPositions().concat(STATE.positions || []).reduce((m, p) => Math.max(m, idNum(p.id)), 0);
+    groupCounter = (STATE.groups || []).reduce((m, g) => Math.max(m, idNum(g.id)), 0);
+    manualCounter = (STATE.manualEntries || []).reduce((m, e) => Math.max(m, idNum(e.id)), 0);
+    pruneStaleAssignments();
+    ensureDefaultPositions();
+    saveState();
+    render();
+    const when = savedAt ? new Date(savedAt) : null;
+    parseWarningEl.innerHTML = `<div class="ok-banner">Opened a rota` +
+      `${when && !isNaN(when) ? ` saved ${escapeHtml(when.toLocaleString())}` : ""} — ` +
+      `${STATE.roster.employees.length} people, ${countPlacements(STATE)} placed.</div>`;
+  }
+
+  document.getElementById("btnSaveFile").addEventListener("click", saveRotaFile);
+
+  const stateInput = document.getElementById("stateInput");
+  document.getElementById("btnOpenFile").addEventListener("click", () => {
+    // Opening replaces everything. Losing a built rota to a mis-click is exactly the
+    // accident this feature exists to prevent, so it asks first — but only when there
+    // is something to lose.
+    const placed = countPlacements(STATE);
+    if (placed > 0 && !window.confirm(
+        `Opening a saved rota replaces what is on screen now, including ${placed} placement` +
+        `${placed === 1 ? "" : "s"}. Save this one to a file first if you want to keep it.\n\nOpen anyway?`)) {
+      return;
+    }
+    stateInput.click();
+  });
+
+  stateInput.addEventListener("change", async () => {
+    const file = stateInput.files[0];
+    if (!file) return;
+    try {
+      openRotaFile(await file.text());
+    } catch (err) {
+      parseWarningEl.innerHTML =
+        `<div class="warning-banner">⚠️ Couldn't open that file — ${escapeHtml(err.message || String(err))}.</div>`;
+    } finally {
+      stateInput.value = "";
+    }
+  });
+
   const btnCheck = document.getElementById("btnCheck");
   btnCheck.addEventListener("click", () => {
     if (!STATE.roster) {
