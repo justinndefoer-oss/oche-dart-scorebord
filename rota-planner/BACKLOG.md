@@ -9,7 +9,7 @@ testing on a real print. Big or risky changes something load-bearing, and wants 
 **Free data** marks the ones that need no new input at all: the roster PDF already gives us
 breaks, departments, exact hours and every name.
 
-**Done so far:** F11, F12, F23. **Keep this file updated as each one lands** — mark it DONE with
+**Done so far:** F3, F11, F12, F23. **Keep this file updated as each one lands** — mark it DONE with
 what actually shipped, and update the count above. It is the handover, so a stale one is worse
 than none. The same list is published as a page for reading on a phone; update both together.
 
@@ -32,9 +32,11 @@ Cut one person's block at a time you choose and drag the second half to a differ
 person, same rostered hours, two positions. Nobody should stand on Check in out for nine hours,
 and today the only way to rotate someone is to remember it in your head.
 
-### F3 · Say how much cover a room needs — Medium
-Set a minimum per room and time band ("2 people, 12:00–17:00") and let the On duty strip go red
-where you're under it. The strip shows numbers but never raises its voice.
+### F3 · Say how much cover a room needs — DONE, merged 7 Sep
+A **Cover** button per room sets minimum-cover rules by time band; half hours below the minimum
+turn red in that room's On duty strip, and the room ends with a line stating the rule and how many
+half hours are short. Overlapping bands take the highest minimum. The rule prints alongside the
+red cells, because a red cell says something is wrong without saying what would fix it.
 
 ### F4 · Who haven't I placed? — Small, free data
 A line at the top of the day: *14 people rostered today · 9 placed · 5 not on the sheet*, and a

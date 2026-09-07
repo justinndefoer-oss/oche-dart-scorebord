@@ -138,6 +138,36 @@
   .block .x{position:absolute;top:2px;right:3px;font-size:12px;line-height:1;color:inherit;opacity:.55;
     cursor:pointer;padding:2px}
   .block .x:hover{opacity:1}
+  /* Under the minimum this room needs. Colour alone would be lost on a mono printer,
+     so the cell also carries a heavy underline. */
+  .cov-cell.under{background:var(--danger-bg);color:var(--danger);font-weight:800;
+    box-shadow:inset 0 -3px 0 var(--danger)}
+  /* Both of these sit inside the grid, which is at least 1180px wide and scrolls
+     sideways — so without a cap on the viewport they run off a phone screen and the
+     delete cross ends up somewhere you have to scroll to find. Same trap as the room
+     controls in the header. */
+  .cover-note{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;max-width:calc(100vw - 24px);
+    padding:5px 12px;border-top:1px solid var(--border);background:#fbfcfd;
+    font-size:11.5px;color:var(--text-dim)}
+  .cover-note .cn-rule{font-weight:600;color:var(--text)}
+  .cover-note .cn-state{margin-left:auto;font-weight:700;color:#047857}
+  .cover-note.short .cn-state{color:var(--danger)}
+  .cover-editor{padding:9px 12px;border-top:1px solid var(--border);background:#fbfcfd;
+    display:flex;flex-direction:column;gap:8px;align-items:flex-start;max-width:calc(100vw - 24px)}
+  /* An author display: rule beats the browser's own [hidden]{display:none}, so the
+     panel has to be told to stay shut explicitly or it is open from the first render. */
+  .cover-editor[hidden]{display:none}
+  .cover-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .cover-row label{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:600;
+    letter-spacing:.04em;text-transform:uppercase;color:var(--text-dim)}
+  .cover-row input,.cover-row select{font:inherit;font-size:12.5px;font-weight:600;padding:4px 7px;
+    border:1px solid var(--border-strong);border-radius:6px;background:var(--panel);color:var(--text);
+    text-transform:none;letter-spacing:0}
+  .cover-row input[type=number]{width:58px}
+  .cover-row input:focus,.cover-row select:focus{outline:2px solid var(--accent);outline-offset:1px}
+  .cover-row .ghost{opacity:.55;font-size:16px;line-height:1;padding:2px 8px}
+  .cover-row .ghost:hover{opacity:1}
+  .cover-empty{margin:0;font-size:12px;color:var(--text-dim);font-style:italic}
   .addrow{padding:10px 12px}
 
   /* Headcount strip: one cell per half hour, aligned to the timeline columns. */
@@ -193,7 +223,7 @@
 
   @media print{
     header.top,.pool,.manual-form,footer.actions,.daytabs,.addrow,.del,.x,
-    .group-head button{display:none !important}
+    .cover-editor,.group-head button{display:none !important}
     .print-only{display:block !important}
     .ruler.print-only{display:flex !important}
     .ruler.ruler-top{display:none !important}   /* the per-room copies replace it */
@@ -250,6 +280,11 @@
     .track.lanes-1 .block{top:4px !important;bottom:4px !important;height:auto !important}
     .group-head{padding:4px 10px !important}
     .row.cov .cov-cell{padding:2px 0}
+    /* The rule the sheet is being measured against has to be on the sheet, or the red
+       cells are just unexplained marks. The editor that sets it does not. */
+    .cover-note{padding:2px 8px;font-size:9px;background:#fff !important;max-width:none}
+    .cov-cell.under{background:#f7d9d9 !important;color:#8a1f1f !important;
+      box-shadow:inset 0 -3px 0 #8a1f1f}
     .row .label-cell{padding:2px 8px}
     .group-head{background:#dfe4ea !important}
     .row.cov{background:#f0f3f7 !important}
